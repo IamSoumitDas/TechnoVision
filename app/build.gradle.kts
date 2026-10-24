@@ -37,6 +37,21 @@ android {
         compose = true
     }
 }
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        val appName = "TechnoVision"
+        //val buildType = variant.buildType ?: "debug"
+
+        variant.outputs.forEach { output ->
+            val versionName = output.versionName.orNull ?: "1.0"
+
+            output.outputFileName.set(
+                //"${appName}_${buildType}_v${versionName}.apk"
+                "${appName}_v${versionName}.apk"
+            )
+        }
+    }
+}
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
