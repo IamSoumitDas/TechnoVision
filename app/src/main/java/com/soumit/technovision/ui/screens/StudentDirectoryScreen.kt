@@ -23,7 +23,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.soumit.technovision.ui.screens.student.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,34 +40,6 @@ fun StudentDirectoryScreen(
 
     // Map to hold calculated outstanding balances: studentId -> balanceDue
     val outstandingBalances = remember { mutableStateMapOf<String, Long>() }
-
-    // Rule helper to calculate expected dues
-    fun calculateExpectedDues(admissionDateStr: String, installment: Long): Long {
-        if (admissionDateStr.isBlank()) return installment
-        try {
-            val parts = admissionDateStr.split("/")
-            if (parts.size == 3) {
-                val day = parts[0].toInt()
-                val admissionMonth = parts[1].toInt()
-                val admissionYear = parts[2].toInt()
-
-                val calendar = Calendar.getInstance()
-                val currentYear = calendar.get(Calendar.YEAR)
-                val currentMonth = calendar.get(Calendar.MONTH) + 1
-
-                var startMonthIndex = admissionYear * 12 + admissionMonth
-                if (day > 20) {
-                    startMonthIndex += 1
-                }
-
-                val currentMonthIndex = currentYear * 12 + currentMonth
-                val monthsElapsed = (currentMonthIndex - startMonthIndex) + 1
-                val validMonths = if (monthsElapsed > 0) monthsElapsed else 0
-                return validMonths * installment
-            }
-        } catch (_: Exception) {}
-        return installment
-    }
 
     LaunchedEffect(Unit) {
         if (isInPreview) {
@@ -138,9 +109,13 @@ fun StudentDirectoryScreen(
                         }
                         studentList = list
 
-                        // Calculate balance for each student via fee_payments ledger
+                        // Calculate balance for each student via fee_payments ledger using BillingUtils
                         list.forEach { student ->
-                            val expected = calculateExpectedDues(student.admissionDate, student.monthlyInstallment)
+                            val expected = BillingUtils.calculateBillingMonths(
+                                student.admissionDate,
+                                student.monthlyInstallment
+                            ).second
+
                             db.collection("fee_payments")
                                 .whereEqualTo("studentId", student.id)
                                 .get()
@@ -276,16 +251,13 @@ fun StudentCard(
             Text(text = "Parents: ${student.fatherName} / ${student.motherName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             Text(text = "Phone: ${student.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
 
-            // Replaced monthly installment line with outstanding balance display
             Text(
                 text = if (outstandingDue > 0) "Outstanding Balance: ₹$outstandingDue (Pending)"
                 else "Outstanding Balance: ₹0 (Fully Paid)",
                 style = MaterialTheme.typography.bodySmall,
-                //fontWeight = FontWeight.Bold,
                 color = if (outstandingDue > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
             )
 
-            // Show active schedule slots if available
             if (student.weeklySchedule.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 val activeDays = student.weeklySchedule.filter { it.value != "Off" }
