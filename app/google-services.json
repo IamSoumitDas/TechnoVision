@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "98174379511",
+    "project_id": "techno-vision-soumit",
+    "storage_bucket": "techno-vision-soumit.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:98174379511:android:d13ea2a158eb135b317af2",
+        "android_client_info": {
+          "package_name": "com.soumit.technovision"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzN00OQTxBioPjk5JvmCCecdQtpqhe6yM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
