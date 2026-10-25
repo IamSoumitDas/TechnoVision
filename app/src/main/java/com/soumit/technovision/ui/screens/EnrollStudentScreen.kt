@@ -2,27 +2,28 @@ package com.soumit.technovision.ui.screens
 
 import android.app.DatePickerDialog
 import android.content.res.Configuration
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,17 +79,18 @@ fun EnrollStudentScreen(
         }
     }
     var expandedDayMenu by remember { mutableStateOf<String?>(null) }
+    var isScheduleExpanded by remember { mutableStateOf(false) }
 
     var isLoading by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
     var attemptedSubmit by remember { mutableStateOf(false) }
 
-    // Reusable DatePicker function
+    // Reusable DatePicker function with Locale safety
     fun showDatePicker(onDateSelected: (String) -> Unit) {
         val calendar = Calendar.getInstance()
         DatePickerDialog(context, { _, year, month, day ->
-            val formattedDate = String.format("%02d/%02d/%d", day, month + 1, year)
+            val formattedDate = String.format(Locale.getDefault(), "%02d/%02d/%d", day, month + 1, year)
             onDateSelected(formattedDate)
         }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
     }
@@ -100,13 +102,20 @@ fun EnrollStudentScreen(
     val activeBatchDaysCount = daySchedules.values.count { it != "Off" }
     val isScheduleInvalid = attemptedSubmit && activeBatchDaysCount < 2
 
+    // Summary text for collapsed schedule card
+    val scheduleSummaryText = if (activeBatchDaysCount > 0) {
+        daySchedules.filter { it.value != "Off" }.entries.joinToString(", ") { "${it.key.take(3)}: ${it.value.take(7)}..." }
+    } else {
+        "No active batch slots assigned (Min 2 required) *"
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Enroll New Student") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -122,246 +131,356 @@ fun EnrollStudentScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .imePadding()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Complete Student Profile",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            // Student Full Name
-            OutlinedTextField(
-                value = fullName,
-                onValueChange = {
-                    fullName = it
-                    statusMessage = null
-                },
-                label = { Text("Student Full Name *") },
-                singleLine = true,
-                isError = isFieldInvalid(fullName),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Class & Gender Dropdown Row
-            Row(
+            // Section 1: Personal & Family Information Card
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                ExposedDropdownMenuBox(
-                    expanded = classExpanded,
-                    onExpandedChange = { classExpanded = !classExpanded },
-                    modifier = Modifier.weight(1f)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedTextField(
-                        value = selectedClass,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Class *") },
-                        isError = isFieldInvalid(selectedClass),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = classExpanded) },
-                        modifier = Modifier.menuAnchor()
+                    Text(
+                        text = "Personal & Family Information",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    ExposedDropdownMenu(expanded = classExpanded, onDismissRequest = { classExpanded = false }) {
-                        classOptions.forEach { option ->
-                            DropdownMenuItem(text = { Text(option) }, onClick = { selectedClass = option; classExpanded = false })
-                        }
-                    }
-                }
 
-                ExposedDropdownMenuBox(
-                    expanded = genderExpanded,
-                    onExpandedChange = { genderExpanded = !genderExpanded },
-                    modifier = Modifier.weight(1f)
-                ) {
                     OutlinedTextField(
-                        value = selectedGender,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Gender *") },
-                        isError = isFieldInvalid(selectedGender),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
-                        modifier = Modifier.menuAnchor()
+                        value = fullName,
+                        onValueChange = {
+                            fullName = it
+                            statusMessage = null
+                        },
+                        label = { Text("Student Full Name *") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        singleLine = true,
+                        isError = isFieldInvalid(fullName),
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    ExposedDropdownMenu(expanded = genderExpanded, onDismissRequest = { genderExpanded = false }) {
-                        genderOptions.forEach { option ->
-                            DropdownMenuItem(text = { Text(option) }, onClick = { selectedGender = option; genderExpanded = false })
+
+                    ExposedDropdownMenuBox(
+                        expanded = genderExpanded,
+                        onExpandedChange = { genderExpanded = !genderExpanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = selectedGender,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Gender *") },
+                            leadingIcon = { Icon(Icons.Default.Wc, contentDescription = null) },
+                            isError = isFieldInvalid(selectedGender),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
+                        )
+                        ExposedDropdownMenu(expanded = genderExpanded, onDismissRequest = { genderExpanded = false }) {
+                            genderOptions.forEach { option ->
+                                DropdownMenuItem(text = { Text(option) }, onClick = { selectedGender = option; genderExpanded = false })
+                            }
                         }
                     }
+
+                    OutlinedTextField(
+                        value = fatherName,
+                        onValueChange = { fatherName = it },
+                        label = { Text("Father's Name *") },
+                        leadingIcon = { Icon(Icons.Default.Man, contentDescription = null) },
+                        singleLine = true,
+                        isError = isFieldInvalid(fatherName),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = motherName,
+                        onValueChange = { motherName = it },
+                        label = { Text("Mother's Name *") },
+                        leadingIcon = { Icon(Icons.Default.Woman, contentDescription = null) },
+                        singleLine = true,
+                        isError = isFieldInvalid(motherName),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
-            // School Name Dropdown
-            ExposedDropdownMenuBox(
-                expanded = schoolExpanded,
-                onExpandedChange = { schoolExpanded = !schoolExpanded },
-                modifier = Modifier.fillMaxWidth()
+            // Section 2: Academic & School Details Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                OutlinedTextField(
-                    value = selectedSchool,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("School Name *") },
-                    isError = isFieldInvalid(selectedSchool),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = schoolExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
-                )
-                ExposedDropdownMenu(expanded = schoolExpanded, onDismissRequest = { schoolExpanded = false }) {
-                    schoolOptions.forEach { option ->
-                        DropdownMenuItem(text = { Text(option) }, onClick = { selectedSchool = option; schoolExpanded = false })
-                    }
-                }
-            }
-
-            // DOB
-            OutlinedTextField(
-                value = dob,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Date of Birth (DD/MM/YYYY) *") },
-                isError = isFieldInvalid(dob),
-                trailingIcon = {
-                    IconButton(onClick = {
-                        if (!isInPreview) showDatePicker {
-                            dob = it
-                        }
-                    }) { Icon(Icons.Default.DateRange, contentDescription = null) }
-                },
-                modifier = Modifier.fillMaxWidth().clickable {
-                    if (!isInPreview) showDatePicker {
-                        dob = it
-                    }
-                },
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = if (isFieldInvalid(dob)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-
-            // Admission Date
-            OutlinedTextField(
-                value = admissionDate,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Admission Date (DD/MM/YYYY) *") },
-                isError = isFieldInvalid(admissionDate),
-                trailingIcon = {
-                    IconButton(onClick = {
-                        if (!isInPreview) showDatePicker { admissionDate = it }
-                    }) { Icon(Icons.Default.DateRange, contentDescription = null) }
-                },
-                modifier = Modifier.fillMaxWidth().clickable {
-                    if (!isInPreview) showDatePicker { admissionDate = it }
-                },
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = if (isFieldInvalid(admissionDate)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-
-            // Parents' Names
-            OutlinedTextField(
-                value = fatherName,
-                onValueChange = { fatherName = it },
-                label = { Text("Father's Name *") },
-                singleLine = true,
-                isError = isFieldInvalid(fatherName),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = motherName,
-                onValueChange = { motherName = it },
-                label = { Text("Mother's Name *") },
-                singleLine = true,
-                isError = isFieldInvalid(motherName),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // --- BATCH SCHEDULE SECTION ---
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            Text(
-                text = "Day-by-Day Batch Timings (Min 2 days required) *",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (isScheduleInvalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.align(Alignment.Start)
-            )
-
-            daysOfWeek.forEach { day ->
-                val currentSlot = daySchedules[day] ?: "Off"
-                val isMenuExpanded = (expandedDayMenu == day)
-
-                ExposedDropdownMenuBox(
-                    expanded = isMenuExpanded,
-                    onExpandedChange = { expandedDayMenu = if (isMenuExpanded) null else day },
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Text(
+                        text = "Academic & School Details",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    ExposedDropdownMenuBox(
+                        expanded = schoolExpanded,
+                        onExpandedChange = { schoolExpanded = !schoolExpanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = selectedSchool,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("School Name *") },
+                            leadingIcon = { Icon(Icons.Default.School, contentDescription = null) },
+                            isError = isFieldInvalid(selectedSchool),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = schoolExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
+                        )
+                        ExposedDropdownMenu(expanded = schoolExpanded, onDismissRequest = { schoolExpanded = false }) {
+                            schoolOptions.forEach { option ->
+                                DropdownMenuItem(text = { Text(option) }, onClick = { selectedSchool = option; schoolExpanded = false })
+                            }
+                        }
+                    }
+
+                    ExposedDropdownMenuBox(
+                        expanded = classExpanded,
+                        onExpandedChange = { classExpanded = !classExpanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = selectedClass,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Class *") },
+                            leadingIcon = { Icon(Icons.Default.Class, contentDescription = null) },
+                            isError = isFieldInvalid(selectedClass),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = classExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
+                        )
+                        ExposedDropdownMenu(expanded = classExpanded, onDismissRequest = { classExpanded = false }) {
+                            classOptions.forEach { option ->
+                                DropdownMenuItem(text = { Text(option) }, onClick = { selectedClass = option; classExpanded = false })
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
-                        value = currentSlot,
+                        value = dob,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text(day) },
-                        isError = isScheduleInvalid,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isMenuExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        singleLine = true,
+                        label = { Text("Date of Birth *") },
+                        isError = isFieldInvalid(dob),
+                        leadingIcon = { Icon(Icons.Default.Cake, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { if (!isInPreview) showDatePicker { dob = it } }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Select DOB")
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { if (!isInPreview) showDatePicker { dob = it } },
+                        enabled = false,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = if (isFieldInvalid(dob)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
-                    ExposedDropdownMenu(expanded = isMenuExpanded, onDismissRequest = { expandedDayMenu = null }) {
-                        timeSlotOptions.forEach { slot ->
-                            DropdownMenuItem(text = { Text(slot) }, onClick = { daySchedules[day] = slot; expandedDayMenu = null })
+
+                    OutlinedTextField(
+                        value = admissionDate,
+                        onValueChange = {},
+                        readOnly = true,
+                        singleLine = true,
+                        label = { Text("Admission Date *") },
+                        isError = isFieldInvalid(admissionDate),
+                        leadingIcon = { Icon(Icons.Default.EventAvailable, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { if (!isInPreview) showDatePicker { admissionDate = it } }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Select Admission Date")
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { if (!isInPreview) showDatePicker { admissionDate = it } },
+                        enabled = false,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = if (isFieldInvalid(admissionDate)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+            }
+
+            // Section 3: Collapsible Weekly Schedule Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Header Row with Accordion Toggle
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isScheduleExpanded = !isScheduleExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Weekly Batch Timings *",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isScheduleInvalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (isScheduleExpanded) "Tap to collapse" else scheduleSummaryText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isScheduleInvalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                                maxLines = 1
+                            )
+                        }
+
+                        IconButton(onClick = { isScheduleExpanded = !isScheduleExpanded }) {
+                            Icon(
+                                imageVector = if (isScheduleExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = "Toggle Schedule",
+                                tint = if (isScheduleInvalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    // Expanded Day-by-Day Dropdowns
+                    if (isScheduleExpanded) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        daysOfWeek.forEach { day ->
+                            val currentSlot = daySchedules[day] ?: "Off"
+                            val isMenuExpanded = (expandedDayMenu == day)
+
+                            ExposedDropdownMenuBox(
+                                expanded = isMenuExpanded,
+                                onExpandedChange = { expandedDayMenu = if (isMenuExpanded) null else day },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    value = currentSlot,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text(day) },
+                                    isError = isScheduleInvalid,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isMenuExpanded) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = isMenuExpanded,
+                                    onDismissRequest = { expandedDayMenu = null }
+                                ) {
+                                    timeSlotOptions.forEach { slot ->
+                                        DropdownMenuItem(
+                                            text = { Text(slot) },
+                                            onClick = {
+                                                daySchedules[day] = slot
+                                                expandedDayMenu = null
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            // Section 4: Contact & Billing Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Contact & Billing",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
-            OutlinedTextField(
-                value = monthlyInstallment,
-                onValueChange = { monthlyInstallment = it },
-                label = { Text("Monthly Installment (₹) *") },
-                singleLine = true,
-                isError = isFieldInvalid(monthlyInstallment),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
+                    OutlinedTextField(
+                        value = monthlyInstallment,
+                        onValueChange = { monthlyInstallment = it },
+                        label = { Text("Monthly Installment (₹) *") },
+                        leadingIcon = { Icon(Icons.Default.CurrencyRupee, contentDescription = null) },
+                        singleLine = true,
+                        isError = isFieldInvalid(monthlyInstallment),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text("Phone Number *") },
-                singleLine = true,
-                isError = isFieldInvalid(phone),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                modifier = Modifier.fillMaxWidth()
-            )
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = { Text("Phone Number *") },
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                        singleLine = true,
+                        isError = isFieldInvalid(phone),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-            OutlinedTextField(
-                value = altPhone,
-                onValueChange = { altPhone = it },
-                label = { Text("Alternative Phone Number (Optional)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                modifier = Modifier.fillMaxWidth()
-            )
+                    OutlinedTextField(
+                        value = altPhone,
+                        onValueChange = { altPhone = it },
+                        label = { Text("Alternative Phone Number (Optional)") },
+                        leadingIcon = { Icon(Icons.Default.PhoneAndroid, contentDescription = null) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Action Button
             if (isLoading) {
-                CircularProgressIndicator()
+                Box(modifier = Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else {
                 Button(
                     onClick = {
                         attemptedSubmit = true
 
                         if (fullName.isBlank() || selectedClass.isBlank() || selectedSchool.isBlank() ||
-                            dob.isBlank() || admissionDate.isBlank() || fatherName.isBlank() ||
-                            motherName.isBlank() || monthlyInstallment.isBlank() || phone.isBlank()
+                            selectedGender.isBlank() || dob.isBlank() || admissionDate.isBlank() ||
+                            fatherName.isBlank() || motherName.isBlank() || monthlyInstallment.isBlank() || phone.isBlank()
                         ) {
                             statusMessage = "Please fill in all required (*) fields highlighted in red."
                             isError = true
@@ -386,7 +505,6 @@ fun EnrollStudentScreen(
 
                         val cleanPhone = phone.replace(Regex("\\s+"), "")
                         val db = FirebaseFirestore.getInstance()
-
                         val newUserId = db.collection("users").document().id
 
                         val studentData = hashMapOf(
@@ -413,7 +531,6 @@ fun EnrollStudentScreen(
                                         isLoading = false
                                         isError = false
 
-                                        // Log the action using the correct variable names
                                         SystemLogger.log(
                                             action = "Student Enrolled",
                                             details = "New student registered: ${fullName.trim()} (ID: $newUserId)"
@@ -433,9 +550,11 @@ fun EnrollStudentScreen(
                                 statusMessage = "Error creating user record: ${e.localizedMessage}"
                             }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
-                    Text("Enroll Student")
+                    Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Enroll Student", style = MaterialTheme.typography.titleSmall)
                 }
             }
 
@@ -443,9 +562,12 @@ fun EnrollStudentScreen(
                 Text(
                     text = statusMessage!!,
                     color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

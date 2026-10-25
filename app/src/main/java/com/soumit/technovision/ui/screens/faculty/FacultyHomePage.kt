@@ -1,25 +1,39 @@
 package com.soumit.technovision.ui.screens.faculty
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
+
+data class FacultyDashboardAction(
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +41,8 @@ fun FacultyHomePage(
     onNavigateToAttendance: () -> Unit = {},
     onNavigateToStudentDirectory: () -> Unit = {},
     onNavigateToTeacherAttendance: () -> Unit = {},
-    onNavigateToLogs: () -> Unit = {}, // Added callback for System Logs
+    onNavigateToBatches: () -> Unit = {},
+    onNavigateToLogs: () -> Unit = {},
     onLogout: () -> Unit
 ) {
     val isInPreview = LocalInspectionMode.current
@@ -54,6 +69,46 @@ fun FacultyHomePage(
         }
     }
 
+    val studentActions = listOf(
+        FacultyDashboardAction(
+            title = "Take Attendance",
+            subtitle = "Mark daily student presence",
+            icon = Icons.Default.CheckCircle,
+            onClick = onNavigateToAttendance
+        ),
+        FacultyDashboardAction(
+            title = "All Students",
+            subtitle = "List of all the students",
+            icon = Icons.Default.People,
+            onClick = onNavigateToStudentDirectory
+        ),
+        FacultyDashboardAction(
+            title = "Class Timings",
+            subtitle = "Set batches & schedules",
+            icon = Icons.Default.School,
+            onClick = onNavigateToBatches
+        ),
+
+    )
+    val teacherActions = listOf(
+        FacultyDashboardAction(
+            title = "Faculty Attendance",
+            subtitle = "Request attendance",
+            icon = Icons.AutoMirrored.Filled.Assignment,
+            onClick = onNavigateToTeacherAttendance
+        )
+    )
+
+
+    val systemActions = listOf(
+        FacultyDashboardAction(
+            title = "Activity History",
+            subtitle = "View center logs & events",
+            icon = Icons.Default.History,
+            onClick = onNavigateToLogs
+        )
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -66,7 +121,7 @@ fun FacultyHomePage(
                         onLogout()
                     }) {
                         Icon(
-                            imageVector = Icons.Default.Logout,
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Log Out"
                         )
                     }
@@ -88,107 +143,162 @@ fun FacultyHomePage(
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(text = "Welcome, $facultyName", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = facultyEmail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Primary Faculty Action Card: Attendance
-            Card(
-                onClick = onNavigateToAttendance,
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Attendance",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Column {
-                        Text(text = "Students Daily Attendance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "Mark present/absent students for current batches", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Welcome back,",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                text = "$facultyName",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // Profile Initials Avatar Circle
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (facultyName.isNotBlank()) {
+                                val parts = facultyName.trim().split("\\s+".toRegex())
+                                if (parts.size > 1) "${parts.first().take(1)}${parts.last().take(1)}".uppercase()
+                                else parts.first().take(1).uppercase()
+                            } else "F",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
 
-            // Faculty Action Card: Student Directory
-            Card(
-                onClick = onNavigateToStudentDirectory,
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            DashboardSection(title = "Student Management", actions = studentActions)
+            DashboardSection(title = "Teacher Management", actions = teacherActions)
+            DashboardSection(title = "System", actions = systemActions)
+        }
+    }
+}
+
+@Composable
+fun DashboardSection(title: String, actions: List<FacultyDashboardAction>) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            //textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        actions.chunked(2).forEach { rowActions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.People,
-                        contentDescription = "Student Directory",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Column {
-                        Text(text = "Student Directory", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "View and manage enrolled student profiles & details", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                if (rowActions.size == 1) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        FacultyActionCard(action = rowActions[0])
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                } else {
+                    for (action in rowActions) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            FacultyActionCard(action = action)
+                        }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
 
-            // Faculty Action Card: Request Batch Attendance
-            Card(
-                onClick = onNavigateToTeacherAttendance,
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+@Composable
+fun FacultyActionCard(action: FacultyDashboardAction) {
+    Card(
+        onClick = action.onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(130.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Assignment,
-                        contentDescription = "Request Attendance",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Column {
-                        Text(text = "Faculty Attendance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "Submit daily batch completion for admin verification", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                }
+                Icon(
+                    imageVector = action.icon,
+                    contentDescription = action.title,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
-            // Faculty Action Card: System Activity Logs
-            Card(
-                onClick = onNavigateToLogs,
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.History,
-                        contentDescription = "System Logs",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Column {
-                        Text(text = "System Activity Logs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "View chronological audit trail and center activities", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                }
+                Text(
+                    text = action.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = action.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
             }
         }
     }

@@ -174,13 +174,15 @@ class MainActivity : ComponentActivity() {
                             composable("batches") { BatchesScreen(onBack = { navController.popBackStack() }) }
                             composable("system_logs") { SystemLogsScreen(onBack = { navController.popBackStack() }) }
 
+
                             // Faculty Portal
                             composable("faculty_home") {
                                 FacultyHomePage(
                                     onNavigateToAttendance = { navController.navigate("attendance") },
                                     onNavigateToStudentDirectory = { navController.navigate("student_directory") },
                                     onNavigateToTeacherAttendance = { navController.navigate("teacher_attendance") },
-                                    onNavigateToLogs = { navController.navigate("system_logs") }, // <-- Wired here
+                                    onNavigateToBatches = { navController.navigate("batches") }, // <-- Add this line here!
+                                    onNavigateToLogs = { navController.navigate("system_logs") },
                                     onLogout = {
                                         navController.navigate("auth") {
                                             popUpTo("faculty_home") { inclusive = true }
@@ -206,7 +208,8 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToDirectory = { navController.navigate("student_directory") },
                                     onNavigateToFees = { navController.navigate("fee_collection") },
                                     onNavigateToVerifyAttendance = { navController.navigate("verify_teacher_attendance") },
-                                    onNavigateToLogs = { navController.navigate("system_logs") }, // <-- Wired here
+                                    onNavigateToBatches = { navController.navigate("batches") }, // <-- Add this line here!
+                                    onNavigateToLogs = { navController.navigate("system_logs") },
                                     onLogout = {
                                         navController.navigate("auth") {
                                             popUpTo("receptionist_home") { inclusive = true }

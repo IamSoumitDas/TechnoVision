@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.soumit.technovision.ui.screens
 
 import android.content.res.Configuration
@@ -7,8 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +23,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.soumit.technovision.ui.screens.student.StudentModel
@@ -37,12 +42,12 @@ fun StudentDirectoryScreen(
     var studentList by remember { mutableStateOf<List<StudentModel>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
-
-    // Map to hold calculated outstanding balances: studentId -> balanceDue
+    var userRole by remember { mutableStateOf("owner") }
     val outstandingBalances = remember { mutableStateMapOf<String, Long>() }
 
     LaunchedEffect(Unit) {
         if (isInPreview) {
+            userRole = "owner"
             val mockStudents = listOf(
                 StudentModel(
                     id = "1",
@@ -76,7 +81,20 @@ fun StudentDirectoryScreen(
             outstandingBalances["2"] = 0L
             isLoading = false
         } else {
+            val authUser = FirebaseAuth.getInstance().currentUser
+            val userId = authUser?.uid
+
             val db = FirebaseFirestore.getInstance()
+
+            if (userId != null) {
+                db.collection("users").document(userId).get()
+                    .addOnSuccessListener { doc ->
+                        if (doc.exists()) {
+                            userRole = doc.getString("role") ?: "owner"
+                        }
+                    }
+            }
+
             db.collection("students")
                 .orderBy("fullName", Query.Direction.ASCENDING)
                 .addSnapshotListener { snapshot, e ->
@@ -103,13 +121,10 @@ fun StudentDirectoryScreen(
                                 altPhone = doc.getString("altPhone") ?: "",
                                 email = doc.getString("email") ?: "",
                                 batchTimeSlot = doc.getString("batchTimeSlot") ?: "",
-                                weeklySchedule = doc.get("weeklySchedule") as? Map<String, String>
-                                    ?: emptyMap()
+                                weeklySchedule = doc.get("weeklySchedule") as? Map<String, String> ?: emptyMap()
                             )
                         }
                         studentList = list
-
-                        // Calculate balance for each student via fee_payments ledger using BillingUtils
                         list.forEach { student ->
                             val expected = BillingUtils.calculateBillingMonths(
                                 student.admissionDate,
@@ -148,7 +163,7 @@ fun StudentDirectoryScreen(
                 title = { Text("Student Directory") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -162,7 +177,8 @@ fun StudentDirectoryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
@@ -170,9 +186,7 @@ fun StudentDirectoryScreen(
                 label = { Text("Search by name, school, class, phone...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                 singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
+                modifier = Modifier.fillMaxWidth()
             )
 
             if (isLoading) {
@@ -197,6 +211,7 @@ fun StudentDirectoryScreen(
                         StudentCard(
                             student = student,
                             outstandingDue = outstandingDue,
+                            userRole = userRole,
                             onCardClicked = { onNavigateToViewer(student.id) },
                             onEditSelected = { onNavigateToUpdateDelete(student.id) }
                         )
@@ -211,83 +226,95 @@ fun StudentDirectoryScreen(
 fun StudentCard(
     student: StudentModel,
     outstandingDue: Long,
+    userRole: String,
     onCardClicked: () -> Unit,
     onEditSelected: () -> Unit
 ) {
+    val initials = student.fullName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase()
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCardClicked() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left side: Avatar + Name + Class & School Subtitle
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = student.fullName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = initials.ifEmpty { "ST" },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
 
-                IconButton(onClick = onEditSelected, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Student",
-                        tint = MaterialTheme.colorScheme.primary
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = student.fullName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Class ${student.studentClass} • ${student.school}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "Class: ${student.studentClass} | School: ${student.school}", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "Parents: ${student.fatherName} / ${student.motherName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-            Text(text = "Phone: ${student.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-
-            Text(
-                text = if (outstandingDue > 0) "Outstanding Balance: ₹$outstandingDue (Pending)"
-                else "Outstanding Balance: ₹0 (Fully Paid)",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (outstandingDue > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
-            )
-
-            if (student.weeklySchedule.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                val activeDays = student.weeklySchedule.filter { it.value != "Off" }
-                if (activeDays.isNotEmpty()) {
-                    val scheduleSummary = activeDayText(activeDays)
-                    Text(
-                        text = "Schedule: $scheduleSummary",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                } else {
-                    Text(
-                        text = "Schedule: No active days",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
+            // Right side: Compact Due Pill & Edit Button
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (outstandingDue > 0) {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraSmall,
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                    ) {
+                        Text(
+                            text = "₹$outstandingDue Due",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                    }
                 }
-            } else if (student.batchTimeSlot.isNotBlank()) {
-                Text(
-                    text = "Preferred Slot: ${student.batchTimeSlot}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
+
+                if (userRole == "owner" || userRole == "receptionist") {
+                    IconButton(onClick = onEditSelected, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Student",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }
-}
-
-private fun activeDayText(activeDays: Map<String, String>): String {
-    return activeDays.entries.joinToString(", ") { "${it.key.take(3)} (${it.value})" }
 }
 
 @Preview(name = "Light Mode", showBackground = true)
