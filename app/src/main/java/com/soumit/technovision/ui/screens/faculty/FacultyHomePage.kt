@@ -39,6 +39,7 @@ data class FacultyDashboardAction(
 @Composable
 fun FacultyHomePage(
     onNavigateToAttendance: () -> Unit = {},
+    onNavigateToAttendanceHistory: () -> Unit = {},
     onNavigateToStudentDirectory: () -> Unit = {},
     onNavigateToTeacherAttendance: () -> Unit = {},
     onNavigateToBatches: () -> Unit = {},
@@ -77,6 +78,12 @@ fun FacultyHomePage(
             onClick = onNavigateToAttendance
         ),
         FacultyDashboardAction(
+            title = "Attendance History",
+            subtitle = "View past attendance records",
+            icon = Icons.AutoMirrored.Filled.Assignment,
+            onClick = onNavigateToAttendanceHistory
+        ),
+        FacultyDashboardAction(
             title = "All Students",
             subtitle = "List of all the students",
             icon = Icons.Default.People,
@@ -87,9 +94,9 @@ fun FacultyHomePage(
             subtitle = "Set batches & schedules",
             icon = Icons.Default.School,
             onClick = onNavigateToBatches
-        ),
-
+        )
     )
+
     val teacherActions = listOf(
         FacultyDashboardAction(
             title = "Faculty Attendance",
@@ -98,7 +105,6 @@ fun FacultyHomePage(
             onClick = onNavigateToTeacherAttendance
         )
     )
-
 
     val systemActions = listOf(
         FacultyDashboardAction(
@@ -214,7 +220,6 @@ fun DashboardSection(title: String, actions: List<FacultyDashboardAction>) {
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            //textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)

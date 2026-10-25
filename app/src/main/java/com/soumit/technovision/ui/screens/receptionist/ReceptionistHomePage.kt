@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AppRegistration
@@ -43,7 +44,8 @@ fun ReceptionistHomePage(
     onNavigateToDirectory: () -> Unit = {},
     onNavigateToFees: () -> Unit = {},
     onNavigateToVerifyAttendance: () -> Unit = {},
-    onNavigateToBatches: () -> Unit = {}, // Added callback for Class Timings
+    onNavigateToBatches: () -> Unit = {},
+    onNavigateToAttendanceHistory: () -> Unit = {},
     onNavigateToLogs: () -> Unit = {},
     onLogout: () -> Unit
 ) {
@@ -89,6 +91,12 @@ fun ReceptionistHomePage(
             subtitle = "List of all the students",
             icon = Icons.Default.People,
             onClick = onNavigateToDirectory
+        ),
+        ReceptionAction(
+            title = "Attendance History",
+            subtitle = "View past attendance records",
+            icon = Icons.AutoMirrored.Filled.Assignment,
+            onClick = onNavigateToAttendanceHistory
         ),
         ReceptionAction(
             title = "Class Timings",

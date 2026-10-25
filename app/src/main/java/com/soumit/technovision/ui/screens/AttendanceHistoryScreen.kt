@@ -1,17 +1,26 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.soumit.technovision.ui.screens
 
 import android.content.res.Configuration
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
@@ -20,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 data class AttendanceRecordModel(
     val id: String = "",
@@ -41,8 +52,11 @@ fun AttendanceHistoryScreen(onBack: () -> Unit) {
     var attendanceRecords by remember { mutableStateOf<List<AttendanceRecordModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Dialog to view student details for a selected record
+    // Dialog & student name lookup states
     var selectedRecordForDetail by remember { mutableStateOf<AttendanceRecordModel?>(null) }
+    var presentStudentNames by remember { mutableStateOf<List<String>>(emptyList()) }
+    var absentStudentNames by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoadingNames by remember { mutableStateOf(false) }
 
     // Fetch attendance logs ordered by newest first
     LaunchedEffect(Unit) {
@@ -52,15 +66,19 @@ fun AttendanceHistoryScreen(onBack: () -> Unit) {
                     id = "24-10-2026_9_00_AM",
                     date = "24-10-2026",
                     timeSlot = "9:00 AM - 11:00 AM",
-                    totalPresent = 12,
-                    totalAbsent = 2
+                    presentStudentIds = listOf("s1", "s2", "s3"),
+                    absentStudentIds = listOf("s4"),
+                    totalPresent = 3,
+                    totalAbsent = 1
                 ),
                 AttendanceRecordModel(
                     id = "23-10-2026_5_00_PM",
                     date = "23-10-2026",
                     timeSlot = "5:00 PM - 7:00 PM",
-                    totalPresent = 10,
-                    totalAbsent = 4
+                    presentStudentIds = listOf("s1", "s2"),
+                    absentStudentIds = listOf("s3", "s4"),
+                    totalPresent = 2,
+                    totalAbsent = 2
                 )
             )
             isLoading = false
@@ -91,6 +109,54 @@ fun AttendanceHistoryScreen(onBack: () -> Unit) {
                         isLoading = false
                     }
                 }
+        }
+    }
+
+    // Effect to fetch student names when a record is selected
+    LaunchedEffect(selectedRecordForDetail) {
+        val record = selectedRecordForDetail
+        if (record != null) {
+            if (isInPreview) {
+                presentStudentNames = listOf("Aarav Sharma", "Priya Das", "Rahul Roy")
+                absentStudentNames = listOf("Sneha Gupta")
+                isLoadingNames = false
+            } else {
+                isLoadingNames = true
+                val db = FirebaseFirestore.getInstance()
+                val idsToFetch = record.presentStudentIds + record.absentStudentIds
+
+                if (idsToFetch.isEmpty()) {
+                    presentStudentNames = emptyList()
+                    absentStudentNames = emptyList()
+                    isLoadingNames = false
+                } else {
+                    var fetchedCount = 0
+                    val nameMap = mutableMapOf<String, String>()
+
+                    for (id in idsToFetch) {
+                        db.collection("students").document(id).get()
+                            .addOnSuccessListener { doc ->
+                                val name = doc.getString("fullName") ?: doc.getString("name") ?: id
+                                nameMap[id] = name
+                                fetchedCount++
+                                if (fetchedCount == idsToFetch.size) {
+                                    presentStudentNames = record.presentStudentIds.map { nameMap[it] ?: it }
+                                    absentStudentNames = record.absentStudentIds.map { nameMap[it] ?: it }
+                                    isLoadingNames = false
+                                }
+                            }
+                            .addOnFailureListener {
+                                nameMap[id] = id
+                                fetchedCount++
+                                if (fetchedCount == idsToFetch.size) {
+                                    presentStudentNames = record.presentStudentIds.map { nameMap[it] ?: it }
+                                    absentStudentNames = record.absentStudentIds.map { nameMap[it] ?: it }
+                                    isLoadingNames = false
+                                }
+                            }
+                    }
+                }
+            }
         }
     }
 
@@ -151,21 +217,122 @@ fun AttendanceHistoryScreen(onBack: () -> Unit) {
         }
     }
 
-    // Detail Dialog when a session card is clicked
+    // Enhanced Detail Dialog with Present & Absent Student Names
     if (selectedRecordForDetail != null) {
         val record = selectedRecordForDetail!!
+        val formattedDate = remember(record.date) {
+            try {
+                val inputFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+                val localDate = LocalDate.parse(record.date, inputFormatter)
+                val outputFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy (EEE)")
+                localDate.format(outputFormatter)
+            } catch (e: Exception) {
+                record.date
+            }
+        }
+
         AlertDialog(
             onDismissRequest = { selectedRecordForDetail = null },
-            title = { Text("Session Breakdown") },
+            title = {
+                Column {
+                    Text(text = "Session Breakdown", style = MaterialTheme.typography.titleLarge)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "$formattedDate • ${record.timeSlot}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = "Date: ${record.date}", fontWeight = FontWeight.Bold)
-                    Text(text = "Time Slot: ${record.timeSlot}", style = MaterialTheme.typography.bodyMedium)
+                if (isLoadingNames) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Summary Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(text = "${record.totalPresent}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    Text(text = "Present", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(text = "${record.totalAbsent}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                    Text(text = "Absent", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        HorizontalDivider()
 
-                    Text(text = "Present Count: ${record.totalPresent}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    Text(text = "Absent Count: ${record.totalAbsent}", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        // Present Students Section
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                Text(text = "Present Students (${presentStudentNames.size})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                            if (presentStudentNames.isEmpty()) {
+                                Text(text = "None", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            } else {
+                                presentStudentNames.forEach { name ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        shape = MaterialTheme.shapes.small,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(text = name, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Absent Students Section
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Default.Cancel, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                Text(text = "Absent Students (${absentStudentNames.size})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            }
+                            if (absentStudentNames.isEmpty()) {
+                                Text(text = "None", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            } else {
+                                absentStudentNames.forEach { name ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        shape = MaterialTheme.shapes.small,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(text = name, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -179,6 +346,17 @@ fun AttendanceHistoryScreen(onBack: () -> Unit) {
 
 @Composable
 fun AttendanceHistoryCard(record: AttendanceRecordModel, onClick: () -> Unit) {
+    val formattedDate = remember(record.date) {
+        try {
+            val inputFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+            val localDate = LocalDate.parse(record.date, inputFormatter)
+            val outputFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy (EEE)")
+            localDate.format(outputFormatter)
+        } catch (e: Exception) {
+            record.date
+        }
+    }
+
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -209,7 +387,7 @@ fun AttendanceHistoryCard(record: AttendanceRecordModel, onClick: () -> Unit) {
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = record.date,
+                        text = formattedDate,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )

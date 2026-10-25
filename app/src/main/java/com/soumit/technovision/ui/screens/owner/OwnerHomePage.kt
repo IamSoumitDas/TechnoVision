@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AppRegistration
@@ -44,6 +45,7 @@ fun OwnerHomePage(
     onNavigateToAddStudent: () -> Unit = {},
     onNavigateToManageStaff: () -> Unit = {},
     onNavigateToAttendance: () -> Unit = {},
+    onNavigateToAttendanceHistory: () -> Unit = {},
     onNavigateToStudentDirectory: () -> Unit = {},
     onNavigateToBatches: () -> Unit = {},
     onNavigateToLogs: () -> Unit = {},
@@ -94,6 +96,12 @@ fun OwnerHomePage(
             subtitle = "Mark daily student presence",
             icon = Icons.Default.CheckCircle,
             onClick = onNavigateToAttendance
+        ),
+        OwnerDashboardAction(
+            title = "Attendance History",
+            subtitle = "View past attendance records",
+            icon = Icons.AutoMirrored.Filled.Assignment,
+            onClick = onNavigateToAttendanceHistory
         ),
         OwnerDashboardAction(
             title = "Class Timings",
@@ -165,7 +173,7 @@ fun OwnerHomePage(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-           Card(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
@@ -173,49 +181,49 @@ fun OwnerHomePage(
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 shape = MaterialTheme.shapes.large
             ) {
-               Row(
-                   modifier = Modifier
-                       .fillMaxWidth()
-                       .padding(20.dp),
-                   verticalAlignment = Alignment.CenterVertically,
-                   horizontalArrangement = Arrangement.SpaceBetween
-               ) {
-                   Row(
-                       verticalAlignment = Alignment.CenterVertically,
-                       horizontalArrangement = Arrangement.spacedBy(6.dp)
-                   ) {
-                       Text(
-                           text = "Welcome back,",
-                           style = MaterialTheme.typography.bodyLarge,
-                           color = MaterialTheme.colorScheme.outline
-                       )
-                       Text(
-                           text = "$userName",
-                           style = MaterialTheme.typography.titleMedium,
-                           fontWeight = FontWeight.Bold,
-                           color = MaterialTheme.colorScheme.primary
-                       )
-                   }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Welcome back,",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        Text(
+                            text = "$userName",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
-                   Box(
-                       modifier = Modifier
-                           .size(40.dp)
-                           .clip(CircleShape)
-                           .background(MaterialTheme.colorScheme.primaryContainer),
-                       contentAlignment = Alignment.Center
-                   ) {
-                       Text(
-                           text = if (userName.isNotBlank()) {
-                               val parts = userName.trim().split("\\s+".toRegex())
-                               if (parts.size > 1) "${parts.first().take(1)}${parts.last().take(1)}".uppercase()
-                               else parts.first().take(1).uppercase()
-                           } else "O",
-                           style = MaterialTheme.typography.titleSmall,
-                           color = MaterialTheme.colorScheme.onPrimaryContainer,
-                           fontWeight = FontWeight.Bold
-                       )
-                   }
-               }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (userName.isNotBlank()) {
+                                val parts = userName.trim().split("\\s+".toRegex())
+                                if (parts.size > 1) "${parts.first().take(1)}${parts.last().take(1)}".uppercase()
+                                else parts.first().take(1).uppercase()
+                            } else "O",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             DashboardSection(title = "Student Management", actions = studentActions)
@@ -233,7 +241,6 @@ fun DashboardSection(title: String, actions: List<OwnerDashboardAction>) {
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            //textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -241,7 +248,6 @@ fun DashboardSection(title: String, actions: List<OwnerDashboardAction>) {
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Automatically chunk items into pairs of 2 for side-by-side layout
         actions.chunked(2).forEach { rowActions ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -252,7 +258,6 @@ fun DashboardSection(title: String, actions: List<OwnerDashboardAction>) {
                         OwnerActionCard(action = action)
                     }
                 }
-                // If an odd number of items exists in a row, fill empty space to keep grid alignment
                 if (rowActions.size == 1) {
                     Spacer(modifier = Modifier.weight(1f))
                 }

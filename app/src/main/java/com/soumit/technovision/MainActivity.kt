@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
                     var startDestination by remember { mutableStateOf<String?>(null) }
                     var isLoadingRole by remember { mutableStateOf(currentUser != null) }
 
-                    // Check user role on startup if a session already exists
                     LaunchedEffect(currentUser) {
                         if (currentUser != null) {
                             val userId = currentUser.uid
@@ -53,7 +52,7 @@ class MainActivity : ComponentActivity() {
                                         "owner" -> "owner_home"
                                         "faculty" -> "faculty_home"
                                         "receptionist" -> "receptionist_home"
-                                        else -> "auth" // Fallback to auth if role is unknown or missing
+                                        else -> "auth"
                                     }
                                     isLoadingRole = false
                                 }
@@ -103,6 +102,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToFeeCollection = { navController.navigate("fee_collection") },
                                     onNavigateToManageStaff = { navController.navigate("manage_staff") },
                                     onNavigateToAttendance = { navController.navigate("attendance") },
+                                    onNavigateToAttendanceHistory = { navController.navigate("attendance_history") }, // <-- Fixed connection
                                     onNavigateToStudentDirectory = { navController.navigate("student_directory") },
                                     onNavigateToBatches = { navController.navigate("batches") },
                                     onNavigateToLogs = { navController.navigate("system_logs") },
@@ -174,15 +174,15 @@ class MainActivity : ComponentActivity() {
                             composable("batches") { BatchesScreen(onBack = { navController.popBackStack() }) }
                             composable("system_logs") { SystemLogsScreen(onBack = { navController.popBackStack() }) }
 
-
                             // Faculty Portal
                             composable("faculty_home") {
                                 FacultyHomePage(
                                     onNavigateToAttendance = { navController.navigate("attendance") },
                                     onNavigateToStudentDirectory = { navController.navigate("student_directory") },
                                     onNavigateToTeacherAttendance = { navController.navigate("teacher_attendance") },
-                                    onNavigateToBatches = { navController.navigate("batches") }, // <-- Add this line here!
+                                    onNavigateToBatches = { navController.navigate("batches") },
                                     onNavigateToLogs = { navController.navigate("system_logs") },
+                                    onNavigateToAttendanceHistory = { navController.navigate("attendance_history") },
                                     onLogout = {
                                         navController.navigate("auth") {
                                             popUpTo("faculty_home") { inclusive = true }
@@ -208,8 +208,9 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToDirectory = { navController.navigate("student_directory") },
                                     onNavigateToFees = { navController.navigate("fee_collection") },
                                     onNavigateToVerifyAttendance = { navController.navigate("verify_teacher_attendance") },
-                                    onNavigateToBatches = { navController.navigate("batches") }, // <-- Add this line here!
+                                    onNavigateToBatches = { navController.navigate("batches") },
                                     onNavigateToLogs = { navController.navigate("system_logs") },
+                                    onNavigateToAttendanceHistory = { navController.navigate("attendance_history") },
                                     onLogout = {
                                         navController.navigate("auth") {
                                             popUpTo("receptionist_home") { inclusive = true }
@@ -217,6 +218,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
+
                             // Fee Collection Route
                             composable("fee_collection") {
                                 FeeCollectionScreen(

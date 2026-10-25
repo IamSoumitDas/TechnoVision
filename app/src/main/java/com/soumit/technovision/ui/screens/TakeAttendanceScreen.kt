@@ -120,7 +120,7 @@ fun TakeAttendanceScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
+                /*actions = {
                     // History Action Button
                     IconButton(onClick = onNavigateToHistory) {
                         Icon(
@@ -128,7 +128,7 @@ fun TakeAttendanceScreen(
                             contentDescription = "Attendance History"
                         )
                     }
-                },
+                },*/
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
