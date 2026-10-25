@@ -136,7 +136,7 @@ fun OwnerHomePage(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("TechnoVision Owner Portal") },
+                title = { Text("TechnoVision Portal") },
                 actions = {
                     IconButton(onClick = {
                         if (!isInPreview) {

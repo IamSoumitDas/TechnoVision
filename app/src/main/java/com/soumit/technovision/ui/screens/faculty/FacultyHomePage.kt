@@ -112,7 +112,7 @@ fun FacultyHomePage(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("TechnoVision Faculty Portal") },
+                title = { Text("TechnoVision Portal") },
                 actions = {
                     IconButton(onClick = {
                         if (!isInPreview) {

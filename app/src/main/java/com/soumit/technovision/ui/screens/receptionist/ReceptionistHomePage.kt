@@ -119,7 +119,7 @@ fun ReceptionistHomePage(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("TechnoVision Reception Portal") },
+                title = { Text("TechnoVision Portal") },
                 actions = {
                     IconButton(onClick = {
                         if (!isInPreview) {
