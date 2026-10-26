@@ -6,6 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -18,12 +22,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.soumit.technovision.ui.screens.*
 import com.soumit.technovision.ui.screens.auth.AuthScreen
-import com.soumit.technovision.ui.screens.faculty.FacultyHomePage
 import com.soumit.technovision.ui.screens.faculty.TeacherAttendanceScreen
 import com.soumit.technovision.ui.screens.owner.ManageStaffScreen
-import com.soumit.technovision.ui.screens.owner.OwnerHomePage
-import com.soumit.technovision.ui.screens.receptionist.ReceptionistHomePage
-import com.soumit.technovision.ui.screens.BatchesScreen
 import com.soumit.technovision.ui.screens.student.StudentViewerScreen
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                             FirebaseFirestore.getInstance().collection("users").document(userId).get()
                                 .addOnSuccessListener { document ->
                                     val role = document.getString("role") ?: "auth"
-                                    startDestination = when (role) {
+                                    startDestination = when (role.lowercase()) {
                                         "owner" -> "owner_home"
                                         "faculty" -> "faculty_home"
                                         "receptionist" -> "receptionist_home"
@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
                             composable("auth") {
                                 AuthScreen(
                                     onLoginSuccess = { userRole ->
-                                        val destination = when (userRole) {
+                                        val destination = when (userRole.lowercase()) {
                                             "owner" -> "owner_home"
                                             "faculty" -> "faculty_home"
                                             "receptionist" -> "receptionist_home"
@@ -95,27 +95,122 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // Owner Portal & Sub-screens
+                            // 1. Owner Portal Route
                             composable("owner_home") {
-                                OwnerHomePage(
-                                    onNavigateToAddStudent = { navController.navigate("enroll_student") },
-                                    onNavigateToFeeCollection = { navController.navigate("fee_collection") },
-                                    onNavigateToManageStaff = { navController.navigate("manage_staff") },
-                                    onNavigateToAttendance = { navController.navigate("attendance") },
-                                    onNavigateToAttendanceHistory = { navController.navigate("attendance_history") }, // <-- Fixed connection
-                                    onNavigateToStudentDirectory = { navController.navigate("student_directory") },
-                                    onNavigateToBatches = { navController.navigate("batches") },
-                                    onNavigateToLogs = { navController.navigate("system_logs") },
-                                    onNavigateToVerifyAttendance = { navController.navigate("verify_teacher_attendance") },
+                                PortalDashboardScreen(
+                                    portalTitle = "Owner Portal",
+                                    roleSubtitle = "TechnoVision Administration",
+                                    sections = listOf(
+                                        PortalSectionModel(
+                                            title = "Student Management",
+                                            actions = listOf(
+                                                PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate("enroll_student") },
+                                                PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate("student_directory") },
+                                                PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate("attendance") },
+                                                PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate("attendance_history") },
+                                                PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate("batches") },
+                                                PortalAction("Payments", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate("fee_collection") }
+                                            )
+                                        ),
+                                        PortalSectionModel(
+                                            title = "Staff Management",
+                                            actions = listOf(
+                                                PortalAction("Manage Staff", "Add, edit & remove staffs", Icons.Default.Badge) { navController.navigate("manage_staff") },
+                                                PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate("verify_teacher_attendance") }
+                                            )
+                                        ),
+                                        PortalSectionModel(
+                                            title = "System",
+                                            actions = listOf(
+                                                PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate("system_logs") }
+                                            )
+                                        )
+                                    ),
                                     onLogout = {
                                         navController.navigate("auth") {
-                                            popUpTo("owner_home") { inclusive = true }
+                                            popUpTo(0) { inclusive = true }
+                                            launchSingleTop = true
                                         }
                                     }
                                 )
                             }
 
-                            // Updated Enroll Student Route with navigation to viewer
+                            // 2. Faculty Portal Route
+                            composable("faculty_home") {
+                                PortalDashboardScreen(
+                                    portalTitle = "Faculty Portal",
+                                    roleSubtitle = "TechnoVision Teaching Staff",
+                                    sections = listOf(
+                                        PortalSectionModel(
+                                            title = "Student Management",
+                                            actions = listOf(
+                                                PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate("attendance") },
+                                                PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate("attendance_history") },
+                                                PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate("student_directory") },
+                                                PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate("batches") }
+                                            )
+                                        ),
+                                        PortalSectionModel(
+                                            title = "Teacher Management",
+                                            actions = listOf(
+                                                PortalAction("Faculty Attendance", "Request attendance", Icons.AutoMirrored.Filled.Assignment) { navController.navigate("teacher_attendance") }
+                                            )
+                                        ),
+                                        PortalSectionModel(
+                                            title = "System",
+                                            actions = listOf(
+                                                PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate("system_logs") }
+                                            )
+                                        )
+                                    ),
+                                    onLogout = {
+                                        navController.navigate("auth") {
+                                            popUpTo(0) { inclusive = true }
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                )
+                            }
+
+                            // 3. Receptionist Portal Route
+                            composable("receptionist_home") {
+                                PortalDashboardScreen(
+                                    portalTitle = "Receptionist Portal",
+                                    roleSubtitle = "TechnoVision Front Desk",
+                                    sections = listOf(
+                                        PortalSectionModel(
+                                            title = "Student Management",
+                                            actions = listOf(
+                                                PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate("enroll_student") },
+                                                PortalAction("Payments", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate("fee_collection") },
+                                                PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate("student_directory") },
+                                                PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate("attendance_history") },
+                                                PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate("batches") }
+                                            )
+                                        ),
+                                        PortalSectionModel(
+                                            title = "Staff Management",
+                                            actions = listOf(
+                                                PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate("verify_teacher_attendance") }
+                                            )
+                                        ),
+                                        PortalSectionModel(
+                                            title = "System",
+                                            actions = listOf(
+                                                PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate("system_logs") }
+                                            )
+                                        )
+                                    ),
+                                    onLogout = {
+                                        navController.navigate("auth") {
+                                            popUpTo(0) { inclusive = true }
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                )
+                            }
+
+                            // Sub-screens & Functional Routes
                             composable("enroll_student") {
                                 EnrollStudentScreen(
                                     onBack = { navController.popBackStack() },
@@ -127,7 +222,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // Student Info Viewer Route
                             composable("student_viewer/{studentId}") { backStackEntry ->
                                 val studentId = backStackEntry.arguments?.getString("studentId") ?: ""
                                 StudentViewerScreen(
@@ -149,7 +243,6 @@ class MainActivity : ComponentActivity() {
                                 AttendanceHistoryScreen(onBack = { navController.popBackStack() })
                             }
 
-                            // Updated Student Directory Route with Callback
                             composable("student_directory") {
                                 StudentDirectoryScreen(
                                     onBack = { navController.popBackStack() },
@@ -162,7 +255,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // New Update / Delete Route with Student ID Argument
                             composable("update_delete_student/{studentId}") { backStackEntry ->
                                 val studentId = backStackEntry.arguments?.getString("studentId") ?: ""
                                 UpdateDeleteStudentScreen(
@@ -174,52 +266,14 @@ class MainActivity : ComponentActivity() {
                             composable("batches") { BatchesScreen(onBack = { navController.popBackStack() }) }
                             composable("system_logs") { SystemLogsScreen(onBack = { navController.popBackStack() }) }
 
-                            // Faculty Portal
-                            composable("faculty_home") {
-                                FacultyHomePage(
-                                    onNavigateToAttendance = { navController.navigate("attendance") },
-                                    onNavigateToStudentDirectory = { navController.navigate("student_directory") },
-                                    onNavigateToTeacherAttendance = { navController.navigate("teacher_attendance") },
-                                    onNavigateToBatches = { navController.navigate("batches") },
-                                    onNavigateToLogs = { navController.navigate("system_logs") },
-                                    onNavigateToAttendanceHistory = { navController.navigate("attendance_history") },
-                                    onLogout = {
-                                        navController.navigate("auth") {
-                                            popUpTo("faculty_home") { inclusive = true }
-                                        }
-                                    }
-                                )
-                            }
-
-                            // Teacher Attendance Request Route
                             composable("teacher_attendance") {
                                 TeacherAttendanceScreen(onBack = { navController.popBackStack() })
                             }
 
-                            // Admin Attendance Verification Route (Shared by Owner & Receptionist)
                             composable("verify_teacher_attendance") {
                                 VerifyTeacherAttendanceScreen(onBack = { navController.popBackStack() })
                             }
 
-                            // Receptionist Portal
-                            composable("receptionist_home") {
-                                ReceptionistHomePage(
-                                    onNavigateToAddStudent = { navController.navigate("enroll_student") },
-                                    onNavigateToDirectory = { navController.navigate("student_directory") },
-                                    onNavigateToFees = { navController.navigate("fee_collection") },
-                                    onNavigateToVerifyAttendance = { navController.navigate("verify_teacher_attendance") },
-                                    onNavigateToBatches = { navController.navigate("batches") },
-                                    onNavigateToLogs = { navController.navigate("system_logs") },
-                                    onNavigateToAttendanceHistory = { navController.navigate("attendance_history") },
-                                    onLogout = {
-                                        navController.navigate("auth") {
-                                            popUpTo("receptionist_home") { inclusive = true }
-                                        }
-                                    }
-                                )
-                            }
-
-                            // Fee Collection Route
                             composable("fee_collection") {
                                 FeeCollectionScreen(
                                     onBack = { navController.popBackStack() },
