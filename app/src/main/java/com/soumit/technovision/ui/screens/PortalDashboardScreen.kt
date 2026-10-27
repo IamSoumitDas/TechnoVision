@@ -77,10 +77,11 @@ object PortalRoleSections {
                     title = "Student Management",
                     actions = listOf(
                         PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { onActionClick("Add Student") },
-                        PortalAction("Payments", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") },
                         PortalAction("All Students", "List of all the students", Icons.Default.People) { onActionClick("All Students") },
                         PortalAction("Attendance History", "Students attendance history", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
-                        PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") }
+                        PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") } ,
+                        PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") },
+                        PortalAction("Payment History", "View all payment records", Icons.Default.History) { onActionClick("Global History") },
                     )
                 ),
                 PortalSectionModel(
@@ -105,7 +106,8 @@ object PortalRoleSections {
                         PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { onActionClick("Take Attendance") },
                         PortalAction("Attendance History", "Students attendance history", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
                         PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") },
-                        PortalAction("Payments", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") }
+                        PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") },
+                        PortalAction("Payment History", "View all payment records", Icons.Default.History) { onActionClick("Global History") },
                     )
                 ),
                 PortalSectionModel(
@@ -202,7 +204,7 @@ fun PortalDashboardScreen(
                         }
                     }
                 },
-                actions = {
+                /*actions = {
                     IconButton(onClick = { showLogoutDialog = true }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Logout,
@@ -210,7 +212,7 @@ fun PortalDashboardScreen(
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
-                },
+                },*/
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer

@@ -237,7 +237,7 @@ fun FeeCollectionScreen(
                 }
 
                 if (selectedStudent == null) {
-                    Spacer(modifier = Modifier.height(24.dp))
+                    /*Spacer(modifier = Modifier.height(24.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -261,7 +261,7 @@ fun FeeCollectionScreen(
                                 Text("View All Students Payment History")
                             }
                         }
-                    }
+                    }*/
                 } else {
                     val balanceDue = expectedTotalFees - totalPaid
 

@@ -109,7 +109,8 @@ class MainActivity : ComponentActivity() {
                                                 PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate("attendance") },
                                                 PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate("attendance_history") },
                                                 PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate("batches") },
-                                                PortalAction("Payments", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate("fee_collection") }
+                                                PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate("fee_collection") },
+                                                PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate("global_history") }
                                             )
                                         ),
                                         PortalSectionModel(
@@ -182,10 +183,11 @@ class MainActivity : ComponentActivity() {
                                             title = "Student Management",
                                             actions = listOf(
                                                 PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate("enroll_student") },
-                                                PortalAction("Payments", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate("fee_collection") },
                                                 PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate("student_directory") },
                                                 PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate("attendance_history") },
-                                                PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate("batches") }
+                                                PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate("batches") },
+                                                PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate("fee_collection") },
+                                                PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate("global_history") }
                                             )
                                         ),
                                         PortalSectionModel(
