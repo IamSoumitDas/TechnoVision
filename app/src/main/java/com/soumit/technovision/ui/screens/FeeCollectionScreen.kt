@@ -1,6 +1,5 @@
 package com.soumit.technovision.ui.screens
 
-import android.app.DatePickerDialog
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -9,7 +8,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -115,20 +113,39 @@ fun FeeCollectionScreen(
         }
     }
 
-    // Fetch payment history and calculate financial dues when selected student changes
-    LaunchedEffect(selectedStudent) {
-        if (!isInPreview && selectedStudent != null) {
-            val s = selectedStudent!!
-            val (_, expected) = BillingUtils.calculateBillingMonths(s.admissionDate, s.monthlyInstallment)
+    // Fetch payment history and calculate financial dues safely with lifecycle cleanup
+    DisposableEffect(selectedStudent?.id) {
+        val currentStudent = selectedStudent
+
+        if (currentStudent == null) {
+            paymentHistory = emptyList()
+            expectedTotalFees = 0L
+            totalPaid = 0L
+            onDispose { }
+        } else if (isInPreview) {
+            val (_, expected) = BillingUtils.calculateBillingMonths(
+                currentStudent.admissionDate,
+                currentStudent.monthlyInstallment
+            )
+            expectedTotalFees = expected
+            totalPaid = 1000L
+            paymentHistory = emptyList()
+            onDispose { }
+        } else {
+            val (_, expected) = BillingUtils.calculateBillingMonths(
+                currentStudent.admissionDate,
+                currentStudent.monthlyInstallment
+            )
             expectedTotalFees = expected
 
-            val db = FirebaseFirestore.getInstance()
-
-            // Fetch payment history
-            db.collection("fee_payments")
-                .whereEqualTo("studentId", s.id)
+            val registration = FirebaseFirestore.getInstance()
+                .collection("fee_payments")
+                .whereEqualTo("studentId", currentStudent.id)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
-                .addSnapshotListener { snapshot, _ ->
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        return@addSnapshotListener
+                    }
                     if (snapshot != null) {
                         var sum = 0L
                         val history = snapshot.documents.map { doc ->
@@ -149,15 +166,10 @@ fun FeeCollectionScreen(
                         totalPaid = sum
                     }
                 }
-        } else if (isInPreview && selectedStudent != null) {
-            val (_, expected) = BillingUtils.calculateBillingMonths(selectedStudent!!.admissionDate, selectedStudent!!.monthlyInstallment)
-            expectedTotalFees = expected
-            totalPaid = 1000L
-            paymentHistory = emptyList()
-        } else {
-            paymentHistory = emptyList()
-            expectedTotalFees = 0L
-            totalPaid = 0L
+
+            onDispose {
+                registration.remove()
+            }
         }
     }
 
@@ -178,7 +190,12 @@ fun FeeCollectionScreen(
         }
     ) { padding ->
         if (isLoadingStudents) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
         } else {
@@ -209,7 +226,9 @@ fun FeeCollectionScreen(
                         readOnly = true,
                         label = { Text("Select Student") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = studentDropdownExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
                     )
                     ExposedDropdownMenu(
                         expanded = studentDropdownExpanded,
@@ -236,33 +255,7 @@ fun FeeCollectionScreen(
                     }
                 }
 
-                if (selectedStudent == null) {
-                    /*Spacer(modifier = Modifier.height(24.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = "Select a student above to record a payment, or click below to view all recent payment transactions.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Button(
-                                onClick = onNavigateToGlobalHistory,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                Text("View All Students Payment History")
-                            }
-                        }
-                    }*/
-                } else {
+                if (selectedStudent != null) {
                     val balanceDue = expectedTotalFees - totalPaid
 
                     // Student Quick Financial Info Card
@@ -273,8 +266,14 @@ fun FeeCollectionScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(text = "Standard Monthly Due: ₹${selectedStudent!!.monthlyInstallment}", fontWeight = FontWeight.Bold)
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Standard Monthly Due: ₹${selectedStudent!!.monthlyInstallment}",
+                                fontWeight = FontWeight.Bold
+                            )
                             Text(text = "Total Expected Dues: ₹$expectedTotalFees | Paid: ₹$totalPaid")
                             Text(
                                 text = if (balanceDue > 0) "Outstanding Balance: ₹$balanceDue (Pending)" else "Balance: Fully Paid Up",
@@ -284,7 +283,7 @@ fun FeeCollectionScreen(
                         }
                     }
 
-                    // 2. Amount Paid
+                    // 2. Amount Paid Field
                     OutlinedTextField(
                         value = amountPaid,
                         onValueChange = { amountPaid = it },
@@ -306,7 +305,9 @@ fun FeeCollectionScreen(
                             readOnly = true,
                             label = { Text("Payment Method") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = methodExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
                         )
                         ExposedDropdownMenu(
                             expanded = methodExpanded,
@@ -334,9 +335,12 @@ fun FeeCollectionScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Save Payment Button
+                    // Save Payment Action Button
                     if (isSaving) {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
                             CircularProgressIndicator()
                         }
                     } else {
@@ -383,7 +387,6 @@ fun FeeCollectionScreen(
                                                 isSaving = false
                                                 Toast.makeText(context, "Payment recorded successfully!", Toast.LENGTH_SHORT).show()
 
-                                                // Log the fee collection action
                                                 SystemLogger.log(
                                                     action = "Fee Collected",
                                                     details = "Received ₹$parsedAmount via $selectedMethod for student: ${selectedStudent!!.fullName}"
@@ -400,7 +403,7 @@ fun FeeCollectionScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                            Text("Record & Print Payment")
+                            Text("Record & Save Payment")
                         }
                     }
 
@@ -472,9 +475,17 @@ fun PaymentHistoryCard(payment: FeePaymentModel) {
                 }
             }
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = "Received by: ${payment.receivedBy} on $formattedDate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            Text(
+                text = "Received by: ${payment.receivedBy} on $formattedDate",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline
+            )
             if (payment.remarks.isNotBlank()) {
-                Text(text = "Notes: ${payment.remarks}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = "Notes: ${payment.remarks}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
