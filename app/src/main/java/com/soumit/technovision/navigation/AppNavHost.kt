@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import com.soumit.technovision.data.model.PortalAction
 import com.soumit.technovision.data.model.PortalSectionModel
 import com.soumit.technovision.ui.screens.attendance.AttendanceHistoryScreen
+import com.soumit.technovision.ui.screens.attendance.FacultyAttendanceViewerScreen
 import com.soumit.technovision.ui.screens.attendance.TakeAttendanceScreen
 import com.soumit.technovision.ui.screens.attendance.TeacherAttendanceScreen
 import com.soumit.technovision.ui.screens.attendance.VerifyTeacherAttendanceScreen
@@ -77,7 +78,8 @@ fun AppNavHost(
                         title = "Staff Management",
                         actions = listOf(
                             PortalAction("Manage Staff", "Add, edit & remove staffs", Icons.Default.Badge) { navController.navigate(Routes.MANAGE_STAFF) },
-                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) }
+                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) },
+                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
                         )
                     ),
                     PortalSectionModel(
@@ -114,7 +116,8 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "Teacher Management",
                         actions = listOf(
-                            PortalAction("Faculty Attendance", "Request attendance", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.TEACHER_ATTENDANCE) }
+                            PortalAction("Faculty Attendance", "Request attendance", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.TEACHER_ATTENDANCE) },
+                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
                         )
                     ),
                     PortalSectionModel(
@@ -153,7 +156,8 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "Staff Management",
                         actions = listOf(
-                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) }
+                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) },
+                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
                         )
                     ),
                     PortalSectionModel(
@@ -236,11 +240,24 @@ fun AppNavHost(
         }
 
         composable(Routes.TEACHER_ATTENDANCE) {
-            TeacherAttendanceScreen(onBack = { navController.popBackStack() })
+            TeacherAttendanceScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToViewer = { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
+            )
         }
 
         composable(Routes.VERIFY_TEACHER_ATTENDANCE) {
-            VerifyTeacherAttendanceScreen(onBack = { navController.popBackStack() })
+            VerifyTeacherAttendanceScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToViewer = { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
+            )
+        }
+
+        composable(Routes.FACULTY_ATTENDANCE_VIEWER) {
+            FacultyAttendanceViewerScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToVerify = { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) }
+            )
         }
 
         composable(Routes.FEE_COLLECTION) {

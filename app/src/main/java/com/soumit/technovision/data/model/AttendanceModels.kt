@@ -8,8 +8,12 @@ data class AttendanceRecordModel(
     val timeSlot: String = "",
     val presentStudentIds: List<String> = emptyList(),
     val absentStudentIds: List<String> = emptyList(),
+    val additionalStudentIds: List<String> = emptyList(),
     val totalPresent: Int = 0,
     val totalAbsent: Int = 0,
+    val submittedBy: String = "",
+    val submittedByUid: String = "",
+    val submittedByEmail: String = "",
     val timestamp: Timestamp? = null
 )
 
@@ -20,5 +24,7 @@ data class TeacherAttendanceRequestModel(
     val date: String = "",
     val timeSlot: String = "",
     val status: String = "Pending", // "Pending", "Verified", "Rejected"
-    val timestamp: Timestamp? = null
+    val timestamp: Timestamp? = null,
+    val verifiedBy: String = "",
+    val rejectedBy: String = ""
 )

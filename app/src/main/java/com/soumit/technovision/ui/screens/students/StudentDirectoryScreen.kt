@@ -28,7 +28,7 @@ import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import com.soumit.technovision.util.BillingUtils
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun StudentDirectoryScreen(
     onBack: () -> Unit,
@@ -44,7 +44,7 @@ fun StudentDirectoryScreen(
     var userRole by remember { mutableStateOf("owner") }
     val outstandingBalances = remember { mutableStateMapOf<String, Long>() }
 
-    LaunchedEffect(Unit) {
+    DisposableEffect(Unit) {
         if (isInPreview) {
             userRole = "owner"
             val mockStudents = listOf(
@@ -79,10 +79,10 @@ fun StudentDirectoryScreen(
             outstandingBalances["1"] = 500L
             outstandingBalances["2"] = 0L
             isLoading = false
+            onDispose { }
         } else {
             val authUser = FirebaseAuth.getInstance().currentUser
             val userId = authUser?.uid
-
             val db = FirebaseFirestore.getInstance()
 
             if (userId != null) {
@@ -94,7 +94,37 @@ fun StudentDirectoryScreen(
                     }
             }
 
-            db.collection("students")
+            var currentStudents: List<StudentModel> = emptyList()
+            var paymentsMap: Map<String, Long> = emptyMap()
+
+            fun recalculateBalances() {
+                currentStudents.forEach { student ->
+                    val expected = BillingUtils.calculateBillingMonths(
+                        student.admissionDate,
+                        student.monthlyInstallment
+                    ).second
+                    val paid = paymentsMap[student.id] ?: 0L
+                    val due = expected - paid
+                    outstandingBalances[student.id] = if (due > 0) due else 0L
+                }
+            }
+
+            // Single listener for payments to aggregate dues in O(N) without N+1 query storms
+            val paymentsRegistration = db.collection("fee_payments")
+                .addSnapshotListener { paymentSnap, _ ->
+                    if (paymentSnap != null) {
+                        val agg = mutableMapOf<String, Long>()
+                        for (doc in paymentSnap.documents) {
+                            val sid = doc.getString("studentId") ?: continue
+                            val amt = doc.getLong("amountPaid") ?: 0L
+                            agg[sid] = (agg[sid] ?: 0L) + amt
+                        }
+                        paymentsMap = agg
+                        recalculateBalances()
+                    }
+                }
+
+            val studentsRegistration = db.collection("students")
                 .orderBy("fullName", Query.Direction.ASCENDING)
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
@@ -123,29 +153,17 @@ fun StudentDirectoryScreen(
                                 weeklySchedule = doc.get("weeklySchedule") as? Map<String, String> ?: emptyMap()
                             )
                         }
+                        currentStudents = list
                         studentList = list
-                        list.forEach { student ->
-                            val expected = BillingUtils.calculateBillingMonths(
-                                student.admissionDate,
-                                student.monthlyInstallment
-                            ).second
-
-                            db.collection("fee_payments")
-                                .whereEqualTo("studentId", student.id)
-                                .get()
-                                .addOnSuccessListener { paymentSnap ->
-                                    var paid = 0L
-                                    for (payDoc in paymentSnap.documents) {
-                                        paid += payDoc.getLong("amountPaid") ?: 0L
-                                    }
-                                    val due = expected - paid
-                                    outstandingBalances[student.id] = if (due > 0) due else 0L
-                                }
-                        }
-
+                        recalculateBalances()
                         isLoading = false
                     }
                 }
+
+            onDispose {
+                studentsRegistration.remove()
+                paymentsRegistration.remove()
+            }
         }
     }
 
@@ -190,7 +208,7 @@ fun StudentDirectoryScreen(
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             } else if (filteredStudents.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

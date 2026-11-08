@@ -28,7 +28,7 @@ import com.soumit.technovision.util.SystemLogger
 import java.util.Calendar
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun UpdateDeleteStudentScreen(studentId: String, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -84,6 +84,7 @@ fun UpdateDeleteStudentScreen(studentId: String, onBack: () -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // Fetch existing student data from Firestore on load
     LaunchedEffect(studentId) {
@@ -95,6 +96,8 @@ fun UpdateDeleteStudentScreen(studentId: String, onBack: () -> Unit) {
             motherName = "Sunita Sharma"
             monthlyInstallment = "500"
             phone = "9876543210"
+            isLoading = false
+        } else if (studentId.isBlank()) {
             isLoading = false
         } else {
             FirebaseFirestore.getInstance().collection("students").document(studentId).get()
@@ -161,7 +164,7 @@ fun UpdateDeleteStudentScreen(studentId: String, onBack: () -> Unit) {
     ) { padding ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                LoadingIndicator()
             }
         } else {
             Column(
@@ -507,25 +510,26 @@ fun UpdateDeleteStudentScreen(studentId: String, onBack: () -> Unit) {
                             "admissionDate" to admissionDate,
                             "fatherName" to fatherName.trim(),
                             "motherName" to motherName.trim(),
-                            "monthlyInstallment" to (monthlyInstallment.toIntOrNull() ?: 500),
+                            "monthlyInstallment" to (monthlyInstallment.toLongOrNull() ?: 500L),
                             "weeklySchedule" to daySchedules.toMap(),
                             "phone" to phone.trim(),
                             "altPhone" to altPhone.trim()
                         )
 
-                        db.collection("students").document(studentId).update(updatedData)
+                        val batch = db.batch()
+                        batch.update(db.collection("students").document(studentId), updatedData)
+                        batch.update(db.collection("users").document(studentId), "fullName", fullName.trim())
+
+                        batch.commit()
                             .addOnSuccessListener {
-                                db.collection("users").document(studentId).update("fullName", fullName.trim())
-                                    .addOnSuccessListener {
-                                        Toast.makeText(context, "Student updated successfully!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Student updated successfully!", Toast.LENGTH_SHORT).show()
 
-                                        SystemLogger.log(
-                                            action = "Student Profile Updated",
-                                            details = "Updated profile record for student: ${fullName.trim()} (ID: $studentId)"
-                                        )
+                                SystemLogger.log(
+                                    action = "Student Profile Updated",
+                                    details = "Updated profile record for student: ${fullName.trim()} (ID: $studentId)"
+                                )
 
-                                        onBack()
-                                    }
+                                onBack()
                             }
                             .addOnFailureListener { e ->
                                 statusMessage = "Update failed: ${e.localizedMessage}"
@@ -542,31 +546,7 @@ fun UpdateDeleteStudentScreen(studentId: String, onBack: () -> Unit) {
                 // Destructive Delete Button
                 OutlinedButton(
                     onClick = {
-                        if (isInPreview) {
-                            Toast.makeText(context, "Preview: Student Deleted!", Toast.LENGTH_SHORT).show()
-                            onBack()
-                            return@OutlinedButton
-                        }
-
-                        val db = FirebaseFirestore.getInstance()
-                        db.collection("students").document(studentId).delete()
-                            .addOnSuccessListener {
-                                db.collection("users").document(studentId).delete()
-                                    .addOnSuccessListener {
-                                        Toast.makeText(context, "Student deleted successfully.", Toast.LENGTH_SHORT).show()
-
-                                        SystemLogger.log(
-                                            action = "Student Deleted",
-                                            details = "Deleted student record (ID: $studentId)"
-                                        )
-
-                                        onBack()
-                                    }
-                            }
-                            .addOnFailureListener { e ->
-                                statusMessage = "Delete failed: ${e.localizedMessage}"
-                                isError = true
-                            }
+                        showDeleteDialog = true
                     },
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
@@ -575,6 +555,56 @@ fun UpdateDeleteStudentScreen(studentId: String, onBack: () -> Unit) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Delete Student Record", style = MaterialTheme.typography.titleSmall)
+                }
+
+                if (showDeleteDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteDialog = false },
+                        icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        title = { Text("Delete Student?") },
+                        text = { Text("Are you sure you want to delete the student record for \"$fullName\"? This action cannot be undone.") },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showDeleteDialog = false
+                                    if (isInPreview) {
+                                        Toast.makeText(context, "Preview: Student Deleted!", Toast.LENGTH_SHORT).show()
+                                        onBack()
+                                        return@Button
+                                    }
+
+                                    val db = FirebaseFirestore.getInstance()
+                                    val batch = db.batch()
+                                    batch.delete(db.collection("students").document(studentId))
+                                    batch.delete(db.collection("users").document(studentId))
+
+                                    batch.commit()
+                                        .addOnSuccessListener {
+                                            Toast.makeText(context, "Student deleted successfully.", Toast.LENGTH_SHORT).show()
+
+                                            SystemLogger.log(
+                                                action = "Student Deleted",
+                                                details = "Deleted student record (ID: $studentId, Name: $fullName)"
+                                            )
+
+                                            onBack()
+                                        }
+                                        .addOnFailureListener { e ->
+                                            statusMessage = "Delete failed: ${e.localizedMessage}"
+                                            isError = true
+                                        }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Delete")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteDialog = false }) {
+                                Text("Cancel")
+                            }
+                        }
+                    )
                 }
 
                 if (statusMessage != null) {

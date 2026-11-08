@@ -22,7 +22,7 @@ import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import com.soumit.technovision.util.BillingUtils
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun StudentViewerScreen(studentId: String, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -59,6 +59,8 @@ fun StudentViewerScreen(studentId: String, onBack: () -> Unit) {
             calculatedMonthsDue = months
             expectedTotalFees = expected
             isLoading = false
+        } else if (studentId.isBlank()) {
+            isLoading = false
         } else {
             val db = FirebaseFirestore.getInstance()
 
@@ -78,6 +80,7 @@ fun StudentViewerScreen(studentId: String, onBack: () -> Unit) {
                             monthlyInstallment = doc.getLong("monthlyInstallment") ?: 500L,
                             phone = doc.getString("phone") ?: "",
                             altPhone = doc.getString("altPhone") ?: "",
+                            email = doc.getString("email") ?: "",
                             batchTimeSlot = doc.getString("batchTimeSlot") ?: ""
                         )
                         student = s
@@ -136,11 +139,16 @@ fun StudentViewerScreen(studentId: String, onBack: () -> Unit) {
                     if (student!!.altPhone.isNotBlank()) {
                         SmallFloatingActionButton(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_DIAL).apply {
-                                    data = "tel:${student!!.altPhone}".toUri()
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL).apply {
+                                        data = "tel:${student!!.altPhone}".toUri()
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Cannot open dialer: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
                                 }
-                                context.startActivity(intent)
                             },
+                            shape = FloatingActionButtonDefaults.smallShape,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         ) {
@@ -151,11 +159,16 @@ fun StudentViewerScreen(studentId: String, onBack: () -> Unit) {
                     if (student!!.phone.isNotBlank()) {
                         FloatingActionButton(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_DIAL).apply {
-                                    data = "tel:${student!!.phone}".toUri()
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL).apply {
+                                        data = "tel:${student!!.phone}".toUri()
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Cannot open dialer: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
                                 }
-                                context.startActivity(intent)
                             },
+                            shape = FloatingActionButtonDefaults.shape,
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ) {
@@ -168,7 +181,7 @@ fun StudentViewerScreen(studentId: String, onBack: () -> Unit) {
     ) { padding ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                LoadingIndicator()
             }
         } else if (student == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -224,6 +237,12 @@ fun StudentViewerScreen(studentId: String, onBack: () -> Unit) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                                     Text(text = student!!.altPhone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            if (student!!.email.isNotBlank()) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                                    Text(text = student!!.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }

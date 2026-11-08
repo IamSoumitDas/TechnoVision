@@ -26,7 +26,7 @@ import com.soumit.technovision.util.SystemLogger
 import java.util.Calendar
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun EnrollStudentScreen(
     onBack: () -> Unit,
@@ -472,7 +472,7 @@ fun EnrollStudentScreen(
             // Action Button
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             } else {
                 Button(
@@ -525,30 +525,28 @@ fun EnrollStudentScreen(
                             "createdAt" to com.google.firebase.Timestamp.now()
                         )
 
-                        db.collection("users").document(newUserId).set(studentData)
+                        val batch = db.batch()
+                        val userRef = db.collection("users").document(newUserId)
+                        val studentRef = db.collection("students").document(newUserId)
+                        batch.set(userRef, studentData)
+                        batch.set(studentRef, studentData)
+
+                        batch.commit()
                             .addOnSuccessListener {
-                                db.collection("students").document(newUserId).set(studentData)
-                                    .addOnSuccessListener {
-                                        isLoading = false
-                                        isError = false
+                                isLoading = false
+                                isError = false
 
-                                        SystemLogger.log(
-                                            action = "Student Enrolled",
-                                            details = "New student registered: ${fullName.trim()} (ID: $newUserId)"
-                                        )
+                                SystemLogger.log(
+                                    action = "Student Enrolled",
+                                    details = "New student registered: ${fullName.trim()} (ID: $newUserId)"
+                                )
 
-                                        onStudentEnrolled(newUserId)
-                                    }
-                                    .addOnFailureListener { e ->
-                                        isLoading = false
-                                        isError = true
-                                        statusMessage = "Error saving student profile: ${e.localizedMessage}"
-                                    }
+                                onStudentEnrolled(newUserId)
                             }
                             .addOnFailureListener { e ->
                                 isLoading = false
                                 isError = true
-                                statusMessage = "Error creating user record: ${e.localizedMessage}"
+                                statusMessage = "Error enrolling student: ${e.localizedMessage}"
                             }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp)

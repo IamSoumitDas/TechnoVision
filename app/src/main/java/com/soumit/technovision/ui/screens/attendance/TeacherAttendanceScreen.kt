@@ -32,9 +32,12 @@ import com.soumit.technovision.util.SystemLogger
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun TeacherAttendanceScreen(onBack: () -> Unit) {
+fun TeacherAttendanceScreen(
+    onBack: () -> Unit,
+    onNavigateToViewer: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val isInPreview = LocalInspectionMode.current
 
@@ -58,11 +61,57 @@ fun TeacherAttendanceScreen(onBack: () -> Unit) {
         "7:00 PM - 9:00 PM"
     )
 
-    var selectedTimeSlot by remember { mutableStateOf(timeSlots[0]) }
+    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val initialTimeSlot = remember(currentHour) {
+        when (currentHour) {
+            in 9..10 -> "9:00 AM - 11:00 AM"
+            in 11..12 -> "11:00 AM - 1:00 PM"
+            in 13..14 -> "1:00 PM - 3:00 PM"
+            in 15..16 -> "3:00 PM - 5:00 PM"
+            in 17..18 -> "5:00 PM - 7:00 PM"
+            in 19..20 -> "7:00 PM - 9:00 PM"
+            in 21..23 -> "7:00 PM - 9:00 PM"
+            else -> "9:00 AM - 11:00 AM"
+        }
+    }
+
+    var selectedTimeSlot by remember { mutableStateOf(initialTimeSlot) }
     var timeSlotExpanded by remember { mutableStateOf(false) }
 
-    var allMyRequests by remember { mutableStateOf<List<TeacherAttendanceRequestModel>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val previewRequests = remember {
+        listOf(
+            TeacherAttendanceRequestModel(
+                id = "1",
+                teacherName = "Amitabha Teacher",
+                date = todayDateStr,
+                timeSlot = "9:00 AM - 11:00 AM",
+                status = "Verified",
+                verifiedBy = "Soumit Das"
+            ),
+            TeacherAttendanceRequestModel(
+                id = "2",
+                teacherName = "Amitabha Teacher",
+                date = todayDateStr,
+                timeSlot = "1:00 PM - 3:00 PM",
+                status = "Rejected",
+                rejectedBy = "Soumit Das"
+            ),
+            TeacherAttendanceRequestModel(
+                id = "3",
+                teacherName = "Amitabha Teacher",
+                date = todayDateStr,
+                timeSlot = "5:00 PM - 7:00 PM",
+                status = "Pending"
+            )
+        )
+    }
+
+    var allMyRequests by remember {
+        mutableStateOf<List<TeacherAttendanceRequestModel>>(
+            if (isInPreview) previewRequests else emptyList()
+        )
+    }
+    var isLoading by remember { mutableStateOf(!isInPreview) }
     var isSubmitting by remember { mutableStateOf(false) }
 
     val currentUserId = if (!isInPreview) {
@@ -71,51 +120,63 @@ fun TeacherAttendanceScreen(onBack: () -> Unit) {
         "preview_teacher_id"
     }
 
-    LaunchedEffect(currentUserId) {
-        if (isInPreview) {
-            allMyRequests = listOf(
-                TeacherAttendanceRequestModel(
-                    id = "1",
-                    teacherName = "Amitabha Teacher",
-                    date = todayDateStr,
-                    timeSlot = "9:00 AM - 11:00 AM",
-                    status = "Verified"
-                ),
-                TeacherAttendanceRequestModel(
-                    id = "2",
-                    teacherName = "Amitabha Teacher",
-                    date = todayDateStr,
-                    timeSlot = "5:00 PM - 7:00 PM",
-                    status = "Pending"
-                )
-            )
-            isLoading = false
-        } else {
-            FirebaseFirestore.getInstance().collection("teacher_attendance")
-                .whereEqualTo("teacherId", currentUserId)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        Toast.makeText(context, "Error loading requests: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                        return@addSnapshotListener
-                    }
+    var teacherName by remember {
+        mutableStateOf(
+            if (isInPreview) "Amitabha Teacher"
+            else FirebaseAuth.getInstance().currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Faculty"
+        )
+    }
 
-                    if (snapshot != null) {
-                        val list = snapshot.documents.map { doc ->
-                            TeacherAttendanceRequestModel(
-                                id = doc.id,
-                                teacherId = doc.getString("teacherId") ?: "",
-                                teacherName = doc.getString("teacherName") ?: "",
-                                date = doc.getString("date") ?: "",
-                                timeSlot = doc.getString("timeSlot") ?: "",
-                                status = doc.getString("status") ?: "Pending",
-                                timestamp = doc.getTimestamp("timestamp")
-                            )
-                        }
-                        allMyRequests = list
-                        isLoading = false
+    LaunchedEffect(currentUserId) {
+        if (!isInPreview && currentUserId.isNotBlank()) {
+            FirebaseFirestore.getInstance().collection("users").document(currentUserId).get()
+                .addOnSuccessListener { doc ->
+                    if (doc.exists()) {
+                        val name = doc.getString("fullName")?.takeIf { it.isNotBlank() }
+                            ?: doc.getString("name")?.takeIf { it.isNotBlank() }
+                        if (name != null) teacherName = name
                     }
                 }
+        }
+    }
+
+    DisposableEffect(currentUserId) {
+        if (isInPreview || currentUserId.isBlank()) {
+            isLoading = false
+            return@DisposableEffect onDispose {}
+        }
+
+        isLoading = true
+        val registration = FirebaseFirestore.getInstance().collection("teacher_attendance")
+            .whereEqualTo("teacherId", currentUserId)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    isLoading = false
+                    Toast.makeText(context, "Error loading requests: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val list = snapshot.documents.map { doc ->
+                        TeacherAttendanceRequestModel(
+                            id = doc.id,
+                            teacherId = doc.getString("teacherId") ?: "",
+                            teacherName = doc.getString("teacherName") ?: "",
+                            date = doc.getString("date") ?: "",
+                            timeSlot = doc.getString("timeSlot") ?: "",
+                            status = doc.getString("status") ?: "Pending",
+                            timestamp = doc.getTimestamp("timestamp"),
+                            verifiedBy = doc.getString("verifiedBy") ?: "",
+                            rejectedBy = doc.getString("rejectedBy") ?: ""
+                        )
+                    }
+                    allMyRequests = list
+                    isLoading = false
+                }
+            }
+
+        onDispose {
+            registration.remove()
         }
     }
 
@@ -130,6 +191,16 @@ fun TeacherAttendanceScreen(onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (onNavigateToViewer != null) {
+                        IconButton(onClick = onNavigateToViewer) {
+                            Icon(
+                                imageVector = Icons.Default.EventAvailable,
+                                contentDescription = "View Attendance Records"
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -215,17 +286,22 @@ fun TeacherAttendanceScreen(onBack: () -> Unit) {
 
                         if (isSubmitting) {
                             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
+                                LoadingIndicator()
                             }
                         } else {
                             Button(
                                 onClick = {
+                                    if (currentUserId.isBlank()) {
+                                        Toast.makeText(context, "Authentication required. Please sign in again.", Toast.LENGTH_SHORT).show()
+                                        return@Button
+                                    }
+
                                     if (selectedDateStr != todayDateStr) {
                                         Toast.makeText(context, "Attendance can only be requested for today's date before midnight.", Toast.LENGTH_LONG).show()
                                         return@Button
                                     }
 
-                                    val alreadyRequested = requestsForSelectedDate.any { it.timeSlot == selectedTimeSlot }
+                                    val alreadyRequested = requestsForSelectedDate.any { it.timeSlot == selectedTimeSlot && it.status != "Rejected" }
                                     if (alreadyRequested) {
                                         Toast.makeText(context, "You have already requested attendance for this slot today.", Toast.LENGTH_SHORT).show()
                                         return@Button
@@ -239,33 +315,28 @@ fun TeacherAttendanceScreen(onBack: () -> Unit) {
                                     isSubmitting = true
                                     val db = FirebaseFirestore.getInstance()
 
-                                    db.collection("users").document(currentUserId).get()
-                                        .addOnSuccessListener { userDoc ->
-                                            val teacherName = if (userDoc.exists()) userDoc.getString("fullName") ?: "Faculty" else "Faculty"
+                                    val requestData = hashMapOf(
+                                        "teacherId" to currentUserId,
+                                        "teacherName" to teacherName,
+                                        "date" to selectedDateStr,
+                                        "timeSlot" to selectedTimeSlot,
+                                        "status" to "Pending",
+                                        "timestamp" to Timestamp.now()
+                                    )
 
-                                            val requestData = hashMapOf(
-                                                "teacherId" to currentUserId,
-                                                "teacherName" to teacherName,
-                                                "date" to selectedDateStr,
-                                                "timeSlot" to selectedTimeSlot,
-                                                "status" to "Pending",
-                                                "timestamp" to Timestamp.now()
+                                    db.collection("teacher_attendance").add(requestData)
+                                        .addOnSuccessListener {
+                                            isSubmitting = false
+                                            Toast.makeText(context, "Attendance request sent to admin!", Toast.LENGTH_SHORT).show()
+
+                                            SystemLogger.log(
+                                                action = "Attendance Requested",
+                                                details = "Teacher $teacherName submitted time slot [$selectedTimeSlot] for date $selectedDateStr"
                                             )
-
-                                            db.collection("teacher_attendance").add(requestData)
-                                                .addOnSuccessListener {
-                                                    isSubmitting = false
-                                                    Toast.makeText(context, "Attendance request sent to admin!", Toast.LENGTH_SHORT).show()
-
-                                                    SystemLogger.log(
-                                                        action = "Attendance Requested",
-                                                        details = "Teacher $teacherName submitted time slot [$selectedTimeSlot] for date $selectedDateStr"
-                                                    )
-                                                }
-                                                .addOnFailureListener { e ->
-                                                    isSubmitting = false
-                                                    Toast.makeText(context, "Failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                                }
+                                        }
+                                        .addOnFailureListener { e ->
+                                            isSubmitting = false
+                                            Toast.makeText(context, "Failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                         }
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -319,7 +390,7 @@ fun TeacherAttendanceScreen(onBack: () -> Unit) {
             if (isLoading) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        LoadingIndicator()
                     }
                 }
             } else if (requestsForSelectedDate.isEmpty()) {
@@ -470,13 +541,17 @@ fun MonthlyCalendarWidget(
                                             }
                                         )
                                         if (dayRequests.isNotEmpty()) {
+                                            val hasPending = dayRequests.any { it.status == "Pending" }
                                             Box(
                                                 modifier = Modifier
                                                     .size(5.dp)
                                                     .clip(CircleShape)
                                                     .background(
-                                                        if (hasVerified) MaterialTheme.colorScheme.primary
-                                                        else MaterialTheme.colorScheme.tertiary
+                                                        when {
+                                                            hasVerified -> MaterialTheme.colorScheme.primary
+                                                            hasPending -> MaterialTheme.colorScheme.tertiary
+                                                            else -> MaterialTheme.colorScheme.error
+                                                        }
                                                     )
                                             )
                                         } else {
@@ -498,12 +573,16 @@ fun MonthlyCalendarWidget(
 @Composable
 fun TeacherRequestCard(request: TeacherAttendanceRequestModel) {
     val isVerified = request.status == "Verified"
+    val isRejected = request.status == "Rejected"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isVerified) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.surface
+            containerColor = when {
+                isVerified -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                isRejected -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                else -> MaterialTheme.colorScheme.surface
+            }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -523,10 +602,29 @@ fun TeacherRequestCard(request: TeacherAttendanceRequestModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
+                if (isVerified && request.verifiedBy.isNotBlank()) {
+                    Text(
+                        text = "Verified by ${request.verifiedBy}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                } else if (isRejected) {
+                    val rejector = request.rejectedBy.ifBlank { "Admin" }
+                    Text(
+                        text = "Rejected by $rejector • Slot is open to re-request",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             Surface(
-                color = if (isVerified) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                color = when {
+                    isVerified -> MaterialTheme.colorScheme.primaryContainer
+                    isRejected -> MaterialTheme.colorScheme.errorContainer
+                    else -> MaterialTheme.colorScheme.secondaryContainer
+                },
                 shape = MaterialTheme.shapes.small
             ) {
                 Row(
@@ -535,16 +633,28 @@ fun TeacherRequestCard(request: TeacherAttendanceRequestModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = if (isVerified) Icons.Default.CheckCircle else Icons.Default.HourglassTop,
+                        imageVector = when {
+                            isVerified -> Icons.Default.CheckCircle
+                            isRejected -> Icons.Default.Cancel
+                            else -> Icons.Default.HourglassTop
+                        },
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = if (isVerified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        tint = when {
+                            isVerified -> MaterialTheme.colorScheme.primary
+                            isRejected -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.secondary
+                        }
                     )
                     Text(
                         text = request.status,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isVerified) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                        color = when {
+                            isVerified -> MaterialTheme.colorScheme.onPrimaryContainer
+                            isRejected -> MaterialTheme.colorScheme.onErrorContainer
+                            else -> MaterialTheme.colorScheme.onSecondaryContainer
+                        }
                     )
                 }
             }

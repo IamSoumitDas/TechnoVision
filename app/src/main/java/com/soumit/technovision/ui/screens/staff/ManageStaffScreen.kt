@@ -35,7 +35,7 @@ import com.soumit.technovision.data.model.StaffModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import com.soumit.technovision.util.SystemLogger
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ManageStaffScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -44,6 +44,7 @@ fun ManageStaffScreen(onBack: () -> Unit) {
     var staffList by remember { mutableStateOf<List<StaffModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var staffToDelete by remember { mutableStateOf<StaffModel?>(null) }
 
     // Edit Staff Dialog States
     var showEditDialog by remember { mutableStateOf(false) }
@@ -68,16 +69,17 @@ fun ManageStaffScreen(onBack: () -> Unit) {
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
 
-    // Fetch staff list from Firestore
-    LaunchedEffect(Unit) {
+    // Fetch staff list from Firestore with proper lifecycle listener disposal
+    DisposableEffect(Unit) {
         if (isInPreview) {
             staffList = listOf(
                 StaffModel(id = "1", fullName = "Amitabha Teacher", email = "faculty1@technovision.com", role = "faculty", phone = "9876543210"),
                 StaffModel(id = "2", fullName = "Rina Receptionist", email = "reception1@technovision.com", role = "receptionist", phone = "9123456789")
             )
             isLoading = false
+            onDispose { }
         } else {
-            FirebaseFirestore.getInstance().collection("users")
+            val registration = FirebaseFirestore.getInstance().collection("users")
                 .whereIn("role", listOf("faculty", "receptionist"))
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
@@ -100,6 +102,9 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                         isLoading = false
                     }
                 }
+            onDispose {
+                registration.remove()
+            }
         }
     }
 
@@ -119,7 +124,10 @@ fun ManageStaffScreen(onBack: () -> Unit) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                shape = FloatingActionButtonDefaults.shape
+            ) {
                 Icon(Icons.Default.PersonAdd, contentDescription = "Add Staff")
             }
         }
@@ -139,7 +147,7 @@ fun ManageStaffScreen(onBack: () -> Unit) {
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             } else if (staffList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -165,28 +173,54 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                                 showEditDialog = true
                             },
                             onDeleteClick = {
-                                if (isInPreview) {
-                                    Toast.makeText(context, "Preview: Staff deleted!", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    FirebaseFirestore.getInstance().collection("users").document(staff.id).delete()
-                                        .addOnSuccessListener {
-                                            Toast.makeText(context, "Staff record deleted.", Toast.LENGTH_SHORT).show()
-
-                                            SystemLogger.log(
-                                                action = "Staff Deleted",
-                                                details = "Deleted staff record: ${staff.fullName} (${staff.email})"
-                                            )
-                                        }
-                                        .addOnFailureListener { e ->
-                                            Toast.makeText(context, "Delete failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                        }
-                                }
+                                staffToDelete = staff
                             }
                         )
                     }
                 }
             }
         }
+    }
+
+    if (staffToDelete != null) {
+        val target = staffToDelete!!
+        AlertDialog(
+            onDismissRequest = { staffToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete Staff Member?") },
+            text = { Text("Are you sure you want to delete staff account for \"${target.fullName}\" (${target.email})?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        staffToDelete = null
+                        if (isInPreview) {
+                            Toast.makeText(context, "Preview: Staff deleted!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        FirebaseFirestore.getInstance().collection("users").document(target.id).delete()
+                            .addOnSuccessListener {
+                                Toast.makeText(context, "Staff record deleted.", Toast.LENGTH_SHORT).show()
+
+                                SystemLogger.log(
+                                    action = "Staff Deleted",
+                                    details = "Deleted staff record: ${target.fullName} (${target.email})"
+                                )
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(context, "Delete failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                            }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { staffToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     // Add Staff Dialog Form
@@ -281,7 +315,7 @@ fun ManageStaffScreen(onBack: () -> Unit) {
             },
             confirmButton = {
                 if (isSaving) {
-                    CircularProgressIndicator()
+                    CircularWavyProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
                     TextButton(
                         onClick = {
@@ -332,7 +366,14 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                             secondaryAuth.createUserWithEmailAndPassword(email.trim(), password)
                                 .addOnCompleteListener { task ->
                                     if (task.isSuccessful) {
-                                        val userId = secondaryAuth.currentUser?.uid ?: ""
+                                        val userId = secondaryAuth.currentUser?.uid
+                                        if (userId.isNullOrBlank()) {
+                                            secondaryAuth.signOut()
+                                            isSaving = false
+                                            statusMessage = "Auth error: User ID could not be retrieved."
+                                            isError = true
+                                            return@addOnCompleteListener
+                                        }
                                         val staffData = hashMapOf(
                                             "fullName" to fullName.trim(),
                                             "email" to email.trim(),
@@ -451,7 +492,7 @@ fun ManageStaffScreen(onBack: () -> Unit) {
             },
             confirmButton = {
                 if (isUpdating) {
-                    CircularProgressIndicator()
+                    CircularWavyProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
                     TextButton(
                         onClick = {

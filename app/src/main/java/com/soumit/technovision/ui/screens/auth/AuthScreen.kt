@@ -32,6 +32,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AuthScreen(onLoginSuccess: (String) -> Unit) {
     var email by remember { mutableStateOf("") }
@@ -77,7 +78,14 @@ fun AuthScreen(onLoginSuccess: (String) -> Unit) {
         auth.signInWithEmailAndPassword(email.trim(), password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val userId = auth.currentUser?.uid ?: ""
+                    val userId = auth.currentUser?.uid
+                    if (userId.isNullOrBlank()) {
+                        isLoading = false
+                        isError = true
+                        statusMessage = "Authentication error: User ID not found."
+                        auth.signOut()
+                        return@addOnCompleteListener
+                    }
                     db.collection("users").document(userId).get()
                         .addOnSuccessListener { document ->
                             isLoading = false
@@ -165,8 +173,8 @@ fun AuthScreen(onLoginSuccess: (String) -> Unit) {
             ) {
                 Box(
                     modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(20.dp))
+                        .size(76.dp)
+                        .clip(MaterialTheme.shapes.extraLarge)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
@@ -203,7 +211,7 @@ fun AuthScreen(onLoginSuccess: (String) -> Unit) {
                     },
                     label = { Text("Email Address") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next
@@ -222,7 +230,7 @@ fun AuthScreen(onLoginSuccess: (String) -> Unit) {
                     },
                     label = { Text("Password") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
@@ -267,12 +275,12 @@ fun AuthScreen(onLoginSuccess: (String) -> Unit) {
                             .height(50.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                        LoadingIndicator(modifier = Modifier.size(36.dp))
                     }
                 } else {
                     Button(
                         onClick = { handleLogin() },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)

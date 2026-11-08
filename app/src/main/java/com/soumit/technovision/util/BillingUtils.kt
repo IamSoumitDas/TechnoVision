@@ -13,7 +13,7 @@ object BillingUtils {
         if (admissionDateStr.isBlank()) return Pair(0, 0L)
 
         try {
-            val parts = admissionDateStr.split("/")
+            val parts = admissionDateStr.trim().split(Regex("[/\\-]"))
             if (parts.size == 3) {
                 val day = parts[0].toInt()
                 val admissionMonth = parts[1].toInt()

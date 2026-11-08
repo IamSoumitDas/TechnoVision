@@ -23,7 +23,7 @@ import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.util.Calendar
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BatchesScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -51,7 +51,7 @@ fun BatchesScreen(onBack: () -> Unit) {
 
     val weekDays = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 
-    LaunchedEffect(Unit) {
+    DisposableEffect(Unit) {
         if (isInPreview) {
             studentList = listOf(
                 StudentModel(
@@ -86,8 +86,9 @@ fun BatchesScreen(onBack: () -> Unit) {
                 )
             )
             isLoading = false
+            onDispose { }
         } else {
-            FirebaseFirestore.getInstance().collection("students")
+            val registration = FirebaseFirestore.getInstance().collection("students")
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
                         isLoading = false
@@ -112,6 +113,9 @@ fun BatchesScreen(onBack: () -> Unit) {
                         isLoading = false
                     }
                 }
+            onDispose {
+                registration.remove()
+            }
         }
     }
 
@@ -158,7 +162,7 @@ fun BatchesScreen(onBack: () -> Unit) {
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             } else {
                 if (selectedView == "Today") {

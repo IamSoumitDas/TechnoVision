@@ -18,6 +18,7 @@ object Routes {
     const val VERIFY_TEACHER_ATTENDANCE = "verify_teacher_attendance"
     const val FEE_COLLECTION = "fee_collection"
     const val GLOBAL_HISTORY = "global_history"
+    const val FACULTY_ATTENDANCE_VIEWER = "faculty_attendance_viewer"
 
     fun studentViewer(studentId: String) = "student_viewer/$studentId"
     fun updateDeleteStudent(studentId: String) = "update_delete_student/$studentId"
