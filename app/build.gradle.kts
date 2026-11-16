@@ -1,3 +1,6 @@
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,6 +8,10 @@ plugins {
     // Add the Google Services plugin for Firebase
     id("com.google.gms.google-services")
 }
+
+val today: LocalDate = LocalDate.now()
+val autoVersionCode = today.format(DateTimeFormatter.ofPattern("yyyyMMdd")).toInt()
+val autoVersionName = today.format(DateTimeFormatter.ofPattern("yy.MM.dd"))
 
 android {
     namespace = "com.soumit.technovision"
@@ -16,8 +23,8 @@ android {
         applicationId = "com.soumit.technovision"
         minSdk = 29
         targetSdk = 37
-        versionCode = 3
-        versionName = "3"
+        versionCode = autoVersionCode
+        versionName = autoVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
