@@ -28,7 +28,7 @@ import com.soumit.technovision.ui.theme.TechnoVisionTheme
 @Composable
 fun PortalDashboardScreen(
     portalTitle: String,
-    roleSubtitle: String,
+    roleSubtitle: String = "Techno Vision Portal",
     sections: List<PortalSectionModel>,
     viewModel: PortalDashboardViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -45,7 +45,7 @@ fun PortalDashboardScreen(
 @Composable
 fun PortalDashboardContent(
     portalTitle: String,
-    roleSubtitle: String,
+    roleSubtitle: String = "Techno Vision Portal",
     sections: List<PortalSectionModel>,
     userName: String
 ) {
@@ -210,16 +210,11 @@ fun PortalDashboardInteractivePreview() {
             "Receptionist" -> "Receptionist Portal"
             else -> "Owner Portal"
         }
-        val roleSubtitle = when (selectedRole) {
-            "Faculty" -> "TechnoVision Teaching Staff"
-            "Receptionist" -> "TechnoVision Front Desk"
-            else -> "TechnoVision Administration"
-        }
 
         Box(modifier = Modifier.fillMaxSize()) {
             PortalDashboardContent(
                 portalTitle = portalTitle,
-                roleSubtitle = roleSubtitle,
+                roleSubtitle = "Techno Vision Portal",
                 sections = sections,
                 userName = "Soumit Das"
             )
@@ -257,7 +252,7 @@ fun PortalDashboardDarkPreview() {
     TechnoVisionTheme(darkTheme = true) {
         PortalDashboardContent(
             portalTitle = "Owner Portal",
-            roleSubtitle = "TechnoVision Administration",
+            roleSubtitle = "Techno Vision Portal",
             sections = emptyList(),
             userName = "Soumit Das"
         )

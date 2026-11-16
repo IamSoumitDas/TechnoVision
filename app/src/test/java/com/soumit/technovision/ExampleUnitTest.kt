@@ -143,4 +143,60 @@ class ExampleUnitTest {
         assertEquals(10, triple.second) // 0-based month for November
         assertEquals(15, triple.third)
     }
+
+    @Test
+    fun birthdayUtils_parseDob_handlesVariousFormats() {
+        val parsedSlash = com.soumit.technovision.ui.screens.students.BirthdayUtils.parseDob("15/05/2010")
+        assertNotNull(parsedSlash)
+        assertEquals(15, parsedSlash!!.day)
+        assertEquals(5, parsedSlash.month)
+        assertEquals(2010, parsedSlash.year)
+
+        val parsedHyphen = com.soumit.technovision.ui.screens.students.BirthdayUtils.parseDob("05-12-2008")
+        assertNotNull(parsedHyphen)
+        assertEquals(5, parsedHyphen!!.day)
+        assertEquals(12, parsedHyphen.month)
+        assertEquals(2008, parsedHyphen.year)
+
+        val parsedIso = com.soumit.technovision.ui.screens.students.BirthdayUtils.parseDob("2012-08-20")
+        assertNotNull(parsedIso)
+        assertEquals(20, parsedIso!!.day)
+        assertEquals(8, parsedIso.month)
+        assertEquals(2012, parsedIso.year)
+
+        val parsed2Digit = com.soumit.technovision.ui.screens.students.BirthdayUtils.parseDob("10/04/10")
+        assertNotNull(parsed2Digit)
+        assertEquals(10, parsed2Digit!!.day)
+        assertEquals(4, parsed2Digit.month)
+        assertEquals(2010, parsed2Digit.year)
+
+        val parsedInvalid = com.soumit.technovision.ui.screens.students.BirthdayUtils.parseDob("not-a-date")
+        assertNull(parsedInvalid)
+    }
+
+    @Test
+    fun birthdayUtils_calculateBirthdayItem_calculatesAgeAndUpcomingDays() {
+        val today = java.time.LocalDate.of(2026, 11, 16)
+        val studentToday = com.soumit.technovision.data.model.StudentModel(
+            id = "s1",
+            fullName = "Ananya Roy",
+            dob = "16/11/2010"
+        )
+        val itemToday = com.soumit.technovision.ui.screens.students.BirthdayUtils.calculateBirthdayItem(studentToday, today)
+        assertNotNull(itemToday)
+        assertTrue(itemToday!!.isToday)
+        assertEquals(0L, itemToday.daysUntilNextBirthday)
+        assertEquals(16, itemToday.turningAge)
+
+        val studentTomorrow = com.soumit.technovision.data.model.StudentModel(
+            id = "s2",
+            fullName = "Rohan Das",
+            dob = "17/11/2012"
+        )
+        val itemTomorrow = com.soumit.technovision.ui.screens.students.BirthdayUtils.calculateBirthdayItem(studentTomorrow, today)
+        assertNotNull(itemTomorrow)
+        assertFalse(itemTomorrow!!.isToday)
+        assertEquals(1L, itemTomorrow.daysUntilNextBirthday)
+        assertEquals(14, itemTomorrow.turningAge)
+    }
 }

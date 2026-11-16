@@ -123,6 +123,11 @@ object AppViewModelProvider {
                 authRepository = appContainer().authRepository
             )
         }
+        initializer {
+            com.soumit.technovision.ui.screens.students.BirthdayCalendarViewModel(
+                studentRepository = appContainer().studentRepository
+            )
+        }
     }
 
     fun studentViewerFactory(studentId: String): ViewModelProvider.Factory = viewModelFactory {

@@ -23,6 +23,7 @@ import com.soumit.technovision.ui.screens.fees.FeeCollectionScreen
 import com.soumit.technovision.ui.screens.fees.GlobalHistoryScreen
 import com.soumit.technovision.ui.screens.logs.SystemLogsScreen
 import com.soumit.technovision.ui.screens.staff.ManageStaffScreen
+import com.soumit.technovision.ui.screens.students.BirthdayCalendarScreen
 import com.soumit.technovision.ui.screens.students.EnrollStudentScreen
 import com.soumit.technovision.ui.screens.students.StudentDirectoryScreen
 import com.soumit.technovision.ui.screens.students.StudentViewerScreen
@@ -60,7 +61,7 @@ fun AppNavHost(
         composable(Routes.OWNER_HOME) {
             PortalDashboardScreen(
                 portalTitle = "Owner Portal",
-                roleSubtitle = "TechnoVision Administration",
+                roleSubtitle = "Techno Vision Portal",
                 sections = listOf(
                     PortalSectionModel(
                         title = "Student Management",
@@ -71,7 +72,8 @@ fun AppNavHost(
                             PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.ATTENDANCE_HISTORY) },
                             PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Routes.BATCHES) },
                             PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Routes.FEE_COLLECTION) },
-                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Routes.GLOBAL_HISTORY) }
+                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Routes.GLOBAL_HISTORY) },
+                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Routes.BIRTHDAY_CALENDAR) }
                         )
                     ),
                     PortalSectionModel(
@@ -96,7 +98,7 @@ fun AppNavHost(
         composable(Routes.FACULTY_HOME) {
             PortalDashboardScreen(
                 portalTitle = "Faculty Portal",
-                roleSubtitle = "TechnoVision Teaching Staff",
+                roleSubtitle = "Techno Vision Portal",
                 sections = listOf(
                     PortalSectionModel(
                         title = "Student Management",
@@ -104,7 +106,8 @@ fun AppNavHost(
                             PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate(Routes.ATTENDANCE) },
                             PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.ATTENDANCE_HISTORY) },
                             PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Routes.STUDENT_DIRECTORY) },
-                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Routes.BATCHES) }
+                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Routes.BATCHES) },
+                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Routes.BIRTHDAY_CALENDAR) }
                         )
                     ),
                     PortalSectionModel(
@@ -128,7 +131,7 @@ fun AppNavHost(
         composable(Routes.RECEPTIONIST_HOME) {
             PortalDashboardScreen(
                 portalTitle = "Receptionist Portal",
-                roleSubtitle = "TechnoVision Front Desk",
+                roleSubtitle = "Techno Vision Portal",
                 sections = listOf(
                     PortalSectionModel(
                         title = "Student Management",
@@ -138,7 +141,8 @@ fun AppNavHost(
                             PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.ATTENDANCE_HISTORY) },
                             PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Routes.BATCHES) },
                             PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Routes.FEE_COLLECTION) },
-                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Routes.GLOBAL_HISTORY) }
+                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Routes.GLOBAL_HISTORY) },
+                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Routes.BIRTHDAY_CALENDAR) }
                         )
                     ),
                     PortalSectionModel(
@@ -251,6 +255,15 @@ fun AppNavHost(
 
         composable(Routes.GLOBAL_HISTORY) {
             GlobalHistoryScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.BIRTHDAY_CALENDAR) {
+            BirthdayCalendarScreen(
+                onBack = { navController.popBackStack() },
+                onStudentClick = { studentId ->
+                    navController.navigate(Routes.studentViewer(studentId))
+                }
+            )
         }
     }
 }

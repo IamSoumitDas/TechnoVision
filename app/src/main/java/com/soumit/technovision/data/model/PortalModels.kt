@@ -28,7 +28,8 @@ object PortalRoleSections {
                         PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { onActionClick("Take Attendance") },
                         PortalAction("Attendance History", "Students attendance history", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
                         PortalAction("All Students", "List of all the students", Icons.Default.People) { onActionClick("All Students") },
-                        PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") }
+                        PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") },
+                        PortalAction("Birthday Calendar", "View birthdays & wishes", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
                     )
                 ),
                 PortalSectionModel(
@@ -54,6 +55,7 @@ object PortalRoleSections {
                         PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") },
                         PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") },
                         PortalAction("Payment History", "View all payment records", Icons.Default.History) { onActionClick("Global History") },
+                        PortalAction("Birthday Calendar", "View birthdays & wishes", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
                     )
                 ),
                 PortalSectionModel(
@@ -80,6 +82,7 @@ object PortalRoleSections {
                         PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") },
                         PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") },
                         PortalAction("Payment History", "View all payment records", Icons.Default.History) { onActionClick("Global History") },
+                        PortalAction("Birthday Calendar", "View birthdays & wishes", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
                     )
                 ),
                 PortalSectionModel(
