@@ -88,13 +88,7 @@ fun AppNavHost(
                             PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Routes.SYSTEM_LOGS) }
                         )
                     )
-                ),
-                onLogout = {
-                    navController.navigate(Routes.AUTH) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
+                )
             )
         }
 
@@ -126,13 +120,7 @@ fun AppNavHost(
                             PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Routes.SYSTEM_LOGS) }
                         )
                     )
-                ),
-                onLogout = {
-                    navController.navigate(Routes.AUTH) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
+                )
             )
         }
 
@@ -166,13 +154,7 @@ fun AppNavHost(
                             PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Routes.SYSTEM_LOGS) }
                         )
                     )
-                ),
-                onLogout = {
-                    navController.navigate(Routes.AUTH) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
+                )
             )
         }
 

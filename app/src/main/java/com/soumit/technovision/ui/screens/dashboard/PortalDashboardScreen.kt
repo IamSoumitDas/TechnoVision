@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,7 +30,6 @@ fun PortalDashboardScreen(
     portalTitle: String,
     roleSubtitle: String,
     sections: List<PortalSectionModel>,
-    onLogout: () -> Unit,
     viewModel: PortalDashboardViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -41,29 +38,21 @@ fun PortalDashboardScreen(
         portalTitle = portalTitle,
         roleSubtitle = roleSubtitle,
         sections = sections,
-        userName = uiState.userName,
-        onLogout = {
-            viewModel.signOut()
-            onLogout()
-        }
+        userName = uiState.userName
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PortalDashboardContent(
     portalTitle: String,
     roleSubtitle: String,
     sections: List<PortalSectionModel>,
-    userName: String,
-    onLogout: () -> Unit
+    userName: String
 ) {
     val context = LocalContext.current
     BackHandler {
         (context as? android.app.Activity)?.finish()
     }
-
-    var showLogoutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -108,15 +97,6 @@ fun PortalDashboardContent(
                         }
                     }
                 },
-                actions = {
-                    IconButton(onClick = { showLogoutDialog = true }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Log Out",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -136,29 +116,6 @@ fun PortalDashboardContent(
                 PortalDashboardSection(section = section)
             }
         }
-    }
-
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Log Out") },
-            text = { Text("Are you sure you want to sign out?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        onLogout()
-                    }
-                ) {
-                    Text("Log Out", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
@@ -264,8 +221,7 @@ fun PortalDashboardInteractivePreview() {
                 portalTitle = portalTitle,
                 roleSubtitle = roleSubtitle,
                 sections = sections,
-                userName = "Soumit Das",
-                onLogout = {}
+                userName = "Soumit Das"
             )
 
             Surface(
@@ -303,8 +259,7 @@ fun PortalDashboardDarkPreview() {
             portalTitle = "Owner Portal",
             roleSubtitle = "TechnoVision Administration",
             sections = emptyList(),
-            userName = "Soumit Das",
-            onLogout = {}
+            userName = "Soumit Das"
         )
     }
 }
