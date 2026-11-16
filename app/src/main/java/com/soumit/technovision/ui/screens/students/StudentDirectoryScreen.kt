@@ -1,9 +1,6 @@
-@file:Suppress("UNCHECKED_CAST")
-
 package com.soumit.technovision.ui.screens.students
 
 import android.content.res.Configuration
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,167 +10,46 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.StudentModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import com.soumit.technovision.util.BillingUtils
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun StudentDirectoryScreen(
     onBack: () -> Unit,
     onNavigateToUpdateDelete: (String) -> Unit,
+    onNavigateToViewer: (String) -> Unit,
+    viewModel: StudentDirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    StudentDirectoryContent(
+        uiState = uiState,
+        onSearchQueryChange = viewModel::onSearchQueryChanged,
+        onBack = onBack,
+        onNavigateToUpdateDelete = onNavigateToUpdateDelete,
+        onNavigateToViewer = onNavigateToViewer
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun StudentDirectoryContent(
+    uiState: StudentDirectoryUiState,
+    onSearchQueryChange: (String) -> Unit,
+    onBack: () -> Unit,
+    onNavigateToUpdateDelete: (String) -> Unit,
     onNavigateToViewer: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
-
-    var studentList by remember { mutableStateOf<List<StudentModel>>(emptyList()) }
-    var searchQuery by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
-    var userRole by remember { mutableStateOf("owner") }
-    val outstandingBalances = remember { mutableStateMapOf<String, Long>() }
-
-    DisposableEffect(Unit) {
-        if (isInPreview) {
-            userRole = "owner"
-            val mockStudents = listOf(
-                StudentModel(
-                    id = "1",
-                    fullName = "Aarav Sharma",
-                    studentClass = "X",
-                    school = "St. Xavier's School",
-                    fatherName = "Rajesh Sharma",
-                    motherName = "Sunita Sharma",
-                    admissionDate = "15/06/2026",
-                    monthlyInstallment = 500L,
-                    phone = "9876543210",
-                    email = "aarav@example.com",
-                    batchTimeSlot = "9:00 AM - 11:00 AM"
-                ),
-                StudentModel(
-                    id = "2",
-                    fullName = "Priya Das",
-                    studentClass = "XII",
-                    school = "Alipurduar Girls High School",
-                    fatherName = "Anil Das",
-                    motherName = "Mita Das",
-                    admissionDate = "10/01/2026",
-                    monthlyInstallment = 600L,
-                    phone = "9123456789",
-                    email = "priya@example.com",
-                    batchTimeSlot = "5:00 PM - 7:00 PM"
-                )
-            )
-            studentList = mockStudents
-            outstandingBalances["1"] = 500L
-            outstandingBalances["2"] = 0L
-            isLoading = false
-            onDispose { }
-        } else {
-            val authUser = FirebaseAuth.getInstance().currentUser
-            val userId = authUser?.uid
-            val db = FirebaseFirestore.getInstance()
-
-            if (userId != null) {
-                db.collection("users").document(userId).get()
-                    .addOnSuccessListener { doc ->
-                        if (doc.exists()) {
-                            userRole = doc.getString("role") ?: "owner"
-                        }
-                    }
-            }
-
-            var currentStudents: List<StudentModel> = emptyList()
-            var paymentsMap: Map<String, Long> = emptyMap()
-
-            fun recalculateBalances() {
-                currentStudents.forEach { student ->
-                    val expected = BillingUtils.calculateBillingMonths(
-                        student.admissionDate,
-                        student.monthlyInstallment
-                    ).second
-                    val paid = paymentsMap[student.id] ?: 0L
-                    val due = expected - paid
-                    outstandingBalances[student.id] = if (due > 0) due else 0L
-                }
-            }
-
-            // Single listener for payments to aggregate dues in O(N) without N+1 query storms
-            val paymentsRegistration = db.collection("fee_payments")
-                .addSnapshotListener { paymentSnap, _ ->
-                    if (paymentSnap != null) {
-                        val agg = mutableMapOf<String, Long>()
-                        for (doc in paymentSnap.documents) {
-                            val sid = doc.getString("studentId") ?: continue
-                            val amt = doc.getLong("amountPaid") ?: 0L
-                            agg[sid] = (agg[sid] ?: 0L) + amt
-                        }
-                        paymentsMap = agg
-                        recalculateBalances()
-                    }
-                }
-
-            val studentsRegistration = db.collection("students")
-                .orderBy("fullName", Query.Direction.ASCENDING)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        Toast.makeText(context, "Error loading students: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null) {
-                        val list = snapshot.documents.map { doc ->
-                            StudentModel(
-                                id = doc.id,
-                                fullName = doc.getString("fullName") ?: "",
-                                studentClass = doc.getString("studentClass") ?: "",
-                                school = doc.getString("school") ?: "",
-                                dob = doc.getString("dob") ?: "",
-                                gender = doc.getString("gender") ?: "",
-                                admissionDate = doc.getString("admissionDate") ?: "",
-                                fatherName = doc.getString("fatherName") ?: "",
-                                motherName = doc.getString("motherName") ?: "",
-                                monthlyInstallment = doc.getLong("monthlyInstallment") ?: 500L,
-                                phone = doc.getString("phone") ?: "",
-                                altPhone = doc.getString("altPhone") ?: "",
-                                email = doc.getString("email") ?: "",
-                                batchTimeSlot = doc.getString("batchTimeSlot") ?: "",
-                                weeklySchedule = doc.get("weeklySchedule") as? Map<String, String> ?: emptyMap()
-                            )
-                        }
-                        currentStudents = list
-                        studentList = list
-                        recalculateBalances()
-                        isLoading = false
-                    }
-                }
-
-            onDispose {
-                studentsRegistration.remove()
-                paymentsRegistration.remove()
-            }
-        }
-    }
-
-    val filteredStudents = studentList.filter {
-        it.fullName.contains(searchQuery, ignoreCase = true) ||
-                it.school.contains(searchQuery, ignoreCase = true) ||
-                it.studentClass.contains(searchQuery, ignoreCase = true) ||
-                it.phone.contains(searchQuery, ignoreCase = true)
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -198,22 +74,22 @@ fun StudentDirectoryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+                value = uiState.searchQuery,
+                onValueChange = onSearchQueryChange,
                 label = { Text("Search by name, school, class, phone...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            if (isLoading) {
+            if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
-            } else if (filteredStudents.isEmpty()) {
+            } else if (uiState.filteredStudents.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "No students found.",
+                        text = if (uiState.errorMessage != null) "Error: ${uiState.errorMessage}" else "No students found.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -223,12 +99,12 @@ fun StudentDirectoryScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(filteredStudents) { student ->
-                        val outstandingDue = outstandingBalances[student.id] ?: 0L
+                    items(uiState.filteredStudents, key = { it.id }) { student ->
+                        val outstandingDue = uiState.outstandingBalances[student.id] ?: 0L
                         StudentCard(
                             student = student,
                             outstandingDue = outstandingDue,
-                            userRole = userRole,
+                            userRole = uiState.userRole,
                             onCardClicked = { onNavigateToViewer(student.id) },
                             onEditSelected = { onNavigateToUpdateDelete(student.id) }
                         )
@@ -247,7 +123,11 @@ fun StudentCard(
     onCardClicked: () -> Unit,
     onEditSelected: () -> Unit
 ) {
-    val initials = student.fullName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase()
+    val initials = student.fullName.split(" ")
+        .mapNotNull { it.firstOrNull()?.toString() }
+        .take(2)
+        .joinToString("")
+        .uppercase()
 
     Card(
         modifier = Modifier
@@ -319,7 +199,7 @@ fun StudentCard(
                     }
                 }
 
-                if (userRole == "owner" || userRole == "receptionist") {
+                if (userRole.equals("owner", ignoreCase = true) || userRole.equals("receptionist", ignoreCase = true)) {
                     IconButton(onClick = onEditSelected, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Edit,
@@ -337,15 +217,62 @@ fun StudentCard(
 @Preview(name = "Light Mode", showBackground = true)
 @Composable
 fun StudentDirectoryScreenPreviewLight() {
+    val previewState = StudentDirectoryUiState(
+        students = listOf(
+            StudentModel(
+                id = "1",
+                fullName = "Aarav Sharma",
+                studentClass = "X",
+                school = "St. Xavier's School",
+                phone = "9876543210"
+            ),
+            StudentModel(
+                id = "2",
+                fullName = "Priya Das",
+                studentClass = "XII",
+                school = "Alipurduar Girls High School",
+                phone = "9123456789"
+            )
+        ),
+        outstandingBalances = mapOf("1" to 500L, "2" to 0L),
+        isLoading = false,
+        userRole = "owner"
+    )
     TechnoVisionTheme(darkTheme = false) {
-        StudentDirectoryScreen(onBack = {}, onNavigateToUpdateDelete = {}, onNavigateToViewer = {})
+        StudentDirectoryContent(
+            uiState = previewState,
+            onSearchQueryChange = {},
+            onBack = {},
+            onNavigateToUpdateDelete = {},
+            onNavigateToViewer = {}
+        )
     }
 }
 
 @Preview(name = "Dark Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun StudentDirectoryScreenPreviewDark() {
+    val previewState = StudentDirectoryUiState(
+        students = listOf(
+            StudentModel(
+                id = "1",
+                fullName = "Aarav Sharma",
+                studentClass = "X",
+                school = "St. Xavier's School",
+                phone = "9876543210"
+            )
+        ),
+        outstandingBalances = mapOf("1" to 500L),
+        isLoading = false,
+        userRole = "owner"
+    )
     TechnoVisionTheme(darkTheme = true) {
-        StudentDirectoryScreen(onBack = {}, onNavigateToViewer = {}, onNavigateToUpdateDelete = {})
+        StudentDirectoryContent(
+            uiState = previewState,
+            onSearchQueryChange = {},
+            onBack = {},
+            onNavigateToViewer = {},
+            onNavigateToUpdateDelete = {}
+        )
     }
 }

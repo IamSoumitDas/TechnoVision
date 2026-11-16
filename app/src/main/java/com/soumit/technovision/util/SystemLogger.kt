@@ -5,8 +5,18 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
+import com.soumit.technovision.TechnoVisionApplication
+
 object SystemLogger {
     fun log(action: String, details: String) {
+        try {
+            TechnoVisionApplication.instance?.container?.auditLogRepository?.log(action, details)
+            if (TechnoVisionApplication.instance != null) {
+                return
+            }
+        } catch (_: Exception) {
+            // Fallback to direct Firestore below
+        }
         try {
             val db = FirebaseFirestore.getInstance()
             val currentUser = FirebaseAuth.getInstance().currentUser

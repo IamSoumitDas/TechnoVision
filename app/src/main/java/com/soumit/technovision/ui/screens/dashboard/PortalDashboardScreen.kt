@@ -1,6 +1,7 @@
 package com.soumit.technovision.ui.screens.dashboard
 
 import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,46 +14,56 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.PortalAction
 import com.soumit.technovision.data.model.PortalRoleSections
 import com.soumit.technovision.data.model.PortalSectionModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PortalDashboardScreen(
     portalTitle: String,
     roleSubtitle: String,
     sections: List<PortalSectionModel>,
+    onLogout: () -> Unit,
+    viewModel: PortalDashboardViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    PortalDashboardContent(
+        portalTitle = portalTitle,
+        roleSubtitle = roleSubtitle,
+        sections = sections,
+        userName = uiState.userName,
+        onLogout = {
+            viewModel.signOut()
+            onLogout()
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PortalDashboardContent(
+    portalTitle: String,
+    roleSubtitle: String,
+    sections: List<PortalSectionModel>,
+    userName: String,
     onLogout: () -> Unit
 ) {
-    val isInPreview = LocalInspectionMode.current
-    var userName by remember { mutableStateOf("User") }
-    var showLogoutDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        if (isInPreview) {
-            userName = "Soumit Das"
-        } else {
-            val currentUser = FirebaseAuth.getInstance().currentUser
-            val userId = currentUser?.uid
-            if (userId != null) {
-                FirebaseFirestore.getInstance().collection("users").document(userId).get()
-                    .addOnSuccessListener { document ->
-                        if (document.exists()) {
-                            userName = document.getString("fullName") ?: "User"
-                        }
-                    }
-            }
-        }
+    val context = LocalContext.current
+    BackHandler {
+        (context as? android.app.Activity)?.finish()
     }
+
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -90,7 +101,7 @@ fun PortalDashboardScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Techno Vision Portal",
+                                text = roleSubtitle.ifBlank { "Techno Vision Portal" },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
@@ -136,9 +147,6 @@ fun PortalDashboardScreen(
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
-                        if (!isInPreview) {
-                            FirebaseAuth.getInstance().signOut()
-                        }
                         onLogout()
                     }
                 ) {
@@ -252,10 +260,11 @@ fun PortalDashboardInteractivePreview() {
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            PortalDashboardScreen(
+            PortalDashboardContent(
                 portalTitle = portalTitle,
                 roleSubtitle = roleSubtitle,
                 sections = sections,
+                userName = "Soumit Das",
                 onLogout = {}
             )
 
@@ -290,10 +299,11 @@ fun PortalDashboardInteractivePreview() {
 @Composable
 fun PortalDashboardDarkPreview() {
     TechnoVisionTheme(darkTheme = true) {
-        PortalDashboardScreen(
+        PortalDashboardContent(
             portalTitle = "Owner Portal",
             roleSubtitle = "TechnoVision Administration",
             sections = emptyList(),
+            userName = "Soumit Das",
             onLogout = {}
         )
     }

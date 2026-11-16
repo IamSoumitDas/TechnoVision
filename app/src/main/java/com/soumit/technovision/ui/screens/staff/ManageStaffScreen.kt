@@ -1,7 +1,6 @@
 package com.soumit.technovision.ui.screens.staff
 
 import android.content.res.Configuration
-import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,94 +18,77 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
-import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.StaffModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import com.soumit.technovision.util.SystemLogger
+
+@Composable
+fun ManageStaffScreen(
+    onBack: () -> Unit,
+    viewModel: ManageStaffViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    LaunchedEffect(uiState.userMessage) {
+        uiState.userMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearMessages()
+        }
+    }
+
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearMessages()
+        }
+    }
+
+    ManageStaffContent(
+        uiState = uiState,
+        onBack = onBack,
+        onCreateStaff = viewModel::createStaff,
+        onUpdateStaff = viewModel::updateStaff,
+        onDeleteStaff = viewModel::deleteStaff
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ManageStaffScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
-
-    var staffList by remember { mutableStateOf<List<StaffModel>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+fun ManageStaffContent(
+    uiState: ManageStaffUiState,
+    onBack: () -> Unit,
+    onCreateStaff: (fullName: String, email: String, password: String, phone: String, role: String, onSuccess: () -> Unit) -> Unit,
+    onUpdateStaff: (id: String, fullName: String, phone: String, role: String, onSuccess: () -> Unit) -> Unit,
+    onDeleteStaff: (staff: StaffModel, onSuccess: () -> Unit) -> Unit
+) {
     var showAddDialog by remember { mutableStateOf(false) }
     var staffToDelete by remember { mutableStateOf<StaffModel?>(null) }
 
-    // Edit Staff Dialog States
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedStaffForEdit by remember { mutableStateOf<StaffModel?>(null) }
     var editFullName by remember { mutableStateOf("") }
     var editPhone by remember { mutableStateOf("") }
     var editRole by remember { mutableStateOf("faculty") }
     var editRoleExpanded by remember { mutableStateOf(false) }
-    var isUpdating by remember { mutableStateOf(false) }
 
-    // Add Staff Form States
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf("faculty") } // "faculty" or "receptionist"
+    var selectedRole by remember { mutableStateOf("faculty") }
     var roleExpanded by remember { mutableStateOf(false) }
     val roleOptions = listOf("faculty", "receptionist")
 
     var passwordVisible by remember { mutableStateOf(false) }
-    var isSaving by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var isError by remember { mutableStateOf(false) }
-
-    // Fetch staff list from Firestore with proper lifecycle listener disposal
-    DisposableEffect(Unit) {
-        if (isInPreview) {
-            staffList = listOf(
-                StaffModel(id = "1", fullName = "Amitabha Teacher", email = "faculty1@technovision.com", role = "faculty", phone = "9876543210"),
-                StaffModel(id = "2", fullName = "Rina Receptionist", email = "reception1@technovision.com", role = "receptionist", phone = "9123456789")
-            )
-            isLoading = false
-            onDispose { }
-        } else {
-            val registration = FirebaseFirestore.getInstance().collection("users")
-                .whereIn("role", listOf("faculty", "receptionist"))
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        Toast.makeText(context, "Error loading staff: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null) {
-                        val list = snapshot.documents.map { doc ->
-                            StaffModel(
-                                id = doc.id,
-                                fullName = doc.getString("fullName") ?: "",
-                                email = doc.getString("email") ?: "",
-                                role = doc.getString("role") ?: "",
-                                phone = doc.getString("phone") ?: ""
-                            )
-                        }
-                        staffList = list
-                        isLoading = false
-                    }
-                }
-            onDispose {
-                registration.remove()
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -145,11 +127,11 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            if (isLoading) {
+            if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
-            } else if (staffList.isEmpty()) {
+            } else if (uiState.staffList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "No staff accounts created yet. Tap '+' to add staff.",
@@ -162,7 +144,7 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(staffList) { staff ->
+                    items(uiState.staffList, key = { it.id }) { staff ->
                         StaffCard(
                             staff = staff,
                             onEditClick = {
@@ -192,23 +174,9 @@ fun ManageStaffScreen(onBack: () -> Unit) {
             confirmButton = {
                 Button(
                     onClick = {
+                        val currentStaff = target
                         staffToDelete = null
-                        if (isInPreview) {
-                            Toast.makeText(context, "Preview: Staff deleted!", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-                        FirebaseFirestore.getInstance().collection("users").document(target.id).delete()
-                            .addOnSuccessListener {
-                                Toast.makeText(context, "Staff record deleted.", Toast.LENGTH_SHORT).show()
-
-                                SystemLogger.log(
-                                    action = "Staff Deleted",
-                                    details = "Deleted staff record: ${target.fullName} (${target.email})"
-                                )
-                            }
-                            .addOnFailureListener { e ->
-                                Toast.makeText(context, "Delete failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                            }
+                        onDeleteStaff(currentStaff) {}
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -223,7 +191,6 @@ fun ManageStaffScreen(onBack: () -> Unit) {
         )
     }
 
-    // Add Staff Dialog Form
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
@@ -303,113 +270,21 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                             }
                         }
                     }
-
-                    if (statusMessage != null) {
-                        Text(
-                            text = statusMessage!!,
-                            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
                 }
             },
             confirmButton = {
-                if (isSaving) {
+                if (uiState.isSaving) {
                     CircularWavyProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
                     TextButton(
                         onClick = {
-                            if (fullName.isBlank() || email.isBlank() || password.isBlank()) {
-                                statusMessage = "Please fill in all required fields."
-                                isError = true
-                                return@TextButton
-                            }
-
-                            if (!Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
-                                statusMessage = "Invalid email format."
-                                isError = true
-                                return@TextButton
-                            }
-
-                            if (password.length < 6) {
-                                statusMessage = "Password must be at least 6 characters."
-                                isError = true
-                                return@TextButton
-                            }
-
-                            if (isInPreview) {
-                                Toast.makeText(context, "Preview: Staff created successfully!", Toast.LENGTH_SHORT).show()
+                            onCreateStaff(fullName, email, password, phone, selectedRole) {
                                 showAddDialog = false
-                                return@TextButton
+                                fullName = ""
+                                email = ""
+                                password = ""
+                                phone = ""
                             }
-
-                            isSaving = true
-                            statusMessage = null
-
-                            val db = FirebaseFirestore.getInstance()
-                            val secondaryApp = try {
-                                FirebaseApp.getInstance("SecondaryStaffApp")
-                            } catch (_: Exception) {
-                                FirebaseApp.initializeApp(
-                                    context,
-                                    FirebaseOptions.Builder()
-                                        .setApiKey(FirebaseApp.getInstance().options.apiKey)
-                                        .setApplicationId(FirebaseApp.getInstance().options.applicationId)
-                                        .setProjectId(FirebaseApp.getInstance().options.projectId)
-                                        .build(),
-                                    "SecondaryStaffApp"
-                                )
-                            }
-
-                            val secondaryAuth = FirebaseAuth.getInstance(secondaryApp)
-
-                            secondaryAuth.createUserWithEmailAndPassword(email.trim(), password)
-                                .addOnCompleteListener { task ->
-                                    if (task.isSuccessful) {
-                                        val userId = secondaryAuth.currentUser?.uid
-                                        if (userId.isNullOrBlank()) {
-                                            secondaryAuth.signOut()
-                                            isSaving = false
-                                            statusMessage = "Auth error: User ID could not be retrieved."
-                                            isError = true
-                                            return@addOnCompleteListener
-                                        }
-                                        val staffData = hashMapOf(
-                                            "fullName" to fullName.trim(),
-                                            "email" to email.trim(),
-                                            "role" to selectedRole,
-                                            "phone" to phone.trim(),
-                                            "createdAt" to Timestamp.now()
-                                        )
-
-                                        db.collection("users").document(userId).set(staffData)
-                                            .addOnSuccessListener {
-                                                secondaryAuth.signOut()
-                                                isSaving = false
-                                                Toast.makeText(context, "Staff account created successfully!", Toast.LENGTH_SHORT).show()
-
-                                                SystemLogger.log(
-                                                    action = "Staff Added",
-                                                    details = "Registered new $selectedRole: ${fullName.trim()} (${email.trim()})"
-                                                )
-
-                                                showAddDialog = false
-                                                fullName = ""
-                                                email = ""
-                                                password = ""
-                                                phone = ""
-                                            }
-                                            .addOnFailureListener { e ->
-                                                isSaving = false
-                                                statusMessage = "Firestore error: ${e.localizedMessage}"
-                                                isError = true
-                                            }
-                                    } else {
-                                        isSaving = false
-                                        statusMessage = "Auth error: ${task.exception?.localizedMessage}"
-                                        isError = true
-                                    }
-                                }
                         }
                     ) {
                         Text("Create Account")
@@ -424,8 +299,8 @@ fun ManageStaffScreen(onBack: () -> Unit) {
         )
     }
 
-    // Edit Staff Dialog Form
     if (showEditDialog && selectedStaffForEdit != null) {
+        val staffEditTarget = selectedStaffForEdit!!
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
             title = { Text("Edit Staff Member") },
@@ -443,7 +318,7 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                     )
 
                     OutlinedTextField(
-                        value = selectedStaffForEdit!!.email,
+                        value = staffEditTarget.email,
                         onValueChange = {},
                         enabled = false,
                         label = { Text("Email (Unmodifiable)") },
@@ -491,46 +366,14 @@ fun ManageStaffScreen(onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                if (isUpdating) {
+                if (uiState.isUpdating) {
                     CircularWavyProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
                     TextButton(
                         onClick = {
-                            if (editFullName.isBlank()) {
-                                Toast.makeText(context, "Name cannot be blank.", Toast.LENGTH_SHORT).show()
-                                return@TextButton
-                            }
-
-                            if (isInPreview) {
-                                Toast.makeText(context, "Preview: Staff updated!", Toast.LENGTH_SHORT).show()
+                            onUpdateStaff(staffEditTarget.id, editFullName, editPhone, editRole) {
                                 showEditDialog = false
-                                return@TextButton
                             }
-
-                            isUpdating = true
-                            val db = FirebaseFirestore.getInstance()
-                            val updates = mapOf(
-                                "fullName" to editFullName.trim(),
-                                "phone" to editPhone.trim(),
-                                "role" to editRole
-                            )
-
-                            db.collection("users").document(selectedStaffForEdit!!.id).update(updates)
-                                .addOnSuccessListener {
-                                    isUpdating = false
-                                    Toast.makeText(context, "Staff updated successfully!", Toast.LENGTH_SHORT).show()
-
-                                    SystemLogger.log(
-                                        action = "Staff Updated",
-                                        details = "Updated staff record for ${selectedStaffForEdit!!.email} (Name: ${editFullName.trim()}, Role: $editRole)"
-                                    )
-
-                                    showEditDialog = false
-                                }
-                                .addOnFailureListener { e ->
-                                    isUpdating = false
-                                    Toast.makeText(context, "Update failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                }
                         }
                     ) {
                         Text("Save Changes")
@@ -619,7 +462,19 @@ fun StaffCard(
 @Composable
 fun ManageStaffScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
-        ManageStaffScreen(onBack = {})
+        ManageStaffContent(
+            uiState = ManageStaffUiState(
+                staffList = listOf(
+                    StaffModel(id = "1", fullName = "Amitabha Teacher", email = "faculty1@technovision.com", role = "faculty", phone = "9876543210"),
+                    StaffModel(id = "2", fullName = "Rina Receptionist", email = "reception1@technovision.com", role = "receptionist", phone = "9123456789")
+                ),
+                isLoading = false
+            ),
+            onBack = {},
+            onCreateStaff = { _, _, _, _, _, _ -> },
+            onUpdateStaff = { _, _, _, _, _ -> },
+            onDeleteStaff = { _, _ -> }
+        )
     }
 }
 
@@ -627,6 +482,18 @@ fun ManageStaffScreenPreviewLight() {
 @Composable
 fun ManageStaffScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
-        ManageStaffScreen(onBack = {})
+        ManageStaffContent(
+            uiState = ManageStaffUiState(
+                staffList = listOf(
+                    StaffModel(id = "1", fullName = "Amitabha Teacher", email = "faculty1@technovision.com", role = "faculty", phone = "9876543210"),
+                    StaffModel(id = "2", fullName = "Rina Receptionist", email = "reception1@technovision.com", role = "receptionist", phone = "9123456789")
+                ),
+                isLoading = false
+            ),
+            onBack = {},
+            onCreateStaff = { _, _, _, _, _, _ -> },
+            onUpdateStaff = { _, _, _, _, _ -> },
+            onDeleteStaff = { _, _ -> }
+        )
     }
 }

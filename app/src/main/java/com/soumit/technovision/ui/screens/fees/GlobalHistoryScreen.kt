@@ -6,89 +6,60 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.FeePaymentModel
-import com.soumit.technovision.data.model.StudentModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import com.soumit.technovision.util.SystemLogger
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Composable
+fun GlobalHistoryScreen(
+    onBack: () -> Unit,
+    viewModel: GlobalHistoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(uiState.userMessage) {
+        uiState.userMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearUserMessage()
+        }
+    }
+
+    GlobalHistoryContent(
+        uiState = uiState,
+        onBack = onBack,
+        onSearchQueryChange = viewModel::onSearchQueryChanged,
+        onMethodFilterChange = viewModel::onMethodFilterChanged,
+        onSetPaymentToDelete = viewModel::setPaymentToDelete,
+        onConfirmDeletePayment = { viewModel.deletePayment {} }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GlobalHistoryScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
-
-    val mockStudents = remember {
-        mapOf(
-            "s1" to StudentModel(id = "s1", fullName = "Aarav Sharma", studentClass = "X", school = "Delhi Public School"),
-            "s2" to StudentModel(id = "s2", fullName = "Priya Das", studentClass = "IX", school = "St. Xavier's High School"),
-            "s3" to StudentModel(id = "s3", fullName = "Rohan Gupta", studentClass = "XII", school = "Kendriya Vidyalaya")
-        )
-    }
-
-    val mockPayments = remember {
-        val now = Timestamp.now()
-        listOf(
-            FeePaymentModel(
-                id = "1",
-                studentId = "s1",
-                studentName = "Aarav Sharma",
-                amountPaid = 1200L,
-                paymentMethod = "UPI",
-                remarks = "April Tuition Fee",
-                receivedBy = "Soumit (Owner)",
-                timestamp = now
-            ),
-            FeePaymentModel(
-                id = "2",
-                studentId = "s2",
-                studentName = "Priya Das",
-                amountPaid = 800L,
-                paymentMethod = "Cash",
-                remarks = "Late fee included",
-                receivedBy = "Amitabha Teacher",
-                timestamp = now
-            ),
-            FeePaymentModel(
-                id = "3",
-                studentId = "s3",
-                studentName = "Rohan Gupta",
-                amountPaid = 1500L,
-                paymentMethod = "UPI",
-                remarks = "Quarterly Payment",
-                receivedBy = "Soumit (Owner)",
-                timestamp = Timestamp(Date(System.currentTimeMillis() - 86400000L * 2))
-            )
-        )
-    }
-
-    var paymentHistory by remember { mutableStateOf<List<FeePaymentModel>>(if (isInPreview) mockPayments else emptyList()) }
-    var studentsMap by remember { mutableStateOf<Map<String, StudentModel>>(if (isInPreview) mockStudents else emptyMap()) }
-    var isLoading by remember { mutableStateOf(!isInPreview) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedMethodFilter by remember { mutableStateOf("All") }
-    val paymentMethods = listOf("All", "UPI", "Cash", "Bank Transfer", "Cheque")
-
-    // Role check for payment deletion (owner only)
-    var currentUserRole by remember { mutableStateOf(if (isInPreview) "owner" else "") }
-    var paymentToDelete by remember { mutableStateOf<FeePaymentModel?>(null) }
-    var isDeletingPayment by remember { mutableStateOf(false) }
+fun GlobalHistoryContent(
+    uiState: GlobalHistoryUiState,
+    onBack: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onMethodFilterChange: (String) -> Unit,
+    onSetPaymentToDelete: (FeePaymentModel?) -> Unit,
+    onConfirmDeletePayment: () -> Unit
+) {
+    val paymentMethods = listOf("All", "UPI", "Cash", "Bank Transfer", "Other")
 
     val todayDateStr = remember {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
@@ -98,99 +69,12 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
         SimpleDateFormat("MMMM", Locale.getDefault()).format(Date())
     }
 
-    DisposableEffect(Unit) {
-        if (isInPreview) {
-            onDispose { }
-        } else {
-            val db = FirebaseFirestore.getInstance()
-            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-
-            // Fetch current user role to verify owner permissions
-            if (currentUserId != null) {
-                db.collection("users").document(currentUserId).get()
-                    .addOnSuccessListener { doc ->
-                        currentUserRole = doc.getString("role")?.lowercase(Locale.ROOT) ?: ""
-                    }
-            }
-
-            // Load all students for fallback student names and class subtitles
-            db.collection("students").get()
-                .addOnSuccessListener { snapshot ->
-                    val map = snapshot.documents.associate { doc ->
-                        doc.id to StudentModel(
-                            id = doc.id,
-                            fullName = doc.getString("fullName") ?: "",
-                            studentClass = doc.getString("studentClass") ?: "",
-                            school = doc.getString("school") ?: "",
-                            monthlyInstallment = doc.getLong("monthlyInstallment") ?: 500L,
-                            phone = doc.getString("phone") ?: ""
-                        )
-                    }
-                    studentsMap = map
-                }
-
-            // Real-time listener for all fee payments with cleanup on dispose
-            val registration = db.collection("fee_payments")
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        Toast.makeText(context, "Error loading history: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null) {
-                        val history = snapshot.documents.map { doc ->
-                            FeePaymentModel(
-                                id = doc.id,
-                                studentId = doc.getString("studentId") ?: "",
-                                studentName = doc.getString("studentName") ?: "",
-                                amountPaid = doc.getLong("amountPaid") ?: 0L,
-                                paymentMethod = doc.getString("paymentMethod") ?: "",
-                                remarks = doc.getString("remarks") ?: "",
-                                receivedBy = doc.getString("receivedBy") ?: "",
-                                timestamp = doc.getTimestamp("timestamp")
-                            )
-                        }
-                        paymentHistory = history
-                        isLoading = false
-                    }
-                }
-
-            onDispose {
-                registration.remove()
-            }
-        }
-    }
-
-    // Filter payments based on search text and payment method chip
-    val filteredPayments = remember(paymentHistory, searchQuery, selectedMethodFilter, studentsMap) {
-        val query = searchQuery.trim().lowercase(Locale.ROOT)
-        paymentHistory.filter { payment ->
-            val resolvedStudentName = payment.studentName.ifBlank {
-                studentsMap[payment.studentId]?.fullName ?: ""
-            }.lowercase(Locale.ROOT)
-
-            val matchesQuery = query.isEmpty() ||
-                    resolvedStudentName.contains(query) ||
-                    payment.receivedBy.lowercase(Locale.ROOT).contains(query) ||
-                    payment.remarks.lowercase(Locale.ROOT).contains(query) ||
-                    payment.amountPaid.toString().contains(query)
-
-            val matchesMethod = selectedMethodFilter == "All" ||
-                    payment.paymentMethod.equals(selectedMethodFilter, ignoreCase = true)
-
-            matchesQuery && matchesMethod
-        }
-    }
-
-    // Metrics calculations (Current Month's Total & Today's Total)
-    val thisMonthCollected = remember(paymentHistory) {
+    val thisMonthCollected = remember(uiState.paymentHistory) {
         val calNow = Calendar.getInstance()
         val currentYear = calNow.get(Calendar.YEAR)
         val currentMonth = calNow.get(Calendar.MONTH)
         val calPayment = Calendar.getInstance()
-        paymentHistory.filter { payment ->
+        uiState.paymentHistory.filter { payment ->
             if (payment.timestamp != null) {
                 calPayment.time = payment.timestamp.toDate()
                 calPayment.get(Calendar.YEAR) == currentYear && calPayment.get(Calendar.MONTH) == currentMonth
@@ -198,17 +82,16 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
         }.sumOf { it.amountPaid }
     }
 
-    val todayCollected = remember(paymentHistory, todayDateStr) {
+    val todayCollected = remember(uiState.paymentHistory, todayDateStr) {
         val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-        paymentHistory.filter { payment ->
+        uiState.paymentHistory.filter { payment ->
             payment.timestamp != null && dateFormat.format(payment.timestamp.toDate()) == todayDateStr
         }.sumOf { it.amountPaid }
     }
 
-    // Group filtered payments by Date string (e.g. "02 Nov 2026")
-    val groupedHistory = remember(filteredPayments) {
+    val groupedHistory = remember(uiState.filteredPayments) {
         val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-        filteredPayments.groupBy { payment ->
+        uiState.filteredPayments.groupBy { payment ->
             if (payment.timestamp != null) {
                 dateFormat.format(payment.timestamp.toDate())
             } else {
@@ -217,22 +100,22 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
         }
     }
 
-    val isOwner = currentUserRole == "owner"
+    val isOwner = uiState.currentUserRole == "owner"
 
     // Delete Payment Confirmation Dialog (Owner Only)
-    if (paymentToDelete != null) {
-        val target = paymentToDelete!!
+    if (uiState.paymentToDelete != null) {
+        val target = uiState.paymentToDelete
         val paymentFormattedDate = remember(target.timestamp) {
             if (target.timestamp != null) {
                 SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(target.timestamp.toDate())
             } else "Recent"
         }
         val targetStudentName = target.studentName.ifBlank {
-            studentsMap[target.studentId]?.fullName ?: "Student"
+            uiState.studentsMap[target.studentId]?.fullName ?: "Student"
         }
 
         AlertDialog(
-            onDismissRequest = { if (!isDeletingPayment) paymentToDelete = null },
+            onDismissRequest = { if (!uiState.isDeletingPayment) onSetPaymentToDelete(null) },
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Delete Received Payment?") },
             text = {
@@ -261,39 +144,11 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
             },
             confirmButton = {
                 Button(
-                    onClick = {
-                        if (isInPreview) {
-                            paymentHistory = paymentHistory.filter { it.id != target.id }
-                            paymentToDelete = null
-                            Toast.makeText(context, "Preview: Payment deleted successfully!", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-
-                        isDeletingPayment = true
-                        val db = FirebaseFirestore.getInstance()
-
-                        db.collection("fee_payments").document(target.id).delete()
-                            .addOnSuccessListener {
-                                isDeletingPayment = false
-                                Toast.makeText(context, "Payment record deleted.", Toast.LENGTH_SHORT).show()
-
-                                SystemLogger.log(
-                                    action = "Fee Payment Deleted",
-                                    details = "Deleted payment of ₹${target.amountPaid} (${target.paymentMethod}) for student: $targetStudentName"
-                                )
-
-                                paymentHistory = paymentHistory.filter { it.id != target.id }
-                                paymentToDelete = null
-                            }
-                            .addOnFailureListener { e ->
-                                isDeletingPayment = false
-                                Toast.makeText(context, "Failed to delete: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                            }
-                    },
+                    onClick = onConfirmDeletePayment,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    enabled = !isDeletingPayment
+                    enabled = !uiState.isDeletingPayment
                 ) {
-                    if (isDeletingPayment) {
+                    if (uiState.isDeletingPayment) {
                         CircularWavyProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onError)
                     } else {
                         Text("Delete Payment")
@@ -302,8 +157,8 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
             },
             dismissButton = {
                 OutlinedButton(
-                    onClick = { paymentToDelete = null },
-                    enabled = !isDeletingPayment
+                    onClick = { onSetPaymentToDelete(null) },
+                    enabled = !uiState.isDeletingPayment
                 ) {
                     Text("Cancel")
                 }
@@ -412,16 +267,16 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
 
             // Search Bar
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+                value = uiState.searchQuery,
+                onValueChange = onSearchQueryChange,
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Search by student, staff, remarks...") },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = "Search")
                 },
                 trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
                             Icon(Icons.Default.Clear, contentDescription = "Clear search")
                         }
                     }
@@ -438,19 +293,19 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
             ) {
                 paymentMethods.forEach { method ->
                     FilterChip(
-                        selected = selectedMethodFilter == method,
-                        onClick = { selectedMethodFilter = method },
+                        selected = uiState.selectedMethodFilter == method,
+                        onClick = { onMethodFilterChange(method) },
                         label = { Text(method, style = MaterialTheme.typography.labelSmall) }
                     )
                 }
             }
 
             // Main Content Area
-            if (isLoading) {
+            if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
-            } else if (filteredPayments.isEmpty()) {
+            } else if (uiState.filteredPayments.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -466,7 +321,7 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
                             tint = MaterialTheme.colorScheme.outline
                         )
                         Text(
-                            text = if (searchQuery.isNotBlank() || selectedMethodFilter != "All") {
+                            text = if (uiState.searchQuery.isNotBlank() || uiState.selectedMethodFilter != "All") {
                                 "No payment records match your filters."
                             } else {
                                 "No payments recorded yet."
@@ -474,10 +329,10 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.outline
                         )
-                        if (searchQuery.isNotBlank() || selectedMethodFilter != "All") {
+                        if (uiState.searchQuery.isNotBlank() || uiState.selectedMethodFilter != "All") {
                             TextButton(onClick = {
-                                searchQuery = ""
-                                selectedMethodFilter = "All"
+                                onSearchQueryChange("")
+                                onMethodFilterChange("All")
                             }) {
                                 Text("Reset Filters")
                             }
@@ -493,7 +348,6 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
                         val dayTotal = dailyPayments.sumOf { it.amountPaid }
 
                         item {
-                            // Date Section Header with daily summary
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -535,7 +389,7 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
                         }
 
                         items(dailyPayments, key = { it.id.ifBlank { "${it.studentId}_${it.timestamp?.seconds}" } }) { payment ->
-                            val student = studentsMap[payment.studentId]
+                            val student = uiState.studentsMap[payment.studentId]
                             val resolvedName = payment.studentName.ifBlank {
                                 student?.fullName ?: "Unknown Student"
                             }
@@ -552,7 +406,7 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
                                 showStudentName = true,
                                 studentSubtitle = resolvedSubtitle,
                                 canDelete = isOwner,
-                                onDeleteClick = { paymentToDelete = updatedPayment }
+                                onDeleteClick = { onSetPaymentToDelete(updatedPayment) }
                             )
                         }
                     }
@@ -566,7 +420,14 @@ fun GlobalHistoryScreen(onBack: () -> Unit) {
 @Composable
 fun GlobalHistoryScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
-        GlobalHistoryScreen(onBack = {})
+        GlobalHistoryContent(
+            uiState = GlobalHistoryUiState(isLoading = false),
+            onBack = {},
+            onSearchQueryChange = {},
+            onMethodFilterChange = {},
+            onSetPaymentToDelete = {},
+            onConfirmDeletePayment = {}
+        )
     }
 }
 
@@ -574,6 +435,13 @@ fun GlobalHistoryScreenPreviewLight() {
 @Composable
 fun GlobalHistoryScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
-        GlobalHistoryScreen(onBack = {})
+        GlobalHistoryContent(
+            uiState = GlobalHistoryUiState(isLoading = false),
+            onBack = {},
+            onSearchQueryChange = {},
+            onMethodFilterChange = {},
+            onSetPaymentToDelete = {},
+            onConfirmDeletePayment = {}
+        )
     }
 }

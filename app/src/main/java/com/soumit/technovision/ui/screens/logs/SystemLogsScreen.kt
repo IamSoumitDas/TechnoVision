@@ -13,85 +13,53 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.soumit.technovision.data.model.LogModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Composable
+fun SystemLogsScreen(
+    onBack: () -> Unit,
+    viewModel: SystemLogsViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    SystemLogsContent(
+        uiState = uiState,
+        onBack = onBack,
+        onShowAllHistoryChanged = viewModel::setShowAllHistory,
+        onCustomDateSelected = viewModel::setSelectedCustomDate,
+        onTimeSlotSelected = viewModel::setSelectedTimeSlot,
+        onCategorySelected = viewModel::setSelectedCategory
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SystemLogsScreen(onBack: () -> Unit) {
-    val isInPreview = LocalInspectionMode.current
-
+fun SystemLogsContent(
+    uiState: SystemLogsUiState,
+    onBack: () -> Unit,
+    onShowAllHistoryChanged: (Boolean) -> Unit,
+    onCustomDateSelected: (String?) -> Unit,
+    onTimeSlotSelected: (String) -> Unit,
+    onCategorySelected: (String) -> Unit
+) {
     val todayDateStr = remember {
-        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+        SimpleDateFormat("dd-MM-yyyy", Locale.US).format(Date())
     }
     val yesterdayDateStr = remember {
         val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
-        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(cal.time)
+        SimpleDateFormat("dd-MM-yyyy", Locale.US).format(cal.time)
     }
 
-    val previewLogs = remember {
-        listOf(
-            LogModel(
-                id = "1",
-                action = "Attendance Verified",
-                details = "Approved time slot [9:00 AM - 11:00 AM] for teacher Amitabha Teacher on date $todayDateStr (Verified by Soumit Das)",
-                performedBy = "owner.preview@technovision.com",
-                timestamp = Timestamp.now()
-            ),
-            LogModel(
-                id = "2",
-                action = "Attendance Rejected",
-                details = "Rejected time slot [1:00 PM - 3:00 PM] for teacher Ramesh Teacher on date $todayDateStr (Rejected by Soumit Das). Slot is now open for re-request.",
-                performedBy = "owner.preview@technovision.com",
-                timestamp = Timestamp(Date(System.currentTimeMillis() - 1800000))
-            ),
-            LogModel(
-                id = "3",
-                action = "Student Enrolled",
-                details = "Enrolled student Aarav Sharma (Class X)",
-                performedBy = "owner.preview@technovision.com",
-                timestamp = Timestamp(Date(System.currentTimeMillis() - 3600000))
-            ),
-            LogModel(
-                id = "4",
-                action = "Attendance Saved",
-                details = "Saved attendance for 11:00 AM - 1:00 PM batch",
-                performedBy = "faculty@technovision.com",
-                timestamp = Timestamp(Date(System.currentTimeMillis() - 86400000))
-            ),
-            LogModel(
-                id = "5",
-                action = "Staff Added",
-                details = "Added receptionist account for Rina",
-                performedBy = "owner.preview@technovision.com",
-                timestamp = Timestamp(Date(System.currentTimeMillis() - 172800000))
-            )
-        )
-    }
-
-    val previewUserMap = remember {
-        mapOf(
-            "owner.preview@technovision.com" to "Soumit Das",
-            "faculty@technovision.com" to "Amitabha Teacher"
-        )
-    }
-
-    var logList by remember { mutableStateOf(if (isInPreview) previewLogs else emptyList()) }
-    var userMap by remember { mutableStateOf(if (isInPreview) previewUserMap else emptyMap()) }
-    var isLoading by remember { mutableStateOf(!isInPreview) }
-
-    // Filter states
-    var showAllHistory by remember { mutableStateOf(false) }
-    var selectedCustomDate by remember { mutableStateOf<String?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     val classTimeSlots = listOf(
@@ -103,58 +71,9 @@ fun SystemLogsScreen(onBack: () -> Unit) {
         "5:00 PM - 7:00 PM",
         "7:00 PM - 9:00 PM"
     )
-    var selectedTimeSlot by remember { mutableStateOf("All Slots") }
 
     val categories = listOf("All", "Attendance", "Students", "Fees", "Staff")
-    var selectedCategory by remember { mutableStateOf("All") }
 
-    DisposableEffect(Unit) {
-        if (isInPreview) {
-            onDispose { }
-        } else {
-            val db = FirebaseFirestore.getInstance()
-
-            db.collection("users").get().addOnSuccessListener { userSnapshot ->
-                val map = mutableMapOf<String, String>()
-                for (doc in userSnapshot.documents) {
-                    val fullName = doc.getString("fullName") ?: continue
-                    val email = doc.getString("email") ?: ""
-                    val uid = doc.id
-                    if (email.isNotBlank()) map[email] = fullName
-                    map[uid] = fullName
-                }
-                userMap = map
-            }
-
-            val registration = db.collection("system_logs")
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null) {
-                        val list = snapshot.documents.map { doc ->
-                            LogModel(
-                                id = doc.id,
-                                action = doc.getString("action") ?: "",
-                                details = doc.getString("details") ?: "",
-                                performedBy = doc.getString("performedBy") ?: "",
-                                timestamp = doc.getTimestamp("timestamp")
-                            )
-                        }
-                        logList = list
-                        isLoading = false
-                    }
-                }
-            onDispose {
-                registration.remove()
-            }
-        }
-    }
-
-    // Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = System.currentTimeMillis()
@@ -171,8 +90,8 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                             val localCal = Calendar.getInstance().apply {
                                 set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
                             }
-                            selectedCustomDate = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(localCal.time)
-                            showAllHistory = false
+                            val formatted = SimpleDateFormat("dd-MM-yyyy", Locale.US).format(localCal.time)
+                            onCustomDateSelected(formatted)
                         }
                         showDatePicker = false
                     }
@@ -190,29 +109,32 @@ fun SystemLogsScreen(onBack: () -> Unit) {
         }
     }
 
-    // Filter computation
-    val filteredLogs = remember(logList, showAllHistory, selectedCustomDate, selectedTimeSlot, selectedCategory, todayDateStr) {
-        logList.filter { log ->
+    val filteredLogs = remember(
+        uiState.logs,
+        uiState.showAllHistory,
+        uiState.selectedCustomDate,
+        uiState.selectedTimeSlot,
+        uiState.selectedCategory,
+        todayDateStr
+    ) {
+        uiState.logs.filter { log ->
             val logDate = if (log.timestamp != null) {
-                SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(log.timestamp.toDate())
+                SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
             } else {
                 ""
             }
 
-            // 1. Date Filter:
             val matchesDate = when {
-                selectedCustomDate != null -> logDate == selectedCustomDate
-                showAllHistory -> true
+                uiState.selectedCustomDate != null -> logDate == uiState.selectedCustomDate
+                uiState.showAllHistory -> true
                 else -> logDate == todayDateStr
             }
 
-            // 2. Class Time Slot Filter:
-            val matchesSlot = selectedTimeSlot == "All Slots" ||
-                log.details.contains(selectedTimeSlot, ignoreCase = true) ||
-                log.action.contains(selectedTimeSlot, ignoreCase = true)
+            val matchesSlot = uiState.selectedTimeSlot == "All Slots" ||
+                log.details.contains(uiState.selectedTimeSlot, ignoreCase = true) ||
+                log.action.contains(uiState.selectedTimeSlot, ignoreCase = true)
 
-            // 3. Category Filter:
-            val matchesCategory = when (selectedCategory) {
+            val matchesCategory = when (uiState.selectedCategory) {
                 "Attendance" -> log.action.contains("Attendance", ignoreCase = true)
                 "Students" -> log.action.contains("Student", ignoreCase = true)
                 "Fees" -> log.action.contains("Payment", ignoreCase = true) || log.action.contains("Fee", ignoreCase = true)
@@ -224,31 +146,29 @@ fun SystemLogsScreen(onBack: () -> Unit) {
         }
     }
 
-    // Count of older logs hidden by the default "Today" view
-    val olderLogsCount = remember(logList, todayDateStr) {
-        logList.count { log ->
+    val olderLogsCount = remember(uiState.logs, todayDateStr) {
+        uiState.logs.count { log ->
             val logDate = if (log.timestamp != null) {
-                SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(log.timestamp.toDate())
+                SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
             } else ""
             logDate.isNotBlank() && logDate != todayDateStr
         }
     }
 
-    val todayLogsCount = remember(logList, todayDateStr) {
-        logList.count { log ->
+    val todayLogsCount = remember(uiState.logs, todayDateStr) {
+        uiState.logs.count { log ->
             val logDate = if (log.timestamp != null) {
-                SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(log.timestamp.toDate())
+                SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
             } else ""
             logDate == todayDateStr
         }
     }
 
-    // Grouping by date when showing all history
-    val groupedLogs = remember(filteredLogs, showAllHistory, selectedCustomDate) {
-        if (showAllHistory && selectedCustomDate == null) {
+    val groupedLogs = remember(filteredLogs, uiState.showAllHistory, uiState.selectedCustomDate) {
+        if (uiState.showAllHistory && uiState.selectedCustomDate == null) {
             filteredLogs.groupBy { log ->
                 if (log.timestamp != null) {
-                    SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(log.timestamp.toDate())
+                    SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
                 } else {
                     "Other"
                 }
@@ -281,7 +201,6 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header: Date Scope Chips & Date Picker
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -289,12 +208,11 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Today Chip
                 FilterChip(
-                    selected = !showAllHistory && selectedCustomDate == null,
+                    selected = !uiState.showAllHistory && uiState.selectedCustomDate == null,
                     onClick = {
-                        showAllHistory = false
-                        selectedCustomDate = null
+                        onShowAllHistoryChanged(false)
+                        onCustomDateSelected(null)
                     },
                     label = { Text("Today ($todayLogsCount)") },
                     leadingIcon = {
@@ -306,14 +224,13 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                     }
                 )
 
-                // Show All History Chip
                 FilterChip(
-                    selected = showAllHistory && selectedCustomDate == null,
+                    selected = uiState.showAllHistory && uiState.selectedCustomDate == null,
                     onClick = {
-                        showAllHistory = true
-                        selectedCustomDate = null
+                        onShowAllHistoryChanged(true)
+                        onCustomDateSelected(null)
                     },
-                    label = { Text("All History (${logList.size})") },
+                    label = { Text("All History (${uiState.logs.size})") },
                     leadingIcon = {
                         Icon(
                             Icons.Default.History,
@@ -323,12 +240,11 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                     }
                 )
 
-                // Custom Date Chip / Picker
-                if (selectedCustomDate != null) {
+                if (uiState.selectedCustomDate != null) {
                     InputChip(
                         selected = true,
                         onClick = { showDatePicker = true },
-                        label = { Text(selectedCustomDate!!) },
+                        label = { Text(uiState.selectedCustomDate) },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.DateRange,
@@ -338,7 +254,7 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                         },
                         trailingIcon = {
                             IconButton(
-                                onClick = { selectedCustomDate = null },
+                                onClick = { onCustomDateSelected(null) },
                                 modifier = Modifier.size(16.dp)
                             ) {
                                 Icon(
@@ -365,7 +281,6 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                 }
             }
 
-            // Class Time Slot Filter Chips
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Filter by Class Slot",
@@ -381,15 +296,14 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                 ) {
                     classTimeSlots.forEach { slot ->
                         FilterChip(
-                            selected = selectedTimeSlot == slot,
-                            onClick = { selectedTimeSlot = slot },
+                            selected = uiState.selectedTimeSlot == slot,
+                            onClick = { onTimeSlotSelected(slot) },
                             label = { Text(slot, style = MaterialTheme.typography.labelSmall) }
                         )
                     }
                 }
             }
 
-            // Category Filter Chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -398,15 +312,14 @@ fun SystemLogsScreen(onBack: () -> Unit) {
             ) {
                 categories.forEach { category ->
                     FilterChip(
-                        selected = selectedCategory == category,
-                        onClick = { selectedCategory = category },
+                        selected = uiState.selectedCategory == category,
+                        onClick = { onCategorySelected(category) },
                         label = { Text(category) }
                     )
                 }
             }
 
-            // Filter Active Status Banner
-            val isFilterActive = selectedTimeSlot != "All Slots" || selectedCategory != "All" || selectedCustomDate != null
+            val isFilterActive = uiState.selectedTimeSlot != "All Slots" || uiState.selectedCategory != "All" || uiState.selectedCustomDate != null
             if (isFilterActive) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
@@ -428,9 +341,9 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                         )
                         TextButton(
                             onClick = {
-                                selectedTimeSlot = "All Slots"
-                                selectedCategory = "All"
-                                selectedCustomDate = null
+                                onTimeSlotSelected("All Slots")
+                                onCategorySelected("All")
+                                onCustomDateSelected(null)
                             },
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
@@ -440,8 +353,7 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                 }
             }
 
-            // Main Content Area
-            if (isLoading) {
+            if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
@@ -464,16 +376,16 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                         )
                         Text(
                             text = when {
-                                selectedCustomDate != null -> "No logs recorded for $selectedCustomDate."
-                                !showAllHistory -> "No activity logs recorded for today."
+                                uiState.selectedCustomDate != null -> "No logs recorded for ${uiState.selectedCustomDate}."
+                                !uiState.showAllHistory -> "No activity logs recorded for today."
                                 else -> "No logs match the selected filters."
                             },
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.outline
                         )
-                        if (!showAllHistory && olderLogsCount > 0 && selectedCustomDate == null) {
+                        if (!uiState.showAllHistory && olderLogsCount > 0 && uiState.selectedCustomDate == null) {
                             Button(
-                                onClick = { showAllHistory = true }
+                                onClick = { onShowAllHistoryChanged(true) }
                             ) {
                                 Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -487,7 +399,7 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    if (showAllHistory && selectedCustomDate == null) {
+                    if (uiState.showAllHistory && uiState.selectedCustomDate == null) {
                         groupedLogs.forEach { (dateStr, logsForDate) ->
                             item(key = "header_$dateStr") {
                                 val friendlyHeader = when (dateStr) {
@@ -520,19 +432,18 @@ fun SystemLogsScreen(onBack: () -> Unit) {
                                 }
                             }
                             items(logsForDate, key = { it.id }) { log ->
-                                LogCard(log = log, userMap = userMap)
+                                LogCard(log = log, userMap = uiState.userMap)
                             }
                         }
                     } else {
                         items(filteredLogs, key = { it.id }) { log ->
-                            LogCard(log = log, userMap = userMap)
+                            LogCard(log = log, userMap = uiState.userMap)
                         }
 
-                        // Prominent "Show all History" button at the bottom of Today's view
-                        if (!showAllHistory && selectedCustomDate == null && olderLogsCount > 0) {
+                        if (!uiState.showAllHistory && uiState.selectedCustomDate == null && olderLogsCount > 0) {
                             item(key = "show_all_history_bottom_btn") {
                                 OutlinedCard(
-                                    onClick = { showAllHistory = true },
+                                    onClick = { onShowAllHistoryChanged(true) },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 8.dp),
@@ -575,7 +486,7 @@ fun SystemLogsScreen(onBack: () -> Unit) {
 fun LogCard(log: LogModel, userMap: Map<String, String>) {
     val formattedTime = remember(log.timestamp) {
         if (log.timestamp != null) {
-            val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+            val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.US)
             sdf.format(log.timestamp.toDate())
         } else {
             "Just now"
@@ -658,7 +569,6 @@ fun LogCard(log: LogModel, userMap: Map<String, String>) {
                 )
             }
 
-            // Detected Class Time Slot Pill
             if (matchedSlot != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
@@ -715,15 +625,55 @@ fun LogCard(log: LogModel, userMap: Map<String, String>) {
 @Preview(name = "Light Mode", showBackground = true)
 @Composable
 fun SystemLogsScreenPreviewLight() {
+    val todayDateStr = SimpleDateFormat("dd-MM-yyyy", Locale.US).format(Date())
     TechnoVisionTheme(darkTheme = false) {
-        SystemLogsScreen(onBack = {})
+        SystemLogsContent(
+            uiState = SystemLogsUiState(
+                logs = listOf(
+                    LogModel(
+                        id = "1",
+                        action = "Attendance Verified",
+                        details = "Approved time slot [9:00 AM - 11:00 AM] for teacher Amitabha Teacher on date $todayDateStr (Verified by Soumit Das)",
+                        performedBy = "owner.preview@technovision.com",
+                        timestamp = Timestamp.now()
+                    )
+                ),
+                userMap = mapOf("owner.preview@technovision.com" to "Soumit Das"),
+                isLoading = false
+            ),
+            onBack = {},
+            onShowAllHistoryChanged = {},
+            onCustomDateSelected = {},
+            onTimeSlotSelected = {},
+            onCategorySelected = {}
+        )
     }
 }
 
 @Preview(name = "Dark Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun SystemLogsScreenPreviewDark() {
+    val todayDateStr = SimpleDateFormat("dd-MM-yyyy", Locale.US).format(Date())
     TechnoVisionTheme(darkTheme = true) {
-        SystemLogsScreen(onBack = {})
+        SystemLogsContent(
+            uiState = SystemLogsUiState(
+                logs = listOf(
+                    LogModel(
+                        id = "1",
+                        action = "Attendance Verified",
+                        details = "Approved time slot [9:00 AM - 11:00 AM] for teacher Amitabha Teacher on date $todayDateStr (Verified by Soumit Das)",
+                        performedBy = "owner.preview@technovision.com",
+                        timestamp = Timestamp.now()
+                    )
+                ),
+                userMap = mapOf("owner.preview@technovision.com" to "Soumit Das"),
+                isLoading = false
+            ),
+            onBack = {},
+            onShowAllHistoryChanged = {},
+            onCustomDateSelected = {},
+            onTimeSlotSelected = {},
+            onCategorySelected = {}
+        )
     }
 }

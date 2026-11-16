@@ -15,33 +15,68 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import com.soumit.technovision.util.SystemLogger
 import java.util.Calendar
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun EnrollStudentScreen(
     onBack: () -> Unit,
-    onStudentEnrolled: (String) -> Unit
+    onStudentEnrolled: (String) -> Unit,
+    viewModel: EnrollStudentViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    EnrollStudentContent(
+        uiState = uiState,
+        onBack = onBack,
+        onFullNameChanged = viewModel::onFullNameChanged,
+        onClassChanged = viewModel::onClassChanged,
+        onSchoolChanged = viewModel::onSchoolChanged,
+        onGenderChanged = viewModel::onGenderChanged,
+        onDobChanged = viewModel::onDobChanged,
+        onAdmissionDateChanged = viewModel::onAdmissionDateChanged,
+        onFatherNameChanged = viewModel::onFatherNameChanged,
+        onMotherNameChanged = viewModel::onMotherNameChanged,
+        onMonthlyInstallmentChanged = viewModel::onMonthlyInstallmentChanged,
+        onPhoneChanged = viewModel::onPhoneChanged,
+        onAltPhoneChanged = viewModel::onAltPhoneChanged,
+        onDayScheduleChanged = viewModel::onDayScheduleChanged,
+        onEnrollClicked = { viewModel.enrollStudent(onStudentEnrolled) }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun EnrollStudentContent(
+    uiState: EnrollStudentUiState,
+    onBack: () -> Unit,
+    onFullNameChanged: (String) -> Unit,
+    onClassChanged: (String) -> Unit,
+    onSchoolChanged: (String) -> Unit,
+    onGenderChanged: (String) -> Unit,
+    onDobChanged: (String) -> Unit,
+    onAdmissionDateChanged: (String) -> Unit,
+    onFatherNameChanged: (String) -> Unit,
+    onMotherNameChanged: (String) -> Unit,
+    onMonthlyInstallmentChanged: (String) -> Unit,
+    onPhoneChanged: (String) -> Unit,
+    onAltPhoneChanged: (String) -> Unit,
+    onDayScheduleChanged: (String, String) -> Unit,
+    onEnrollClicked: () -> Unit
 ) {
     val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
 
-    // Form Fields State
-    var fullName by remember { mutableStateOf("") }
-    var selectedClass by remember { mutableStateOf("") }
     var classExpanded by remember { mutableStateOf(false) }
     val classOptions = listOf("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII")
 
-    var selectedSchool by remember { mutableStateOf("") }
     var schoolExpanded by remember { mutableStateOf(false) }
     val schoolOptions = listOf(
         "Mc William High School (HS)",
@@ -58,54 +93,37 @@ fun EnrollStudentScreen(
         "Sukanta High School"
     )
 
-    var selectedGender by remember { mutableStateOf("") }
     var genderExpanded by remember { mutableStateOf(false) }
     val genderOptions = listOf("Male", "Female", "Other")
 
-    var dob by remember { mutableStateOf("") }
-    var admissionDate by remember { mutableStateOf("") }
-    var fatherName by remember { mutableStateOf("") }
-    var motherName by remember { mutableStateOf("") }
-    var monthlyInstallment by remember { mutableStateOf("500") }
-    var phone by remember { mutableStateOf("") }
-    var altPhone by remember { mutableStateOf("") }
-
-    // Day-by-day batch schedule states
     val daysOfWeek = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
     val timeSlotOptions = listOf("Off", "9:00 AM - 11:00 AM", "11:00 AM - 1:00 PM", "1:00 PM - 3:00 PM", "3:00 PM - 5:00 PM", "5:00 PM - 7:00 PM", "7:00 PM - 9:00 PM")
 
-    val daySchedules = remember {
-        mutableStateMapOf<String, String>().apply {
-            daysOfWeek.forEach { put(it, "Off") }
-        }
-    }
     var expandedDayMenu by remember { mutableStateOf<String?>(null) }
     var isScheduleExpanded by remember { mutableStateOf(false) }
 
-    var isLoading by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var isError by remember { mutableStateOf(false) }
-    var attemptedSubmit by remember { mutableStateOf(false) }
-
-    // Reusable DatePicker function with Locale safety
     fun showDatePicker(onDateSelected: (String) -> Unit) {
         val calendar = Calendar.getInstance()
-        DatePickerDialog(context, { _, year, month, day ->
-            val formattedDate = String.format(Locale.getDefault(), "%02d/%02d/%d", day, month + 1, year)
-            onDateSelected(formattedDate)
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val formattedDate = String.format(Locale.US, "%02d/%02d/%04d", day, month + 1, year)
+                onDateSelected(formattedDate)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     fun isFieldInvalid(value: String): Boolean {
-        return attemptedSubmit && value.isBlank()
+        return uiState.attemptedSubmit && value.isBlank()
     }
 
-    val activeBatchDaysCount = daySchedules.values.count { it != "Off" }
-    val isScheduleInvalid = attemptedSubmit && activeBatchDaysCount < 2
+    val isScheduleInvalid = uiState.attemptedSubmit && uiState.activeBatchDaysCount < 2
 
-    // Summary text for collapsed schedule card
-    val scheduleSummaryText = if (activeBatchDaysCount > 0) {
-        daySchedules.filter { it.value != "Off" }.entries.joinToString(", ") { "${it.key.take(3)}: ${it.value.take(7)}..." }
+    val scheduleSummaryText = if (uiState.activeBatchDaysCount > 0) {
+        uiState.daySchedules.filter { it.value != "Off" }.entries.joinToString(", ") { "${it.key.take(3)}: ${it.value.take(7)}..." }
     } else {
         "No active batch slots assigned (Min 2 required) *"
     }
@@ -153,15 +171,12 @@ fun EnrollStudentScreen(
                     )
 
                     OutlinedTextField(
-                        value = fullName,
-                        onValueChange = {
-                            fullName = it
-                            statusMessage = null
-                        },
+                        value = uiState.fullName,
+                        onValueChange = onFullNameChanged,
                         label = { Text("Student Full Name *") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                         singleLine = true,
-                        isError = isFieldInvalid(fullName),
+                        isError = isFieldInvalid(uiState.fullName),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -171,12 +186,12 @@ fun EnrollStudentScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
-                            value = selectedGender,
+                            value = uiState.selectedGender,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Gender *") },
                             leadingIcon = { Icon(Icons.Default.Wc, contentDescription = null) },
-                            isError = isFieldInvalid(selectedGender),
+                            isError = isFieldInvalid(uiState.selectedGender),
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -184,28 +199,34 @@ fun EnrollStudentScreen(
                         )
                         ExposedDropdownMenu(expanded = genderExpanded, onDismissRequest = { genderExpanded = false }) {
                             genderOptions.forEach { option ->
-                                DropdownMenuItem(text = { Text(option) }, onClick = { selectedGender = option; genderExpanded = false })
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        onGenderChanged(option)
+                                        genderExpanded = false
+                                    }
+                                )
                             }
                         }
                     }
 
                     OutlinedTextField(
-                        value = fatherName,
-                        onValueChange = { fatherName = it },
+                        value = uiState.fatherName,
+                        onValueChange = onFatherNameChanged,
                         label = { Text("Father's Name *") },
                         leadingIcon = { Icon(Icons.Default.Man, contentDescription = null) },
                         singleLine = true,
-                        isError = isFieldInvalid(fatherName),
+                        isError = isFieldInvalid(uiState.fatherName),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
-                        value = motherName,
-                        onValueChange = { motherName = it },
+                        value = uiState.motherName,
+                        onValueChange = onMotherNameChanged,
                         label = { Text("Mother's Name *") },
                         leadingIcon = { Icon(Icons.Default.Woman, contentDescription = null) },
                         singleLine = true,
-                        isError = isFieldInvalid(motherName),
+                        isError = isFieldInvalid(uiState.motherName),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -234,12 +255,12 @@ fun EnrollStudentScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
-                            value = selectedSchool,
+                            value = uiState.selectedSchool,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("School Name *") },
                             leadingIcon = { Icon(Icons.Default.School, contentDescription = null) },
-                            isError = isFieldInvalid(selectedSchool),
+                            isError = isFieldInvalid(uiState.selectedSchool),
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = schoolExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -247,7 +268,13 @@ fun EnrollStudentScreen(
                         )
                         ExposedDropdownMenu(expanded = schoolExpanded, onDismissRequest = { schoolExpanded = false }) {
                             schoolOptions.forEach { option ->
-                                DropdownMenuItem(text = { Text(option) }, onClick = { selectedSchool = option; schoolExpanded = false })
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        onSchoolChanged(option)
+                                        schoolExpanded = false
+                                    }
+                                )
                             }
                         }
                     }
@@ -258,12 +285,12 @@ fun EnrollStudentScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
-                            value = selectedClass,
+                            value = uiState.selectedClass,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Class *") },
                             leadingIcon = { Icon(Icons.Default.Class, contentDescription = null) },
-                            isError = isFieldInvalid(selectedClass),
+                            isError = isFieldInvalid(uiState.selectedClass),
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = classExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -271,57 +298,51 @@ fun EnrollStudentScreen(
                         )
                         ExposedDropdownMenu(expanded = classExpanded, onDismissRequest = { classExpanded = false }) {
                             classOptions.forEach { option ->
-                                DropdownMenuItem(text = { Text(option) }, onClick = { selectedClass = option; classExpanded = false })
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        onClassChanged(option)
+                                        classExpanded = false
+                                    }
+                                )
                             }
                         }
                     }
 
                     OutlinedTextField(
-                        value = dob,
+                        value = uiState.dob,
                         onValueChange = {},
                         readOnly = true,
                         singleLine = true,
                         label = { Text("Date of Birth *") },
-                        isError = isFieldInvalid(dob),
+                        isError = isFieldInvalid(uiState.dob),
                         leadingIcon = { Icon(Icons.Default.Cake, contentDescription = null) },
                         trailingIcon = {
-                            IconButton(onClick = { if (!isInPreview) showDatePicker { dob = it } }) {
+                            IconButton(onClick = { showDatePicker(onDobChanged) }) {
                                 Icon(Icons.Default.DateRange, contentDescription = "Select DOB")
                             }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { if (!isInPreview) showDatePicker { dob = it } },
-                        enabled = false,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                            disabledBorderColor = if (isFieldInvalid(dob)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            .clickable { showDatePicker(onDobChanged) }
                     )
 
                     OutlinedTextField(
-                        value = admissionDate,
+                        value = uiState.admissionDate,
                         onValueChange = {},
                         readOnly = true,
                         singleLine = true,
                         label = { Text("Admission Date *") },
-                        isError = isFieldInvalid(admissionDate),
+                        isError = isFieldInvalid(uiState.admissionDate),
                         leadingIcon = { Icon(Icons.Default.EventAvailable, contentDescription = null) },
                         trailingIcon = {
-                            IconButton(onClick = { if (!isInPreview) showDatePicker { admissionDate = it } }) {
+                            IconButton(onClick = { showDatePicker(onAdmissionDateChanged) }) {
                                 Icon(Icons.Default.DateRange, contentDescription = "Select Admission Date")
                             }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { if (!isInPreview) showDatePicker { admissionDate = it } },
-                        enabled = false,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                            disabledBorderColor = if (isFieldInvalid(admissionDate)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            .clickable { showDatePicker(onAdmissionDateChanged) }
                     )
                 }
             }
@@ -338,7 +359,6 @@ fun EnrollStudentScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Header Row with Accordion Toggle
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -371,13 +391,12 @@ fun EnrollStudentScreen(
                         }
                     }
 
-                    // Expanded Day-by-Day Dropdowns
                     if (isScheduleExpanded) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                         Spacer(modifier = Modifier.height(4.dp))
 
                         daysOfWeek.forEach { day ->
-                            val currentSlot = daySchedules[day] ?: "Off"
+                            val currentSlot = uiState.daySchedules[day] ?: "Off"
                             val isMenuExpanded = (expandedDayMenu == day)
 
                             ExposedDropdownMenuBox(
@@ -404,7 +423,7 @@ fun EnrollStudentScreen(
                                         DropdownMenuItem(
                                             text = { Text(slot) },
                                             onClick = {
-                                                daySchedules[day] = slot
+                                                onDayScheduleChanged(day, slot)
                                                 expandedDayMenu = null
                                             }
                                         )
@@ -434,30 +453,30 @@ fun EnrollStudentScreen(
                     )
 
                     OutlinedTextField(
-                        value = monthlyInstallment,
-                        onValueChange = { monthlyInstallment = it },
+                        value = uiState.monthlyInstallment,
+                        onValueChange = onMonthlyInstallmentChanged,
                         label = { Text("Monthly Installment (₹) *") },
                         leadingIcon = { Icon(Icons.Default.CurrencyRupee, contentDescription = null) },
                         singleLine = true,
-                        isError = isFieldInvalid(monthlyInstallment),
+                        isError = isFieldInvalid(uiState.monthlyInstallment),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
+                        value = uiState.phone,
+                        onValueChange = onPhoneChanged,
                         label = { Text("Phone Number *") },
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                         singleLine = true,
-                        isError = isFieldInvalid(phone),
+                        isError = isFieldInvalid(uiState.phone),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
-                        value = altPhone,
-                        onValueChange = { altPhone = it },
+                        value = uiState.altPhone,
+                        onValueChange = onAltPhoneChanged,
                         label = { Text("Alternative Phone Number (Optional)") },
                         leadingIcon = { Icon(Icons.Default.PhoneAndroid, contentDescription = null) },
                         singleLine = true,
@@ -469,86 +488,13 @@ fun EnrollStudentScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Action Button
-            if (isLoading) {
+            if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
             } else {
                 Button(
-                    onClick = {
-                        attemptedSubmit = true
-
-                        if (fullName.isBlank() || selectedClass.isBlank() || selectedSchool.isBlank() ||
-                            selectedGender.isBlank() || dob.isBlank() || admissionDate.isBlank() ||
-                            fatherName.isBlank() || motherName.isBlank() || monthlyInstallment.isBlank() || phone.isBlank()
-                        ) {
-                            statusMessage = "Please fill in all required (*) fields highlighted in red."
-                            isError = true
-                            return@Button
-                        }
-
-                        if (activeBatchDaysCount < 2) {
-                            statusMessage = "Student must have at least 2 batch days scheduled."
-                            isError = true
-                            return@Button
-                        }
-
-                        if (isInPreview) {
-                            statusMessage = "Preview: Student successfully enrolled!"
-                            isError = false
-                            onStudentEnrolled("preview_id")
-                            return@Button
-                        }
-
-                        isLoading = true
-                        statusMessage = null
-
-                        val cleanPhone = phone.replace(Regex("\\s+"), "")
-                        val db = FirebaseFirestore.getInstance()
-                        val newUserId = db.collection("users").document().id
-
-                        val studentData = hashMapOf(
-                            "fullName" to fullName.trim(),
-                            "studentClass" to selectedClass,
-                            "school" to selectedSchool,
-                            "dob" to dob,
-                            "gender" to selectedGender,
-                            "admissionDate" to admissionDate,
-                            "fatherName" to fatherName.trim(),
-                            "motherName" to motherName.trim(),
-                            "monthlyInstallment" to (monthlyInstallment.toIntOrNull() ?: 500),
-                            "weeklySchedule" to daySchedules.toMap(),
-                            "role" to "student",
-                            "phone" to cleanPhone,
-                            "altPhone" to altPhone.trim(),
-                            "createdAt" to com.google.firebase.Timestamp.now()
-                        )
-
-                        val batch = db.batch()
-                        val userRef = db.collection("users").document(newUserId)
-                        val studentRef = db.collection("students").document(newUserId)
-                        batch.set(userRef, studentData)
-                        batch.set(studentRef, studentData)
-
-                        batch.commit()
-                            .addOnSuccessListener {
-                                isLoading = false
-                                isError = false
-
-                                SystemLogger.log(
-                                    action = "Student Enrolled",
-                                    details = "New student registered: ${fullName.trim()} (ID: $newUserId)"
-                                )
-
-                                onStudentEnrolled(newUserId)
-                            }
-                            .addOnFailureListener { e ->
-                                isLoading = false
-                                isError = true
-                                statusMessage = "Error enrolling student: ${e.localizedMessage}"
-                            }
-                    },
+                    onClick = onEnrollClicked,
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
                     Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -557,10 +503,10 @@ fun EnrollStudentScreen(
                 }
             }
 
-            if (statusMessage != null) {
+            if (uiState.errorMessage != null) {
                 Text(
-                    text = statusMessage!!,
-                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    text = uiState.errorMessage,
+                    color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 4.dp)
                 )
@@ -575,7 +521,23 @@ fun EnrollStudentScreen(
 @Composable
 fun EnrollStudentScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
-        EnrollStudentScreen(onBack = {}, onStudentEnrolled = {})
+        EnrollStudentContent(
+            uiState = EnrollStudentUiState(),
+            onBack = {},
+            onFullNameChanged = {},
+            onClassChanged = {},
+            onSchoolChanged = {},
+            onGenderChanged = {},
+            onDobChanged = {},
+            onAdmissionDateChanged = {},
+            onFatherNameChanged = {},
+            onMotherNameChanged = {},
+            onMonthlyInstallmentChanged = {},
+            onPhoneChanged = {},
+            onAltPhoneChanged = {},
+            onDayScheduleChanged = { _, _ -> },
+            onEnrollClicked = {}
+        )
     }
 }
 
@@ -583,6 +545,22 @@ fun EnrollStudentScreenPreviewLight() {
 @Composable
 fun EnrollStudentScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
-        EnrollStudentScreen(onBack = {}, onStudentEnrolled = {})
+        EnrollStudentContent(
+            uiState = EnrollStudentUiState(),
+            onBack = {},
+            onFullNameChanged = {},
+            onClassChanged = {},
+            onSchoolChanged = {},
+            onGenderChanged = {},
+            onDobChanged = {},
+            onAdmissionDateChanged = {},
+            onFatherNameChanged = {},
+            onMotherNameChanged = {},
+            onMonthlyInstallmentChanged = {},
+            onPhoneChanged = {},
+            onAltPhoneChanged = {},
+            onDayScheduleChanged = { _, _ -> },
+            onEnrollClicked = {}
+        )
     }
 }

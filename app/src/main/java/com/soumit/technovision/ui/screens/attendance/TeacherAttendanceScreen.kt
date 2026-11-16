@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -18,40 +19,53 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import com.soumit.technovision.util.SystemLogger
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TeacherAttendanceScreen(
     onBack: () -> Unit,
-    onNavigateToViewer: (() -> Unit)? = null
+    onNavigateToViewer: (() -> Unit)? = null,
+    viewModel: TeacherAttendanceViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
 
-    val composeLocale = androidx.compose.ui.text.intl.Locale.current
-    val javaLocale = Locale.forLanguageTag(composeLocale.toLanguageTag())
-    val dateFormat = remember { SimpleDateFormat("dd-MM-yyyy", javaLocale) }
-    val todayDateStr = remember { dateFormat.format(Date()) }
+    LaunchedEffect(uiState.userMessage) {
+        uiState.userMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearUserMessage()
+        }
+    }
 
-    var selectedDateStr by remember { mutableStateOf(todayDateStr) }
+    TeacherAttendanceContent(
+        uiState = uiState,
+        onBack = onBack,
+        onNavigateToViewer = onNavigateToViewer,
+        onDateSelected = viewModel::onDateSelected,
+        onTimeSlotSelected = viewModel::onTimeSlotSelected,
+        onSubmitRequest = { viewModel.submitRequest {} }
+    )
+}
 
-    val calendarInstance = remember { Calendar.getInstance() }
-    var displayedYear by remember { mutableStateOf(calendarInstance.get(Calendar.YEAR)) }
-    var displayedMonth by remember { mutableStateOf(calendarInstance.get(Calendar.MONTH)) }
-
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun TeacherAttendanceContent(
+    uiState: TeacherAttendanceUiState,
+    onBack: () -> Unit,
+    onNavigateToViewer: (() -> Unit)?,
+    onDateSelected: (String) -> Unit,
+    onTimeSlotSelected: (String) -> Unit,
+    onSubmitRequest: () -> Unit
+) {
     val timeSlots = listOf(
         "9:00 AM - 11:00 AM",
         "11:00 AM - 1:00 PM",
@@ -61,127 +75,18 @@ fun TeacherAttendanceScreen(
         "7:00 PM - 9:00 PM"
     )
 
-    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val initialTimeSlot = remember(currentHour) {
-        when (currentHour) {
-            in 9..10 -> "9:00 AM - 11:00 AM"
-            in 11..12 -> "11:00 AM - 1:00 PM"
-            in 13..14 -> "1:00 PM - 3:00 PM"
-            in 15..16 -> "3:00 PM - 5:00 PM"
-            in 17..18 -> "5:00 PM - 7:00 PM"
-            in 19..20 -> "7:00 PM - 9:00 PM"
-            in 21..23 -> "7:00 PM - 9:00 PM"
-            else -> "9:00 AM - 11:00 AM"
-        }
-    }
-
-    var selectedTimeSlot by remember { mutableStateOf(initialTimeSlot) }
     var timeSlotExpanded by remember { mutableStateOf(false) }
 
-    val previewRequests = remember {
-        listOf(
-            TeacherAttendanceRequestModel(
-                id = "1",
-                teacherName = "Amitabha Teacher",
-                date = todayDateStr,
-                timeSlot = "9:00 AM - 11:00 AM",
-                status = "Verified",
-                verifiedBy = "Soumit Das"
-            ),
-            TeacherAttendanceRequestModel(
-                id = "2",
-                teacherName = "Amitabha Teacher",
-                date = todayDateStr,
-                timeSlot = "1:00 PM - 3:00 PM",
-                status = "Rejected",
-                rejectedBy = "Soumit Das"
-            ),
-            TeacherAttendanceRequestModel(
-                id = "3",
-                teacherName = "Amitabha Teacher",
-                date = todayDateStr,
-                timeSlot = "5:00 PM - 7:00 PM",
-                status = "Pending"
-            )
-        )
+    val todayDateStr = remember {
+        SimpleDateFormat("dd-MM-yyyy", Locale.US).format(Date())
     }
 
-    var allMyRequests by remember {
-        mutableStateOf<List<TeacherAttendanceRequestModel>>(
-            if (isInPreview) previewRequests else emptyList()
-        )
-    }
-    var isLoading by remember { mutableStateOf(!isInPreview) }
-    var isSubmitting by remember { mutableStateOf(false) }
+    val calendarInstance = remember { Calendar.getInstance() }
+    var displayedYear by remember { mutableIntStateOf(calendarInstance.get(Calendar.YEAR)) }
+    var displayedMonth by remember { mutableIntStateOf(calendarInstance.get(Calendar.MONTH)) }
 
-    val currentUserId = if (!isInPreview) {
-        FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    } else {
-        "preview_teacher_id"
-    }
-
-    var teacherName by remember {
-        mutableStateOf(
-            if (isInPreview) "Amitabha Teacher"
-            else FirebaseAuth.getInstance().currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Faculty"
-        )
-    }
-
-    LaunchedEffect(currentUserId) {
-        if (!isInPreview && currentUserId.isNotBlank()) {
-            FirebaseFirestore.getInstance().collection("users").document(currentUserId).get()
-                .addOnSuccessListener { doc ->
-                    if (doc.exists()) {
-                        val name = doc.getString("fullName")?.takeIf { it.isNotBlank() }
-                            ?: doc.getString("name")?.takeIf { it.isNotBlank() }
-                        if (name != null) teacherName = name
-                    }
-                }
-        }
-    }
-
-    DisposableEffect(currentUserId) {
-        if (isInPreview || currentUserId.isBlank()) {
-            isLoading = false
-            return@DisposableEffect onDispose {}
-        }
-
-        isLoading = true
-        val registration = FirebaseFirestore.getInstance().collection("teacher_attendance")
-            .whereEqualTo("teacherId", currentUserId)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    isLoading = false
-                    Toast.makeText(context, "Error loading requests: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                    return@addSnapshotListener
-                }
-
-                if (snapshot != null) {
-                    val list = snapshot.documents.map { doc ->
-                        TeacherAttendanceRequestModel(
-                            id = doc.id,
-                            teacherId = doc.getString("teacherId") ?: "",
-                            teacherName = doc.getString("teacherName") ?: "",
-                            date = doc.getString("date") ?: "",
-                            timeSlot = doc.getString("timeSlot") ?: "",
-                            status = doc.getString("status") ?: "Pending",
-                            timestamp = doc.getTimestamp("timestamp"),
-                            verifiedBy = doc.getString("verifiedBy") ?: "",
-                            rejectedBy = doc.getString("rejectedBy") ?: ""
-                        )
-                    }
-                    allMyRequests = list
-                    isLoading = false
-                }
-            }
-
-        onDispose {
-            registration.remove()
-        }
-    }
-
-    val requestsForSelectedDate = remember(allMyRequests, selectedDateStr) {
-        allMyRequests.filter { it.date == selectedDateStr }
+    val requestsForSelectedDate = remember(uiState.requests, uiState.selectedDateStr) {
+        uiState.requests.filter { it.date == uiState.selectedDateStr }
     }
 
     Scaffold(
@@ -232,18 +137,26 @@ fun TeacherAttendanceScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text(text = "Selected Request Date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                                Text(text = selectedDateStr, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "Selected Request Date",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                Text(
+                                    text = uiState.selectedDateStr,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                             Surface(
-                                color = if (selectedDateStr == todayDateStr) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                                color = if (uiState.selectedDateStr == todayDateStr) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
                                 shape = MaterialTheme.shapes.small
                             ) {
                                 Text(
-                                    text = if (selectedDateStr == todayDateStr) "Same-Day Active" else "Viewing Past Log",
+                                    text = if (uiState.selectedDateStr == todayDateStr) "Same-Day Active" else "Viewing Past Log",
                                     style = MaterialTheme.typography.labelSmall,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = if (selectedDateStr == todayDateStr) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                                    color = if (uiState.selectedDateStr == todayDateStr) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
                         }
@@ -261,12 +174,14 @@ fun TeacherAttendanceScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTextField(
-                                value = selectedTimeSlot,
+                                value = uiState.selectedTimeSlot,
                                 onValueChange = {},
                                 readOnly = true,
                                 label = { Text("Batch Time Slot") },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timeSlotExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
                             )
                             ExposedDropdownMenu(
                                 expanded = timeSlotExpanded,
@@ -276,7 +191,7 @@ fun TeacherAttendanceScreen(
                                     DropdownMenuItem(
                                         text = { Text(slot) },
                                         onClick = {
-                                            selectedTimeSlot = slot
+                                            onTimeSlotSelected(slot)
                                             timeSlotExpanded = false
                                         }
                                     )
@@ -284,61 +199,13 @@ fun TeacherAttendanceScreen(
                             }
                         }
 
-                        if (isSubmitting) {
+                        if (uiState.isSubmitting) {
                             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 LoadingIndicator()
                             }
                         } else {
                             Button(
-                                onClick = {
-                                    if (currentUserId.isBlank()) {
-                                        Toast.makeText(context, "Authentication required. Please sign in again.", Toast.LENGTH_SHORT).show()
-                                        return@Button
-                                    }
-
-                                    if (selectedDateStr != todayDateStr) {
-                                        Toast.makeText(context, "Attendance can only be requested for today's date before midnight.", Toast.LENGTH_LONG).show()
-                                        return@Button
-                                    }
-
-                                    val alreadyRequested = requestsForSelectedDate.any { it.timeSlot == selectedTimeSlot && it.status != "Rejected" }
-                                    if (alreadyRequested) {
-                                        Toast.makeText(context, "You have already requested attendance for this slot today.", Toast.LENGTH_SHORT).show()
-                                        return@Button
-                                    }
-
-                                    if (isInPreview) {
-                                        Toast.makeText(context, "Preview: Request submitted successfully!", Toast.LENGTH_SHORT).show()
-                                        return@Button
-                                    }
-
-                                    isSubmitting = true
-                                    val db = FirebaseFirestore.getInstance()
-
-                                    val requestData = hashMapOf(
-                                        "teacherId" to currentUserId,
-                                        "teacherName" to teacherName,
-                                        "date" to selectedDateStr,
-                                        "timeSlot" to selectedTimeSlot,
-                                        "status" to "Pending",
-                                        "timestamp" to Timestamp.now()
-                                    )
-
-                                    db.collection("teacher_attendance").add(requestData)
-                                        .addOnSuccessListener {
-                                            isSubmitting = false
-                                            Toast.makeText(context, "Attendance request sent to admin!", Toast.LENGTH_SHORT).show()
-
-                                            SystemLogger.log(
-                                                action = "Attendance Requested",
-                                                details = "Teacher $teacherName submitted time slot [$selectedTimeSlot] for date $selectedDateStr"
-                                            )
-                                        }
-                                        .addOnFailureListener { e ->
-                                            isSubmitting = false
-                                            Toast.makeText(context, "Failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                        }
-                                },
+                                onClick = onSubmitRequest,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
@@ -353,43 +220,46 @@ fun TeacherAttendanceScreen(
                 MonthlyCalendarWidget(
                     displayedYear = displayedYear,
                     displayedMonth = displayedMonth,
-                    selectedDateStr = selectedDateStr,
+                    selectedDateStr = uiState.selectedDateStr,
                     todayDateStr = todayDateStr,
-                    allRequests = allMyRequests,
+                    allRequests = uiState.requests,
                     onPrevMonth = {
-                        if (displayedMonth == 0) {
-                            displayedMonth = 11
-                            displayedYear -= 1
-                        } else {
-                            displayedMonth -= 1
-                        }
+                        val newMonth = if (displayedMonth == 0) 11 else displayedMonth - 1
+                        val newYear = if (displayedMonth == 0) displayedYear - 1 else displayedYear
+                        displayedMonth = newMonth
+                        displayedYear = newYear
+                        val cal = Calendar.getInstance().apply { set(newYear, newMonth, 1) }
+                        onDateSelected(SimpleDateFormat("dd-MM-yyyy", Locale.US).format(cal.time))
                     },
                     onNextMonth = {
-                        if (displayedMonth == 11) {
-                            displayedMonth = 0
-                            displayedYear += 1
-                        } else {
-                            displayedMonth += 1
-                        }
+                        val newMonth = if (displayedMonth == 11) 0 else displayedMonth + 1
+                        val newYear = if (displayedMonth == 11) displayedYear + 1 else displayedYear
+                        displayedMonth = newMonth
+                        displayedYear = newYear
+                        val cal = Calendar.getInstance().apply { set(newYear, newMonth, 1) }
+                        onDateSelected(SimpleDateFormat("dd-MM-yyyy", Locale.US).format(cal.time))
                     },
-                    onDateSelected = { newDate ->
-                        selectedDateStr = newDate
-                    }
+                    onDateSelected = onDateSelected
                 )
             }
 
             item {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Requests for $selectedDateStr (${requestsForSelectedDate.size})",
+                    text = "Requests for ${uiState.selectedDateStr} (${requestsForSelectedDate.size})",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            if (isLoading) {
+            if (uiState.isLoading) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         LoadingIndicator()
                     }
                 }
@@ -399,7 +269,12 @@ fun TeacherAttendanceScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
                                 text = "No attendance requests found for this date.",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -484,14 +359,11 @@ fun MonthlyCalendarWidget(
             val startDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1
 
             val totalCells = startDayOfWeek + maxDays
-            val rows = (totalCells + 6) / 7
-
-            val composeLocale = androidx.compose.ui.text.intl.Locale.current
-            val javaLocale = Locale.forLanguageTag(composeLocale.toLanguageTag())
-            val dateFormat = SimpleDateFormat("dd-MM-yyyy", javaLocale)
+            val rowCount = (totalCells + 6) / 7
+            val dateFormat = remember { SimpleDateFormat("dd-MM-yyyy", Locale.US) }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (row in 0 until rows) {
+                for (row in 0 until rowCount) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceAround
@@ -587,7 +459,9 @@ fun TeacherRequestCard(request: TeacherAttendanceRequestModel) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -666,7 +540,14 @@ fun TeacherRequestCard(request: TeacherAttendanceRequestModel) {
 @Composable
 fun TeacherAttendanceScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
-        TeacherAttendanceScreen(onBack = {})
+        TeacherAttendanceContent(
+            uiState = TeacherAttendanceUiState(isLoading = false),
+            onBack = {},
+            onNavigateToViewer = null,
+            onDateSelected = {},
+            onTimeSlotSelected = {},
+            onSubmitRequest = {}
+        )
     }
 }
 
@@ -674,6 +555,13 @@ fun TeacherAttendanceScreenPreviewLight() {
 @Composable
 fun TeacherAttendanceScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
-        TeacherAttendanceScreen(onBack = {})
+        TeacherAttendanceContent(
+            uiState = TeacherAttendanceUiState(isLoading = false),
+            onBack = {},
+            onNavigateToViewer = null,
+            onDateSelected = {},
+            onTimeSlotSelected = {},
+            onSubmitRequest = {}
+        )
     }
 }

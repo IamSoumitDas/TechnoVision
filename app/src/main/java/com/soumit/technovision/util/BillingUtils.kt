@@ -4,6 +4,24 @@ import java.util.Calendar
 
 object BillingUtils {
     /**
+     * Normalizes non-ASCII numerals (e.g. Eastern Arabic, Devanagari, Bengali) to standard ASCII 0-9 digits.
+     */
+    fun normalizeDigits(input: String): String {
+        val sb = StringBuilder(input.length)
+        for (ch in input) {
+            if (ch in '0'..'9') {
+                sb.append(ch)
+            } else if (Character.isDigit(ch)) {
+                val num = Character.getNumericValue(ch)
+                if (num in 0..9) sb.append(num) else sb.append(ch)
+            } else {
+                sb.append(ch)
+            }
+        }
+        return sb.toString()
+    }
+
+    /**
      * Calculates billable months due and expected total fees.
      * Rule:
      * - Admitted <= 20th counts the current month as start; > 20th shifts start to next month.
@@ -13,11 +31,33 @@ object BillingUtils {
         if (admissionDateStr.isBlank()) return Pair(0, 0L)
 
         try {
-            val parts = admissionDateStr.trim().split(Regex("[/\\-]"))
+            val normalized = normalizeDigits(admissionDateStr.trim())
+            val parts = normalized.split(Regex("[/\\-]"))
             if (parts.size == 3) {
-                val day = parts[0].toInt()
-                val admissionMonth = parts[1].toInt()
-                val admissionYear = parts[2].toInt()
+                val day: Int
+                val admissionMonth: Int
+                var admissionYear: Int
+
+                if (parts[0].length == 4) {
+                    // Format: YYYY-MM-DD or YYYY/MM/DD
+                    admissionYear = parts[0].toInt()
+                    admissionMonth = parts[1].toInt()
+                    day = parts[2].toInt()
+                } else {
+                    // Format: DD-MM-YYYY or DD/MM/YYYY
+                    day = parts[0].toInt()
+                    admissionMonth = parts[1].toInt()
+                    admissionYear = parts[2].toInt()
+                }
+
+                // Expand 2-digit years (e.g., 26 -> 2026)
+                if (admissionYear in 0..99) {
+                    admissionYear += 2000
+                }
+
+                if (admissionMonth !in 1..12 || day !in 1..31 || admissionYear < 1900) {
+                    return Pair(0, 0L)
+                }
 
                 val calendar = Calendar.getInstance()
                 val currentYear = calendar.get(Calendar.YEAR)

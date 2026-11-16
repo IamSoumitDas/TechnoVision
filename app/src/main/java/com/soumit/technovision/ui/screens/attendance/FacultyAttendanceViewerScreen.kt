@@ -20,304 +20,89 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
+import com.soumit.technovision.util.AttendanceUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * Calculates duration hours from a batch time slot string (e.g. "9:00 AM - 11:00 AM" -> 2.0 hrs).
- */
-fun parseSlotDurationHours(timeSlot: String): Double {
-    return try {
-        val parts = timeSlot.split("-").map { it.trim() }
-        if (parts.size == 2) {
-            val format = SimpleDateFormat("h:mm a", Locale.US)
-            val start = format.parse(parts[0])
-            val end = format.parse(parts[1])
-            if (start != null && end != null) {
-                var diff = end.time - start.time
-                if (diff < 0) {
-                    diff += 12 * 60 * 60 * 1000L
-                }
-                val hours = diff.toDouble() / (1000 * 60 * 60)
-                if (hours > 0) hours else 2.0
-            } else 2.0
-        } else 2.0
-    } catch (_: Exception) {
-        2.0
-    }
-}
-
-/**
- * Parses "dd-MM-yyyy" into (year, month (0-11), dayOfMonth (1-31))
- */
-fun parseRecordDate(dateStr: String): Triple<Int, Int, Int>? {
-    val parts = dateStr.trim().split("-")
-    if (parts.size == 3) {
-        val d = parts[0].toIntOrNull()
-        val m = parts[1].toIntOrNull()
-        val y = parts[2].toIntOrNull()
-        if (d != null && m != null && y != null) {
-            return Triple(y, m - 1, d)
-        }
-    }
-    return null
-}
-
-data class TeacherSummary(
-    val teacherName: String,
-    val monthClassesCount: Int,
-    val allTimeClassesCount: Int,
-    val monthHours: Double,
-    val allTimeHours: Double
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FacultyAttendanceViewerScreen(
     onBack: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") onNavigateToVerify: (() -> Unit)? = null
+    @Suppress("UNUSED_PARAMETER") onNavigateToVerify: (() -> Unit)? = null,
+    viewModel: FacultyAttendanceViewerViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
 
-    // Calendar month & year selection (Defaults to current month)
-    val todayCal = remember { Calendar.getInstance() }
-    val todayYear = remember { todayCal.get(Calendar.YEAR) }
-    val todayMonth = remember { todayCal.get(Calendar.MONTH) } // 0-11
-
-    var selectedYear by remember { mutableIntStateOf(todayYear) }
-    var selectedMonth by remember { mutableIntStateOf(todayMonth) } // 0-11
-
-    // Specific day selection within the month (null = full month)
-    var selectedDayInMonth by remember { mutableStateOf<Int?>(null) }
-
-    // Optional teacher filter
-    var selectedTeacherFilter by remember { mutableStateOf<String?>(null) }
-
-    // Status filter chip
-    var selectedStatusFilter by remember { mutableStateOf("All") } // "All", "Verified", "Pending", "Rejected"
-
-    // Mock data for preview mode
-    val mockRecords = remember {
-        val curYear = todayCal.get(Calendar.YEAR)
-        val curMonth = todayCal.get(Calendar.MONTH) + 1
-        fun fmt(day: Int): String = String.format(Locale.US, "%02d-%02d-%04d", day, curMonth, curYear)
-
-        listOf(
-            // Day 2: 1 teacher
-            TeacherAttendanceRequestModel(
-                id = "m1",
-                teacherId = "t1",
-                teacherName = "Amitabha Teacher",
-                date = fmt(2),
-                timeSlot = "9:00 AM - 11:00 AM",
-                status = "Verified",
-                verifiedBy = "Soumit Das (Owner)",
-                timestamp = Timestamp.now()
-            ),
-            // Day 3: 2 teachers
-            TeacherAttendanceRequestModel(
-                id = "m2",
-                teacherId = "t1",
-                teacherName = "Amitabha Teacher",
-                date = fmt(3),
-                timeSlot = "9:00 AM - 11:00 AM",
-                status = "Verified",
-                verifiedBy = "Soumit Das (Owner)",
-                timestamp = Timestamp.now()
-            ),
-            TeacherAttendanceRequestModel(
-                id = "m3",
-                teacherId = "t2",
-                teacherName = "Priya Teacher",
-                date = fmt(3),
-                timeSlot = "11:00 AM - 1:00 PM",
-                status = "Verified",
-                verifiedBy = "Ananya (Receptionist)",
-                timestamp = Timestamp.now()
-            ),
-            // Day 5: 3 teachers
-            TeacherAttendanceRequestModel(
-                id = "m4",
-                teacherId = "t1",
-                teacherName = "Amitabha Teacher",
-                date = fmt(5),
-                timeSlot = "9:00 AM - 11:00 AM",
-                status = "Verified",
-                verifiedBy = "Soumit Das (Owner)",
-                timestamp = Timestamp.now()
-            ),
-            TeacherAttendanceRequestModel(
-                id = "m5",
-                teacherId = "t2",
-                teacherName = "Priya Teacher",
-                date = fmt(5),
-                timeSlot = "1:00 PM - 3:00 PM",
-                status = "Verified",
-                verifiedBy = "Ananya (Receptionist)",
-                timestamp = Timestamp.now()
-            ),
-            TeacherAttendanceRequestModel(
-                id = "m6",
-                teacherId = "t3",
-                teacherName = "Ramesh Teacher",
-                date = fmt(5),
-                timeSlot = "5:00 PM - 7:00 PM",
-                status = "Verified",
-                verifiedBy = "Soumit Das (Owner)",
-                timestamp = Timestamp.now()
-            ),
-            // Day 8: 1 teacher
-            TeacherAttendanceRequestModel(
-                id = "m7",
-                teacherId = "t4",
-                teacherName = "Tanmoy Teacher",
-                date = fmt(8),
-                timeSlot = "3:00 PM - 5:00 PM",
-                status = "Verified",
-                verifiedBy = "Ananya (Receptionist)",
-                timestamp = Timestamp.now()
-            ),
-            // Day 10: 2 teachers
-            TeacherAttendanceRequestModel(
-                id = "m8",
-                teacherId = "t2",
-                teacherName = "Priya Teacher",
-                date = fmt(10),
-                timeSlot = "11:00 AM - 1:00 PM",
-                status = "Verified",
-                verifiedBy = "Soumit Das (Owner)",
-                timestamp = Timestamp.now()
-            ),
-            TeacherAttendanceRequestModel(
-                id = "m9",
-                teacherId = "t4",
-                teacherName = "Tanmoy Teacher",
-                date = fmt(10),
-                timeSlot = "5:00 PM - 7:00 PM",
-                status = "Pending",
-                timestamp = Timestamp.now()
-            ),
-            // Day 12: 1 teacher
-            TeacherAttendanceRequestModel(
-                id = "m10",
-                teacherId = "t3",
-                teacherName = "Ramesh Teacher",
-                date = fmt(12),
-                timeSlot = "1:00 PM - 3:00 PM",
-                status = "Rejected",
-                rejectedBy = "Soumit Das (Owner)",
-                timestamp = Timestamp.now()
-            )
-        )
-    }
-
-    var recordsList by remember { mutableStateOf(if (isInPreview) mockRecords else emptyList()) }
-    var isLoading by remember { mutableStateOf(!isInPreview) }
-
-    // Fetch real-time records from Firestore with proper lifecycle disposal to prevent memory leaks
-    DisposableEffect(Unit) {
-        if (isInPreview) {
-            onDispose { }
-        } else {
-            val db = FirebaseFirestore.getInstance()
-            val registration = db.collection("teacher_attendance")
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        Toast.makeText(context, "Error loading records: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null) {
-                        val list = snapshot.documents.map { doc ->
-                            TeacherAttendanceRequestModel(
-                                id = doc.id,
-                                teacherId = doc.getString("teacherId") ?: "",
-                                teacherName = doc.getString("teacherName") ?: "",
-                                date = doc.getString("date") ?: "",
-                                timeSlot = doc.getString("timeSlot") ?: "",
-                                status = doc.getString("status") ?: "Pending",
-                                timestamp = doc.getTimestamp("timestamp"),
-                                verifiedBy = doc.getString("verifiedBy") ?: "",
-                                rejectedBy = doc.getString("rejectedBy") ?: ""
-                            )
-                        }
-                        recordsList = list
-                        isLoading = false
-                    }
-                }
-            onDispose {
-                registration.remove()
-            }
+    LaunchedEffect(uiState.userMessage) {
+        uiState.userMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearUserMessage()
         }
     }
 
-    // Records filtered strictly for the selected Calendar Month & Year
-    val monthRecords = remember(recordsList, selectedYear, selectedMonth) {
-        recordsList.filter { record ->
-            val parsed = parseRecordDate(record.date)
+    FacultyAttendanceViewerContent(
+        uiState = uiState,
+        onBack = onBack,
+        onMonthChanged = viewModel::onMonthChanged
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FacultyAttendanceViewerContent(
+    uiState: FacultyAttendanceViewerUiState,
+    onBack: () -> Unit,
+    onMonthChanged: (Int, Int) -> Unit
+) {
+    val todayCal = remember { Calendar.getInstance() }
+    val todayYear = remember { todayCal.get(Calendar.YEAR) }
+    val todayMonth = remember { todayCal.get(Calendar.MONTH) }
+
+    var selectedDayInMonth by remember { mutableStateOf<Int?>(null) }
+    var selectedTeacherFilter by remember { mutableStateOf<String?>(null) }
+    var selectedStatusFilter by remember { mutableStateOf("All") }
+
+    val monthRecords = remember(uiState.requests, uiState.selectedYear, uiState.selectedMonth) {
+        uiState.requests.filter { record ->
+            val parsed = AttendanceUtils.parseRecordDate(record.date)
             if (parsed != null) {
-                parsed.first == selectedYear && parsed.second == selectedMonth
+                parsed.first == uiState.selectedYear && parsed.second == uiState.selectedMonth
             } else if (record.timestamp != null) {
                 val c = Calendar.getInstance().apply { time = record.timestamp.toDate() }
-                c.get(Calendar.YEAR) == selectedYear && c.get(Calendar.MONTH) == selectedMonth
+                c.get(Calendar.YEAR) == uiState.selectedYear && c.get(Calendar.MONTH) == uiState.selectedMonth
             } else {
                 false
             }
         }
     }
 
-    // Teacher breakdown computation: (Which teacher did how much classes in this month vs all-time)
-    val teacherSummaries = remember(recordsList, monthRecords) {
-        val allTeacherNames = recordsList.map { it.teacherName.trim() }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .sorted()
-
-        allTeacherNames.map { name ->
-            val teacherAllRecords = recordsList.filter { it.teacherName.equals(name, ignoreCase = true) }
-            val teacherMonthVerifiedRecords = monthRecords.filter {
-                it.teacherName.equals(name, ignoreCase = true) &&
-                    it.status.equals("Verified", ignoreCase = true)
-            }
-
-            val monthHours = teacherMonthVerifiedRecords.sumOf { parseSlotDurationHours(it.timeSlot) }
-            val allHours = teacherAllRecords.sumOf { parseSlotDurationHours(it.timeSlot) }
-
-            TeacherSummary(
-                teacherName = name,
-                monthClassesCount = teacherMonthVerifiedRecords.size,
-                allTimeClassesCount = teacherAllRecords.size,
-                monthHours = monthHours,
-                allTimeHours = allHours
-            )
-        }.sortedByDescending { it.monthClassesCount }
-    }
-
-    // High level metrics for the selected month (verified only)
     val totalMonthClasses = remember(monthRecords) {
         monthRecords.count { it.status.equals("Verified", ignoreCase = true) }
     }
 
-    // Records for the Attendance Log (taking into account selectedDayInMonth, selectedTeacherFilter, selectedStatusFilter)
-    val filteredLogRecords = remember(monthRecords, selectedDayInMonth, selectedTeacherFilter, selectedStatusFilter, selectedYear, selectedMonth) {
+    val filteredLogRecords = remember(
+        monthRecords,
+        selectedDayInMonth,
+        selectedTeacherFilter,
+        selectedStatusFilter,
+        uiState.selectedYear,
+        uiState.selectedMonth
+    ) {
         monthRecords.filter { record ->
             val matchesDay = if (selectedDayInMonth != null) {
-                val parsed = parseRecordDate(record.date)
-                val dayStr = String.format(Locale.US, "%02d-%02d-%04d", selectedDayInMonth!!, selectedMonth + 1, selectedYear)
+                val parsed = AttendanceUtils.parseRecordDate(record.date)
+                val dayStr = String.format(Locale.US, "%02d-%02d-%04d", selectedDayInMonth!!, uiState.selectedMonth + 1, uiState.selectedYear)
                 record.date == dayStr || (parsed != null && parsed.third == selectedDayInMonth)
             } else {
                 true
@@ -337,17 +122,16 @@ fun FacultyAttendanceViewerScreen(
         }
     }
 
-    // Month display name formatted (e.g. "November 2026")
-    val selectedMonthDisplayName = remember(selectedYear, selectedMonth) {
+    val selectedMonthDisplayName = remember(uiState.selectedYear, uiState.selectedMonth) {
         val cal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, selectedYear)
-            set(Calendar.MONTH, selectedMonth)
+            set(Calendar.YEAR, uiState.selectedYear)
+            set(Calendar.MONTH, uiState.selectedMonth)
             set(Calendar.DAY_OF_MONTH, 1)
         }
         SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
     }
 
-    val isCurrentRealMonth = (selectedYear == todayYear && selectedMonth == todayMonth)
+    val isCurrentRealMonth = (uiState.selectedYear == todayYear && uiState.selectedMonth == todayMonth)
 
     Scaffold(
         topBar = {
@@ -364,8 +148,6 @@ fun FacultyAttendanceViewerScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                // Removed all buttons from top app bar as requested
-                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -380,38 +162,33 @@ fun FacultyAttendanceViewerScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Month Navigator Header
             item {
                 MonthNavigatorCard(
                     monthTitle = selectedMonthDisplayName,
                     isCurrentMonth = isCurrentRealMonth,
                     onPreviousMonth = {
                         selectedDayInMonth = null
-                        if (selectedMonth == 0) {
-                            selectedMonth = 11
-                            selectedYear -= 1
+                        if (uiState.selectedMonth == 0) {
+                            onMonthChanged(uiState.selectedYear - 1, 11)
                         } else {
-                            selectedMonth -= 1
+                            onMonthChanged(uiState.selectedYear, uiState.selectedMonth - 1)
                         }
                     },
                     onNextMonth = {
                         selectedDayInMonth = null
-                        if (selectedMonth == 11) {
-                            selectedMonth = 0
-                            selectedYear += 1
+                        if (uiState.selectedMonth == 11) {
+                            onMonthChanged(uiState.selectedYear + 1, 0)
                         } else {
-                            selectedMonth += 1
+                            onMonthChanged(uiState.selectedYear, uiState.selectedMonth + 1)
                         }
                     },
                     onResetToCurrentMonth = {
                         selectedDayInMonth = null
-                        selectedYear = todayYear
-                        selectedMonth = todayMonth
+                        onMonthChanged(todayYear, todayMonth)
                     }
                 )
             }
 
-            // 3. Teacher Breakdown Section ("Which teacher did how much classes")
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -457,7 +234,7 @@ fun FacultyAttendanceViewerScreen(
                             }
                         }
 
-                        if (teacherSummaries.isEmpty()) {
+                        if (uiState.teacherSummaries.isEmpty()) {
                             Text(
                                 text = "No faculty data logged yet.",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -469,7 +246,7 @@ fun FacultyAttendanceViewerScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                teacherSummaries.forEach { summary ->
+                                for (summary in uiState.teacherSummaries) {
                                     val isSelected = selectedTeacherFilter.equals(summary.teacherName, ignoreCase = true)
                                     val progress = if (totalMonthClasses > 0) {
                                         summary.monthClassesCount.toFloat() / totalMonthClasses.toFloat()
@@ -527,7 +304,7 @@ fun FacultyAttendanceViewerScreen(
                                                     text = "${summary.monthClassesCount} ${if (summary.monthClassesCount == 1) "class" else "classes"}",
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary
+                                                    color = MaterialTheme.colorScheme.primary
                                                 )
                                             }
 
@@ -551,7 +328,6 @@ fun FacultyAttendanceViewerScreen(
                 }
             }
 
-            // 5. Attendance Log Section Header & Filter Controls
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
@@ -565,7 +341,6 @@ fun FacultyAttendanceViewerScreen(
                             fontWeight = FontWeight.Bold
                         )
 
-                        // Clear filter actions
                         if (selectedDayInMonth != null || selectedTeacherFilter != null || selectedStatusFilter != "All") {
                             TextButton(
                                 onClick = {
@@ -579,7 +354,6 @@ fun FacultyAttendanceViewerScreen(
                         }
                     }
 
-                    // Active Filter Indicator Chips
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -587,7 +361,6 @@ fun FacultyAttendanceViewerScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Status Filter Chips
                         val statuses = listOf("All", "Verified", "Pending", "Rejected")
                         statuses.forEach { status ->
                             FilterChip(
@@ -597,7 +370,6 @@ fun FacultyAttendanceViewerScreen(
                             )
                         }
 
-                        // Day filter tag
                         if (selectedDayInMonth != null) {
                             SuggestionChip(
                                 onClick = { selectedDayInMonth = null },
@@ -607,7 +379,6 @@ fun FacultyAttendanceViewerScreen(
                             )
                         }
 
-                        // Teacher filter tag
                         if (selectedTeacherFilter != null) {
                             SuggestionChip(
                                 onClick = { selectedTeacherFilter = null },
@@ -620,8 +391,7 @@ fun FacultyAttendanceViewerScreen(
                 }
             }
 
-            // 6. Attendance Log Items (NO click menu/dialog, includes 'Verified by $who')
-            if (isLoading) {
+            if (uiState.isLoading) {
                 item {
                     Box(
                         modifier = Modifier
@@ -677,9 +447,6 @@ fun FacultyAttendanceViewerScreen(
     }
 }
 
-/**
- * Month Navigation Component: previous, next, and current month label.
- */
 @Composable
 fun MonthNavigatorCard(
     monthTitle: String,
@@ -746,9 +513,6 @@ fun MonthNavigatorCard(
     }
 }
 
-/**
- * Clean Attendance Log Card (NO onclick menu/dialog; prominently shows 'Verified by $who')
- */
 @Composable
 fun AttendanceLogCard(
     record: TeacherAttendanceRequestModel
@@ -756,7 +520,7 @@ fun AttendanceLogCard(
     val isVerified = record.status.equals("Verified", ignoreCase = true)
     val isRejected = record.status.equals("Rejected", ignoreCase = true)
 
-    val durationHours = remember(record.timeSlot) { parseSlotDurationHours(record.timeSlot) }
+    val durationHours = remember(record.timeSlot) { AttendanceUtils.parseSlotDurationHours(record.timeSlot) }
     val durationText = if (durationHours == durationHours.toInt().toDouble()) "${durationHours.toInt()}h class" else "${String.format(Locale.US, "%.1f", durationHours)}h class"
 
     val statusColor = when {
@@ -787,7 +551,6 @@ fun AttendanceLogCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header: Name & Status Pill
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -810,7 +573,6 @@ fun AttendanceLogCard(
                     )
                 }
 
-                // Status Badge
                 Surface(
                     color = when {
                         isVerified -> Color(0xFFE8F5E9)
@@ -847,7 +609,6 @@ fun AttendanceLogCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
 
-            // Time & Date Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -887,64 +648,6 @@ fun AttendanceLogCard(
                     )
                 }
             }
-
-            // Verification Banner: Prominently displaying "Verified by $who" from Firebase
-            /*Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = when {
-                    isVerified -> Color(0xFFE8F5E9)
-                    isRejected -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-                    else -> Color(0xFFFFF8E1)
-                },
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = when {
-                            isVerified -> Icons.Default.VerifiedUser
-                            isRejected -> Icons.Default.Cancel
-                            else -> Icons.Default.HourglassTop
-                        },
-                        contentDescription = null,
-                        tint = when {
-                            isVerified -> Color(0xFF1B5E20)
-                            isRejected -> MaterialTheme.colorScheme.error
-                            else -> Color(0xFFE65100)
-                        },
-                        modifier = Modifier.size(16.dp)
-                    )
-
-                    Text(
-                        text = when {
-                            isVerified -> {
-                                val verifier = record.verifiedBy.ifBlank { "Admin" }
-                                "Verified by $verifier"
-                            }
-                            isRejected -> {
-                                val rejector = record.rejectedBy.ifBlank { "Admin" }
-                                "Rejected by $rejector"
-                            }
-                            else -> "Status: Pending verification"
-                        },
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = when {
-                            isVerified -> Color(0xFF1B5E20)
-                            isRejected -> MaterialTheme.colorScheme.error
-                            else -> Color(0xFFE65100)
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }*/
         }
     }
 }
@@ -954,6 +657,24 @@ fun AttendanceLogCard(
 @Composable
 fun FacultyAttendanceViewerScreenPreview() {
     TechnoVisionTheme {
-        FacultyAttendanceViewerScreen(onBack = {})
+        FacultyAttendanceViewerContent(
+            uiState = FacultyAttendanceViewerUiState(
+                requests = listOf(
+                    TeacherAttendanceRequestModel(
+                        id = "m1",
+                        teacherId = "t1",
+                        teacherName = "Amitabha Teacher",
+                        date = "02-11-2026",
+                        timeSlot = "9:00 AM - 11:00 AM",
+                        status = "Verified",
+                        verifiedBy = "Soumit Das",
+                        timestamp = Timestamp.now()
+                    )
+                ),
+                isLoading = false
+            ),
+            onBack = {},
+            onMonthChanged = { _, _ -> }
+        )
     }
 }

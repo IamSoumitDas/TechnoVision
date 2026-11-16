@@ -22,372 +22,86 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.StudentModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import com.soumit.technovision.util.SystemLogger
-import java.text.SimpleDateFormat
-import java.util.*
+import com.soumit.technovision.util.AttendanceUtils
 
-private val BATCH_TIME_SLOTS = listOf(
-    "9:00 AM - 11:00 AM",
-    "11:00 AM - 1:00 PM",
-    "1:00 PM - 3:00 PM",
-    "3:00 PM - 5:00 PM",
-    "5:00 PM - 7:00 PM",
-    "7:00 PM - 9:00 PM",
-    "General / Other"
-)
-
-/**
- * Data class to hold details of an existing attendance submission for the batch.
- */
-data class ExistingAttendanceInfo(
-    val id: String,
-    val submittedBy: String,
-    val timeFormatted: String,
-    val totalPresent: Int,
-    val totalAbsent: Int
-)
-
-/**
- * Automatically determines the active batch time slot based on current device time.
- */
-private fun getAutomaticTimeSlot(): String {
-    val cal = Calendar.getInstance()
-    val hour = cal.get(Calendar.HOUR_OF_DAY)
-    val minute = cal.get(Calendar.MINUTE)
-    val totalMinutes = hour * 60 + minute
-
-    return when {
-        totalMinutes < 11 * 60 -> "9:00 AM - 11:00 AM"
-        totalMinutes < 13 * 60 -> "11:00 AM - 1:00 PM"
-        totalMinutes < 15 * 60 -> "1:00 PM - 3:00 PM"
-        totalMinutes < 17 * 60 -> "3:00 PM - 5:00 PM"
-        totalMinutes < 19 * 60 -> "5:00 PM - 7:00 PM"
-        totalMinutes < 21 * 60 -> "7:00 PM - 9:00 PM"
-        else -> "7:00 PM - 9:00 PM"
-    }
-}
-
-/**
- * Returns the English name of the current day of the week matching weeklySchedule keys.
- */
-private fun getTodayDayName(): String {
-    val calendar = Calendar.getInstance()
-    val dayOfWeekIndex = calendar.get(Calendar.DAY_OF_WEEK)
-    val daysArray = arrayOf("", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-    return if (dayOfWeekIndex in daysArray.indices) daysArray[dayOfWeekIndex] else "Sunday"
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TakeAttendanceScreen(
     onBack: () -> Unit,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    viewModel: TakeAttendanceViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(uiState.userMessage) {
+        uiState.userMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearUserMessage()
+        }
+    }
+
+    TakeAttendanceContent(
+        uiState = uiState,
+        onBack = onBack,
+        onNavigateToHistory = onNavigateToHistory,
+        onSelectTimeSlot = viewModel::onSelectTimeSlot,
+        onToggleAttendance = viewModel::toggleStudentAttendance,
+        onSetAllAttendance = viewModel::setAllAttendance,
+        onAddAdditionalStudent = viewModel::addAdditionalStudent,
+        onRemoveAdditionalStudent = viewModel::removeAdditionalStudent,
+        onSearchQueryChange = viewModel::onSearchQueryChanged,
+        onSetSearchExpanded = viewModel::setSearchExpanded,
+        onSaveAttendance = { viewModel.saveAttendance { onBack() } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun TakeAttendanceContent(
+    uiState: TakeAttendanceUiState,
+    onBack: () -> Unit,
+    onNavigateToHistory: () -> Unit,
+    onSelectTimeSlot: (String) -> Unit,
+    onToggleAttendance: (String) -> Unit,
+    onSetAllAttendance: (Boolean) -> Unit,
+    onAddAdditionalStudent: (StudentModel) -> Unit,
+    onRemoveAdditionalStudent: (String) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onSetSearchExpanded: (Boolean) -> Unit,
+    onSaveAttendance: () -> Unit
 ) {
     val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
-
-    // Today's day name (e.g. "Monday", "Thursday")
-    val todayName = remember { getTodayDayName() }
-
-    // Current Date formatted as DD-MM-YYYY
-    val currentDate = remember {
-        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
-    }
-
-    // 1. Time automatically selected based on current time
-    val autoTimeSlot = remember { getAutomaticTimeSlot() }
-    var selectedTimeSlot by remember { mutableStateOf(autoTimeSlot) }
     var timeSlotExpanded by remember { mutableStateOf(false) }
 
-    // Master student list fetched from Firestore
-    val allStudents = remember {
-        mutableStateListOf<StudentModel>().apply {
-            if (isInPreview) {
-                addAll(
-                    listOf(
-                        StudentModel(
-                            id = "1",
-                            fullName = "Aarav Sharma",
-                            studentClass = "X",
-                            school = "St. Xavier's School",
-                            weeklySchedule = mapOf(
-                                todayName to autoTimeSlot,
-                                "Tuesday" to "9:00 AM - 11:00 AM"
-                            )
-                        ),
-                        StudentModel(
-                            id = "2",
-                            fullName = "Priya Das",
-                            studentClass = "XII",
-                            school = "Alipurduar Girls High School",
-                            weeklySchedule = mapOf(
-                                todayName to autoTimeSlot,
-                                "Wednesday" to "5:00 PM - 7:00 PM"
-                            )
-                        ),
-                        StudentModel(
-                            id = "3",
-                            fullName = "Rahul Roy",
-                            studentClass = "VIII",
-                            school = "Kendriya Vidyalaya",
-                            weeklySchedule = mapOf(
-                                "Sunday" to "9:00 AM - 11:00 AM",
-                                "Friday" to "1:00 PM - 3:00 PM"
-                            )
-                        ),
-                        StudentModel(
-                            id = "4",
-                            fullName = "Debayan Roy",
-                            studentClass = "IX",
-                            school = "Mc William High School (HS)",
-                            weeklySchedule = mapOf(
-                                "Sunday" to "11:00 AM - 1:00 PM",
-                                "Saturday" to "3:00 PM - 5:00 PM"
-                            )
-                        )
-                    )
-                )
-            }
-        }
-    }
-    var isLoading by remember { mutableStateOf(!isInPreview) }
-    var isSaving by remember { mutableStateOf(false) }
+    val autoTimeSlot = remember { AttendanceUtils.getAutomaticTimeSlot() }
+    val totalActiveStudents = uiState.displayedStudents.size
+    val allActivePresent = totalActiveStudents > 0 && uiState.displayedStudents.all { uiState.attendanceStates[it.id] == true }
 
-    // Map to track attendance: Student ID -> Boolean (true = Present, false = Absent)
-    val attendanceStates = remember { mutableStateMapOf<String, Boolean>() }
-
-    // 3. Extra students added who are attending out of their regular scheduled time
-    val additionalStudents = remember { mutableStateListOf<StudentModel>() }
-    var isSearchExpanded by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-
-    // Strict duplicate check state: tracks if attendance has already been recorded for this batch
-    var isCheckingExistingAttendance by remember { mutableStateOf(false) }
-    var existingAttendanceInfo by remember { mutableStateOf<ExistingAttendanceInfo?>(null) }
-    val isAttendanceLocked = existingAttendanceInfo != null
-
-    // 2. Scheduled students for the selected day and time slot (matches BatchesScreen logic)
-    val scheduledStudents = remember(allStudents.toList(), todayName, selectedTimeSlot) {
-        allStudents.filter { student ->
-            student.weeklySchedule[todayName] == selectedTimeSlot ||
-                (student.weeklySchedule.isEmpty() && student.batchTimeSlot == selectedTimeSlot)
-        }
-    }
-
-    // User map from users collection (aligned with SystemLogsScreen) to resolve authentic teacher names
-    var userMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var currentUserName by remember { mutableStateOf("Faculty") }
-
-    val currentUserId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "" }
-
-    // Direct lookup of current user profile to ensure authentic teacher name is retrieved even if collection listing is restricted
-    LaunchedEffect(currentUserId) {
-        if (!isInPreview && currentUserId.isNotBlank()) {
-            FirebaseFirestore.getInstance().collection("users").document(currentUserId).get()
-                .addOnSuccessListener { doc ->
-                    if (doc.exists()) {
-                        val name = doc.getString("fullName")?.takeIf { it.isNotBlank() }
-                            ?: doc.getString("name")?.takeIf { it.isNotBlank() }
-                            ?: doc.getString("displayName")?.takeIf { it.isNotBlank() }
-                        if (name != null) {
-                            currentUserName = name
-                        }
-                    }
-                }
-        }
-    }
-
-    // Fetch user map and fallback resolution from users collection
-    LaunchedEffect(Unit) {
-        if (!isInPreview) {
-            FirebaseFirestore.getInstance().collection("users").get()
-                .addOnSuccessListener { snapshot ->
-                    val map = mutableMapOf<String, String>()
-                    for (doc in snapshot.documents) {
-                        val fullName = doc.getString("fullName")
-                            ?: doc.getString("name")
-                            ?: doc.getString("displayName")
-                            ?: continue
-                        val email = doc.getString("email") ?: ""
-                        val uid = doc.id
-                        if (email.isNotBlank()) {
-                            map[email] = fullName
-                            map[email.lowercase()] = fullName
-                        }
-                        map[uid] = fullName
-                    }
-                    userMap = map
-
-                    val curUid = FirebaseAuth.getInstance().currentUser?.uid
-                    val curEmail = FirebaseAuth.getInstance().currentUser?.email
-                    val resolved = map[curUid] ?: map[curEmail]
-                        ?: FirebaseAuth.getInstance().currentUser?.displayName?.takeIf { it.isNotBlank() }
-                        ?: curEmail?.substringBefore("@")
-                        ?: "Faculty"
-                    if (currentUserName == "Faculty" && resolved != "Faculty") {
-                        currentUserName = resolved
-                    }
-                }
-        }
-    }
-
-    // Check if attendance already exists for this date and time slot to strictly prevent duplicates
-    LaunchedEffect(selectedTimeSlot, currentDate, userMap) {
-        additionalStudents.clear()
-        isSearchExpanded = false
-        searchQuery = ""
-
-        if (isInPreview) {
-            existingAttendanceInfo = null
-            return@LaunchedEffect
-        }
-
-        isCheckingExistingAttendance = true
-        val slotIdTag = selectedTimeSlot.replace(Regex("[^A-Za-z0-9]"), "_")
-        val attendanceDocId = "${currentDate}_$slotIdTag"
-
-        FirebaseFirestore.getInstance().collection("attendance").document(attendanceDocId)
-            .get()
-            .addOnSuccessListener { doc ->
-                isCheckingExistingAttendance = false
-                if (doc != null && doc.exists()) {
-                    val rawSubmitted = doc.getString("submittedBy") ?: ""
-                    val rawUid = doc.getString("submittedByUid") ?: ""
-                    val rawEmail = doc.getString("submittedByEmail") ?: doc.getString("takenBy") ?: ""
-
-                    val recordedBy = userMap[rawUid]
-                        ?: userMap[rawEmail]
-                        ?: userMap[rawSubmitted]
-                        ?: rawSubmitted.takeIf { it.isNotBlank() && it != "Faculty" && !it.contains("@") }
-                        ?: rawEmail.takeIf { it.contains("@") }?.substringBefore("@")?.replace(".", " ")?.replaceFirstChar { it.uppercase() }
-                        ?: "Another Faculty/User"
-
-                    val timestamp = doc.getTimestamp("timestamp")
-                    val formattedTime = if (timestamp != null) {
-                        SimpleDateFormat("hh:mm a", Locale.getDefault()).format(timestamp.toDate())
-                    } else {
-                        "Earlier today"
-                    }
-                    val presentCount = (doc.getLong("totalPresent") ?: 0L).toInt()
-                    val absentCount = (doc.getLong("totalAbsent") ?: 0L).toInt()
-
-                    existingAttendanceInfo = ExistingAttendanceInfo(
-                        id = doc.id,
-                        submittedBy = recordedBy,
-                        timeFormatted = formattedTime,
-                        totalPresent = presentCount,
-                        totalAbsent = absentCount
-                    )
-
-                    // Load recorded attendance states into UI for inspection
-                    @Suppress("UNCHECKED_CAST")
-                    val presentIds = doc.get("presentStudentIds") as? List<String> ?: emptyList()
-                    @Suppress("UNCHECKED_CAST")
-                    val absentIds = doc.get("absentStudentIds") as? List<String> ?: emptyList()
-                    @Suppress("UNCHECKED_CAST")
-                    val extraIds = doc.get("additionalStudentIds") as? List<String> ?: emptyList()
-
-                    presentIds.forEach { attendanceStates[it] = true }
-                    absentIds.forEach { attendanceStates[it] = false }
-
-                    if (extraIds.isNotEmpty()) {
-                        val extras = allStudents.filter { it.id in extraIds }
-                        additionalStudents.clear()
-                        additionalStudents.addAll(extras)
-                    }
-                } else {
-                    existingAttendanceInfo = null
-                }
-            }
-            .addOnFailureListener {
-                isCheckingExistingAttendance = false
-                existingAttendanceInfo = null
-            }
-    }
-
-    // Ensure default attendance state (false) for scheduled students when not locked
-    LaunchedEffect(scheduledStudents) {
-        if (!isAttendanceLocked) {
-            scheduledStudents.forEach { student ->
-                if (!attendanceStates.containsKey(student.id)) {
-                    attendanceStates[student.id] = false
-                }
-            }
-        }
-    }
-
-    // Fetch all students on load with their weekly schedule
-    LaunchedEffect(Unit) {
-        if (!isInPreview) {
-            FirebaseFirestore.getInstance().collection("students")
-                .orderBy("fullName")
-                .get()
-                .addOnSuccessListener { result ->
-                    val list = result.documents.map { doc ->
-                        @Suppress("UNCHECKED_CAST")
-                        val scheduleMap = doc.get("weeklySchedule") as? Map<String, String> ?: emptyMap()
-
-                        StudentModel(
-                            id = doc.id,
-                            fullName = doc.getString("fullName") ?: "",
-                            studentClass = doc.getString("studentClass") ?: "",
-                            school = doc.getString("school") ?: "",
-                            batchTimeSlot = doc.getString("batchTimeSlot") ?: "",
-                            weeklySchedule = scheduleMap
-                        )
-                    }
-                    allStudents.clear()
-                    allStudents.addAll(list)
-                    isLoading = false
-                }
-                .addOnFailureListener { e ->
-                    isLoading = false
-                    Toast.makeText(context, "Error loading students: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                }
-        }
-    }
-
-    // Filter available students for search (excluding already displayed ones)
-    val searchCandidates = remember(allStudents.toList(), scheduledStudents, additionalStudents.toList(), searchQuery) {
-        val currentIds = (scheduledStudents.map { it.id } + additionalStudents.map { it.id }).toSet()
-        val unassigned = allStudents.filter { it.id !in currentIds }
-
-        if (searchQuery.isBlank()) {
-            unassigned
+    val searchCandidates = remember(uiState.allStudents, uiState.displayedStudents, uiState.searchQuery) {
+        val activeIds = uiState.displayedStudents.map { it.id }.toSet()
+        val nonActive = uiState.allStudents.filter { it.id !in activeIds }
+        if (uiState.searchQuery.isBlank()) {
+            nonActive
         } else {
-            unassigned.filter { student ->
-                student.fullName.contains(searchQuery, ignoreCase = true) ||
-                    student.studentClass.contains(searchQuery, ignoreCase = true) ||
-                    student.school.contains(searchQuery, ignoreCase = true)
+            nonActive.filter {
+                it.fullName.contains(uiState.searchQuery, ignoreCase = true) ||
+                        it.studentClass.contains(uiState.searchQuery, ignoreCase = true) ||
+                        it.school.contains(uiState.searchQuery, ignoreCase = true)
             }
         }
     }
-
-    val totalActiveStudents = scheduledStudents.size + additionalStudents.size
-    val allActivePresent = totalActiveStudents > 0 &&
-        (scheduledStudents + additionalStudents).all { attendanceStates[it.id] == true }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text("Take Attendance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = "$todayName, $currentDate",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
-                    }
-                },
+                title = { Text("Take Attendance") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -395,7 +109,10 @@ fun TakeAttendanceScreen(
                 },
                 actions = {
                     IconButton(onClick = onNavigateToHistory) {
-                        Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "Attendance History")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Assignment,
+                            contentDescription = "Attendance History"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -406,129 +123,71 @@ fun TakeAttendanceScreen(
         },
         bottomBar = {
             Surface(
-                tonalElevation = 8.dp,
+                tonalElevation = 3.dp,
+                shadowElevation = 8.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Box(modifier = Modifier.padding(16.dp)) {
-                    if (isSaving) {
-                        LoadingIndicator(modifier = Modifier.align(Alignment.Center))
-                    } else if (isAttendanceLocked) {
-                        // Strict lock indicator preventing submission
-                        Button(
-                            onClick = {},
-                            enabled = false,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                disabledContentColor = MaterialTheme.colorScheme.outline
-                            )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Present: ${uiState.presentCount}  |  Absent: ${uiState.absentCount}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Text(
+                            text = uiState.currentDate,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+
+                    if (uiState.isAttendanceLocked) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Attendance Locked (Already Recorded)")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "Locked: Attendance already recorded for this slot.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                    } else if (uiState.isSaving) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            LoadingIndicator()
                         }
                     } else {
                         Button(
-                            onClick = {
-                                if (isInPreview) {
-                                    Toast.makeText(context, "Preview: Attendance Saved!", Toast.LENGTH_SHORT).show()
-                                    onBack()
-                                    return@Button
-                                }
-
-                                val displayedStudents = scheduledStudents + additionalStudents
-                                if (displayedStudents.isEmpty()) {
-                                    Toast.makeText(context, "No students in this session to save.", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-
-                                isSaving = true
-                                val db = FirebaseFirestore.getInstance()
-
-                                val presentIds = displayedStudents.filter { attendanceStates[it.id] == true }.map { it.id }
-                                val absentIds = scheduledStudents.filter { attendanceStates[it.id] != true }.map { it.id }
-
-                                val slotIdTag = selectedTimeSlot.replace(Regex("[^A-Za-z0-9]"), "_")
-                                val attendanceDocId = "${currentDate}_$slotIdTag"
-                                val docRef = db.collection("attendance").document(attendanceDocId)
-
-                                val currentUser = FirebaseAuth.getInstance().currentUser
-                                val currentUserUid = currentUser?.uid ?: ""
-                                val currentUserEmail = currentUser?.email ?: ""
-                                val resolvedUserName = currentUserName.takeIf { it.isNotBlank() && it != "Faculty" }
-                                    ?: userMap[currentUserUid]
-                                    ?: userMap[currentUserEmail]
-                                    ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
-                                    ?: currentUserEmail.takeIf { it.isNotBlank() }?.substringBefore("@")?.replace(".", " ")?.replaceFirstChar { it.uppercase() }
-                                    ?: "Faculty"
-
-                                // Strict transactional write: atomicity ensures no concurrent duplicate submissions
-                                db.runTransaction { transaction ->
-                                    val snapshot = transaction.get(docRef)
-                                    if (snapshot.exists()) {
-                                        val recorder = snapshot.getString("submittedBy")
-                                            ?: snapshot.getString("takenBy")
-                                            ?: "another user"
-                                        throw IllegalStateException("Attendance for this batch has already been recorded by $recorder.")
-                                    }
-
-                                    val attendanceRecord = hashMapOf(
-                                        "date" to currentDate,
-                                        "timeSlot" to selectedTimeSlot,
-                                        "presentStudentIds" to presentIds,
-                                        "absentStudentIds" to absentIds,
-                                        "additionalStudentIds" to additionalStudents.map { it.id },
-                                        "totalPresent" to presentIds.size,
-                                        "totalAbsent" to absentIds.size,
-                                        "submittedBy" to resolvedUserName,
-                                        "submittedByUid" to currentUserUid,
-                                        "submittedByEmail" to currentUserEmail,
-                                        "timestamp" to com.google.firebase.Timestamp.now()
-                                    )
-
-                                    transaction.set(docRef, attendanceRecord)
-                                }
-                                    .addOnSuccessListener {
-                                        isSaving = false
-                                        Toast.makeText(context, "Attendance saved successfully!", Toast.LENGTH_SHORT).show()
-
-                                        val extraInfo = if (additionalStudents.isNotEmpty()) " (${additionalStudents.size} out of schedule)" else ""
-                                        SystemLogger.log(
-                                            action = "Batch Attendance Saved",
-                                            details = "Recorded attendance for $currentDate [$selectedTimeSlot]. Present: ${presentIds.size}, Absent: ${absentIds.size}$extraInfo (by $resolvedUserName)"
-                                        )
-
-                                        onBack()
-                                    }
-                                    .addOnFailureListener { e ->
-                                        isSaving = false
-                                        val errorMsg = e.localizedMessage ?: "Failed to save attendance"
-                                        Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
-
-                                        // Refresh the duplicate lock state in case another user just submitted
-                                        docRef.get().addOnSuccessListener { freshDoc ->
-                                            if (freshDoc != null && freshDoc.exists()) {
-                                                val rec = freshDoc.getString("submittedBy") ?: freshDoc.getString("takenBy") ?: "Another User"
-                                                val ts = freshDoc.getTimestamp("timestamp")
-                                                val fTime = if (ts != null) {
-                                                    SimpleDateFormat("hh:mm a", Locale.getDefault()).format(ts.toDate())
-                                                } else "earlier today"
-
-                                                existingAttendanceInfo = ExistingAttendanceInfo(
-                                                    id = freshDoc.id,
-                                                    submittedBy = rec,
-                                                    timeFormatted = fTime,
-                                                    totalPresent = (freshDoc.getLong("totalPresent") ?: 0L).toInt(),
-                                                    totalAbsent = (freshDoc.getLong("totalAbsent") ?: 0L).toInt()
-                                                )
-                                            }
-                                        }
-                                    }
-                            },
+                            onClick = onSaveAttendance,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Save Batch Attendance")
@@ -544,7 +203,6 @@ fun TakeAttendanceScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // Time Slot Selector Header
             Text(
                 text = "Batch Time Slot:",
                 style = MaterialTheme.typography.titleSmall,
@@ -561,7 +219,7 @@ fun TakeAttendanceScreen(
                     .padding(bottom = 12.dp)
             ) {
                 OutlinedTextField(
-                    value = selectedTimeSlot,
+                    value = uiState.selectedTimeSlot,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Active Time Slot") },
@@ -574,7 +232,7 @@ fun TakeAttendanceScreen(
                     expanded = timeSlotExpanded,
                     onDismissRequest = { timeSlotExpanded = false }
                 ) {
-                    BATCH_TIME_SLOTS.forEach { slot ->
+                    AttendanceUtils.BATCH_TIME_SLOTS.forEach { slot ->
                         DropdownMenuItem(
                             text = {
                                 Row(
@@ -593,7 +251,7 @@ fun TakeAttendanceScreen(
                                 }
                             },
                             onClick = {
-                                selectedTimeSlot = slot
+                                onSelectTimeSlot(slot)
                                 timeSlotExpanded = false
                             }
                         )
@@ -601,8 +259,8 @@ fun TakeAttendanceScreen(
                 }
             }
 
-            // Strict Duplicate Warning Banner
-            existingAttendanceInfo?.let { existing ->
+            // Duplicate Attendance Warning Banner
+            uiState.existingAttendanceInfo?.let { existing ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -638,7 +296,7 @@ fun TakeAttendanceScreen(
                                 color = MaterialTheme.colorScheme.error
                             )
                             Text(
-                                text = "Attendance for this batch ($selectedTimeSlot) was already submitted today at ${existing.timeFormatted} by ${existing.submittedBy} (${existing.totalPresent} Present, ${existing.totalAbsent} Absent).",
+                                text = "Attendance for this batch (${uiState.selectedTimeSlot}) was already submitted today at ${existing.timeFormatted} by ${existing.submittedBy} (${existing.totalPresent} Present, ${existing.totalAbsent} Absent).",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -669,7 +327,7 @@ fun TakeAttendanceScreen(
                 }
             }
 
-            // Summary & Quick Action bar
+            // Summary Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -683,21 +341,16 @@ fun TakeAttendanceScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                if (totalActiveStudents > 0 && !isAttendanceLocked) {
+                if (totalActiveStudents > 0 && !uiState.isAttendanceLocked) {
                     TextButton(
-                        onClick = {
-                            val targetState = !allActivePresent
-                            (scheduledStudents + additionalStudents).forEach { student ->
-                                attendanceStates[student.id] = targetState
-                            }
-                        }
+                        onClick = { onSetAllAttendance(!allActivePresent) }
                     ) {
                         Text(if (allActivePresent) "Unmark All" else "Mark All Present")
                     }
                 }
             }
 
-            if (isLoading || isCheckingExistingAttendance) {
+            if (uiState.isLoadingStudents || uiState.isCheckingExistingAttendance) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
@@ -707,10 +360,10 @@ fun TakeAttendanceScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     // Scheduled Students Section
-                    if (scheduledStudents.isNotEmpty()) {
+                    if (uiState.scheduledStudents.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Scheduled for this Slot (${scheduledStudents.size})",
+                                text = "Scheduled for this Slot (${uiState.scheduledStudents.size})",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold,
@@ -718,19 +371,15 @@ fun TakeAttendanceScreen(
                             )
                         }
 
-                        items(scheduledStudents, key = { it.id }) { student ->
-                            val isPresent = attendanceStates[student.id] == true
+                        items(uiState.scheduledStudents, key = { it.id }) { student ->
+                            val isPresent = uiState.attendanceStates[student.id] == true
 
                             AttendanceStudentCard(
                                 student = student,
                                 isPresent = isPresent,
                                 isOutOfSchedule = false,
-                                isReadOnly = isAttendanceLocked,
-                                onToggle = { checked ->
-                                    if (!isAttendanceLocked) {
-                                        attendanceStates[student.id] = checked
-                                    }
-                                }
+                                isReadOnly = uiState.isAttendanceLocked,
+                                onToggle = { onToggleAttendance(student.id) }
                             )
                         }
                     } else {
@@ -747,11 +396,11 @@ fun TakeAttendanceScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = "No students scheduled for $selectedTimeSlot on $todayName.",
+                                        text = "No students scheduled for ${uiState.selectedTimeSlot} on ${uiState.todayName}.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.outline
                                     )
-                                    if (!isAttendanceLocked) {
+                                    if (!uiState.isAttendanceLocked) {
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = "Use the '+' button below to add attending students.",
@@ -764,11 +413,11 @@ fun TakeAttendanceScreen(
                         }
                     }
 
-                    // Additional Out-of-Schedule Students Section
-                    if (additionalStudents.isNotEmpty()) {
+                    // Out of schedule students
+                    if (uiState.additionalStudents.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Attending Out of Schedule (${additionalStudents.size})",
+                                text = "Attending Out of Schedule (${uiState.additionalStudents.size})",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.tertiary,
                                 fontWeight = FontWeight.SemiBold,
@@ -776,9 +425,9 @@ fun TakeAttendanceScreen(
                             )
                         }
 
-                        items(additionalStudents, key = { it.id }) { student ->
-                            val isPresent = attendanceStates[student.id] == true
-                            val regularSchedule = student.weeklySchedule[todayName]?.let { "Today: $it" }
+                        items(uiState.additionalStudents, key = { it.id }) { student ->
+                            val isPresent = uiState.attendanceStates[student.id] == true
+                            val regularSchedule = student.weeklySchedule[uiState.todayName]?.let { "Today: $it" }
                                 ?: student.weeklySchedule.entries.firstOrNull()?.let { "${it.key}: ${it.value}" }
                                 ?: "No regular schedule"
 
@@ -787,47 +436,32 @@ fun TakeAttendanceScreen(
                                 isPresent = isPresent,
                                 isOutOfSchedule = true,
                                 regularScheduleInfo = regularSchedule,
-                                isReadOnly = isAttendanceLocked,
-                                onToggle = { checked ->
-                                    if (!isAttendanceLocked) {
-                                        attendanceStates[student.id] = checked
-                                    }
-                                },
-                                onRemove = if (!isAttendanceLocked) {
-                                    {
-                                        additionalStudents.remove(student)
-                                        attendanceStates.remove(student.id)
-                                    }
+                                isReadOnly = uiState.isAttendanceLocked,
+                                onToggle = { onToggleAttendance(student.id) },
+                                onRemove = if (!uiState.isAttendanceLocked) {
+                                    { onRemoveAdditionalStudent(student.id) }
                                 } else null
                             )
                         }
                     }
 
-                    // 3. Plus button & Expandable Search Bar (only accessible when attendance is not locked)
-                    if (!isAttendanceLocked) {
+                    // Add Student Out of Schedule Button / Search Form
+                    if (!uiState.isAttendanceLocked) {
                         item {
                             Spacer(modifier = Modifier.height(6.dp))
-                            if (!isSearchExpanded) {
+                            if (!uiState.isSearchExpanded) {
                                 OutlinedButton(
-                                    onClick = {
-                                        isSearchExpanded = true
-                                        searchQuery = ""
-                                    },
+                                    onClick = { onSetSearchExpanded(true) },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Add Student Out of Scheduled Time")
                                 }
                             } else {
-                                // Expandable Search Container
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -867,10 +501,7 @@ fun TakeAttendanceScreen(
                                             }
 
                                             IconButton(
-                                                onClick = {
-                                                    isSearchExpanded = false
-                                                    searchQuery = ""
-                                                },
+                                                onClick = { onSetSearchExpanded(false) },
                                                 modifier = Modifier.size(24.dp)
                                             ) {
                                                 Icon(
@@ -881,15 +512,13 @@ fun TakeAttendanceScreen(
                                         }
 
                                         OutlinedTextField(
-                                            value = searchQuery,
-                                            onValueChange = { searchQuery = it },
+                                            value = uiState.searchQuery,
+                                            onValueChange = onSearchQueryChange,
                                             placeholder = { Text("Search by name, class, or school...") },
-                                            leadingIcon = {
-                                                Icon(Icons.Default.Search, contentDescription = null)
-                                            },
+                                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                                             trailingIcon = {
-                                                if (searchQuery.isNotEmpty()) {
-                                                    IconButton(onClick = { searchQuery = "" }) {
+                                                if (uiState.searchQuery.isNotEmpty()) {
+                                                    IconButton(onClick = { onSearchQueryChange("") }) {
                                                         Icon(Icons.Default.Clear, contentDescription = "Clear search")
                                                     }
                                                 }
@@ -900,8 +529,8 @@ fun TakeAttendanceScreen(
 
                                         if (searchCandidates.isEmpty()) {
                                             Text(
-                                                text = if (searchQuery.isBlank()) "All enrolled students are already in this session."
-                                                else "No matching students found for \"$searchQuery\".",
+                                                text = if (uiState.searchQuery.isBlank()) "All enrolled students are already in this session."
+                                                else "No matching students found for \"${uiState.searchQuery}\".",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.outline,
                                                 modifier = Modifier.padding(vertical = 8.dp)
@@ -920,19 +549,10 @@ fun TakeAttendanceScreen(
                                                 searchCandidates.take(5).forEach { candidate ->
                                                     SearchStudentResultItem(
                                                         student = candidate,
-                                                        todayName = todayName,
-                                                        onAddStudent = { markPresent ->
-                                                            if (!additionalStudents.any { it.id == candidate.id }) {
-                                                                additionalStudents.add(candidate)
-                                                                attendanceStates[candidate.id] = markPresent
-                                                                Toast.makeText(
-                                                                    context,
-                                                                    "Added ${candidate.fullName} out of scheduled time",
-                                                                    Toast.LENGTH_SHORT
-                                                                ).show()
-                                                            }
-                                                            isSearchExpanded = false
-                                                            searchQuery = ""
+                                                        todayName = uiState.todayName,
+                                                        onAddStudent = {
+                                                            onAddAdditionalStudent(candidate)
+                                                            Toast.makeText(context, "Added ${candidate.fullName} out of scheduled time", Toast.LENGTH_SHORT).show()
                                                         }
                                                     )
                                                 }
@@ -962,11 +582,6 @@ fun TakeAttendanceScreen(
     }
 }
 
-/**
- * Result row inside the expanded search container.
- * Shows student info and an attendance checkbox / add action.
- * Tapping or checking immediately adds the student and collapses the search container.
- */
 @Composable
 fun SearchStudentResultItem(
     student: StudentModel,
@@ -1130,7 +745,19 @@ fun AttendanceStudentCard(
 @Composable
 fun TakeAttendanceScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
-        TakeAttendanceScreen(onBack = {}, onNavigateToHistory = {})
+        TakeAttendanceContent(
+            uiState = TakeAttendanceUiState(isLoadingStudents = false),
+            onBack = {},
+            onNavigateToHistory = {},
+            onSelectTimeSlot = {},
+            onToggleAttendance = {},
+            onSetAllAttendance = {},
+            onAddAdditionalStudent = {},
+            onRemoveAdditionalStudent = {},
+            onSearchQueryChange = {},
+            onSetSearchExpanded = {},
+            onSaveAttendance = {}
+        )
     }
 }
 
@@ -1138,6 +765,18 @@ fun TakeAttendanceScreenPreviewLight() {
 @Composable
 fun TakeAttendanceScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
-        TakeAttendanceScreen(onBack = {}, onNavigateToHistory = {})
+        TakeAttendanceContent(
+            uiState = TakeAttendanceUiState(isLoadingStudents = false),
+            onBack = {},
+            onNavigateToHistory = {},
+            onSelectTimeSlot = {},
+            onToggleAttendance = {},
+            onSetAllAttendance = {},
+            onAddAdditionalStudent = {},
+            onRemoveAdditionalStudent = {},
+            onSearchQueryChange = {},
+            onSetSearchExpanded = {},
+            onSaveAttendance = {}
+        )
     }
 }

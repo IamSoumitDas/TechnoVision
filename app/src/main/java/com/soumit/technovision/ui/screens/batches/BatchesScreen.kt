@@ -1,7 +1,6 @@
 package com.soumit.technovision.ui.screens.batches
 
 import android.content.res.Configuration
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,28 +12,37 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.StudentModel
+import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.util.Calendar
 
+@Composable
+fun BatchesScreen(
+    onBack: () -> Unit,
+    viewModel: BatchesViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    BatchesContent(
+        uiState = uiState,
+        onBack = onBack,
+        onViewSelected = viewModel::onViewSelected
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun BatchesScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val isInPreview = LocalInspectionMode.current
-
-    var studentList by remember { mutableStateOf<List<StudentModel>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    // Toggle state: "Today" vs "This Week"
-    var selectedView by remember { mutableStateOf("Today") }
-
+fun BatchesContent(
+    uiState: BatchesUiState,
+    onBack: () -> Unit,
+    onViewSelected: (String) -> Unit
+) {
     val calendar = Calendar.getInstance()
     val dayOfWeekIndex = calendar.get(Calendar.DAY_OF_WEEK)
     val daysArray = arrayOf("", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
@@ -50,74 +58,6 @@ fun BatchesScreen(onBack: () -> Unit) {
     )
 
     val weekDays = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-
-    DisposableEffect(Unit) {
-        if (isInPreview) {
-            studentList = listOf(
-                StudentModel(
-                    id = "1",
-                    fullName = "Aarav Sharma",
-                    studentClass = "X",
-                    school = "St. Xavier's School",
-                    weeklySchedule = mapOf(
-                        todayName to "9:00 AM - 11:00 AM",
-                        "Tuesday" to "9:00 AM - 11:00 AM"
-                    )
-                ),
-                StudentModel(
-                    id = "2",
-                    fullName = "Priya Das",
-                    studentClass = "XII",
-                    school = "Alipurduar Girls High School",
-                    weeklySchedule = mapOf(
-                        todayName to "5:00 PM - 7:00 PM",
-                        "Wednesday" to "5:00 PM - 7:00 PM"
-                    )
-                ),
-                StudentModel(
-                    id = "3",
-                    fullName = "Debayan Roy",
-                    studentClass = "IX",
-                    school = "Mc William High School (HS)",
-                    weeklySchedule = mapOf(
-                        "Sunday" to "9:00 AM - 11:00 AM",
-                        "Friday" to "1:00 PM - 3:00 PM"
-                    )
-                )
-            )
-            isLoading = false
-            onDispose { }
-        } else {
-            val registration = FirebaseFirestore.getInstance().collection("students")
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        Toast.makeText(context, "Error loading batch students: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null) {
-                        val list = snapshot.documents.map { doc ->
-                            @Suppress("UNCHECKED_CAST")
-                            val scheduleMap = doc.get("weeklySchedule") as? Map<String, String> ?: emptyMap()
-
-                            StudentModel(
-                                id = doc.id,
-                                fullName = doc.getString("fullName") ?: "",
-                                studentClass = doc.getString("studentClass") ?: "",
-                                school = doc.getString("school") ?: "",
-                                weeklySchedule = scheduleMap
-                            )
-                        }
-                        studentList = list
-                        isLoading = false
-                    }
-                }
-            onDispose {
-                registration.remove()
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -142,33 +82,31 @@ fun BatchesScreen(onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Clean Segmented Toggle Bar
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
-                    selected = selectedView == "Today",
-                    onClick = { selectedView = "Today" },
+                    selected = uiState.selectedView == "Today",
+                    onClick = { onViewSelected("Today") },
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                 ) {
                     Text("Today ($todayName)")
                 }
                 SegmentedButton(
-                    selected = selectedView == "This Week",
-                    onClick = { selectedView = "This Week" },
+                    selected = uiState.selectedView == "This Week",
+                    onClick = { onViewSelected("This Week") },
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                 ) {
                     Text("This Week")
                 }
             }
 
-            if (isLoading) {
+            if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
             } else {
-                if (selectedView == "Today") {
-                    // TODAY VIEW: Group by Time Slots, hiding empty slots automatically
+                if (uiState.selectedView == "Today") {
                     val activeTimeSlots = timeSlots.map { slot ->
-                        slot to studentList.filter { it.weeklySchedule[todayName] == slot }
+                        slot to uiState.studentList.filter { it.weeklySchedule[todayName] == slot }
                     }.filter { (_, students) -> students.isNotEmpty() }
 
                     if (activeTimeSlots.isEmpty()) {
@@ -190,10 +128,9 @@ fun BatchesScreen(onBack: () -> Unit) {
                         }
                     }
                 } else {
-                    // THIS WEEK VIEW: Group by Days of the Week
                     val activeDays = weekDays.map { day ->
                         day to timeSlots.map { slot ->
-                            slot to studentList.filter { it.weeklySchedule[day] == slot }
+                            slot to uiState.studentList.filter { it.weeklySchedule[day] == slot }
                         }.filter { (_, students) -> students.isNotEmpty() }
                     }.filter { (_, slotList) -> slotList.isNotEmpty() }
 
@@ -383,7 +320,25 @@ fun DayScheduleCard(dayName: String, slotsWithStudents: List<Pair<String, List<S
 @Composable
 fun BatchesScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
-        BatchesScreen(onBack = {})
+        BatchesContent(
+            uiState = BatchesUiState(
+                studentList = listOf(
+                    StudentModel(
+                        id = "1",
+                        fullName = "Aarav Sharma",
+                        studentClass = "X",
+                        school = "St. Xavier's School",
+                        weeklySchedule = mapOf(
+                            "Sunday" to "9:00 AM - 11:00 AM",
+                            "Tuesday" to "9:00 AM - 11:00 AM"
+                        )
+                    )
+                ),
+                isLoading = false
+            ),
+            onBack = {},
+            onViewSelected = {}
+        )
     }
 }
 
@@ -391,6 +346,24 @@ fun BatchesScreenPreviewLight() {
 @Composable
 fun BatchesScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
-        BatchesScreen(onBack = {})
+        BatchesContent(
+            uiState = BatchesUiState(
+                studentList = listOf(
+                    StudentModel(
+                        id = "1",
+                        fullName = "Aarav Sharma",
+                        studentClass = "X",
+                        school = "St. Xavier's School",
+                        weeklySchedule = mapOf(
+                            "Sunday" to "9:00 AM - 11:00 AM",
+                            "Tuesday" to "9:00 AM - 11:00 AM"
+                        )
+                    )
+                ),
+                isLoading = false
+            ),
+            onBack = {},
+            onViewSelected = {}
+        )
     }
 }
