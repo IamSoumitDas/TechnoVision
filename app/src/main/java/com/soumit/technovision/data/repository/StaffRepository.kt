@@ -7,9 +7,14 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.soumit.technovision.TechnoVisionApplication
 import com.soumit.technovision.data.model.StaffModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.tasks.await
 
 interface StaffRepository {
@@ -53,7 +58,9 @@ class FirestoreStaffRepository(
         awaitClose { subscription.remove() }
     }
 
-    override fun getUsersMapStream(): Flow<Map<String, String>> = callbackFlow {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val sharedUsersMapStream: Flow<Map<String, String>> = callbackFlow<Map<String, String>> {
         val subscription = firestore.collection("users")
             .whereIn("role", STAFF_ROLES)
             .addSnapshotListener { snapshot, error ->
@@ -80,14 +87,27 @@ class FirestoreStaffRepository(
                 }
             }
         awaitClose { subscription.remove() }
-    }
+    }.shareIn(
+        scope = scope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000),
+        replay = 1
+    )
+
+    override fun getUsersMapStream(): Flow<Map<String, String>> = sharedUsersMapStream
 
     override suspend fun getUsersMap(): Result<Map<String, String>> {
         return try {
-            val snapshot = firestore.collection("users")
-                .whereIn("role", STAFF_ROLES)
-                .get()
-                .await()
+            val snapshot = try {
+                firestore.collection("users")
+                    .whereIn("role", STAFF_ROLES)
+                    .get(com.google.firebase.firestore.Source.CACHE)
+                    .await()
+            } catch (_: Exception) {
+                firestore.collection("users")
+                    .whereIn("role", STAFF_ROLES)
+                    .get()
+                    .await()
+            }
             val map = mutableMapOf<String, String>()
             for (doc in snapshot.documents) {
                 val fullName = doc.getString("fullName")

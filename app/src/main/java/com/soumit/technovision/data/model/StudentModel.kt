@@ -16,4 +16,5 @@ data class StudentModel(
     val batchTimeSlot: String = "",
     val weeklySchedule: Map<String, String> = emptyMap(),
     val admissionDate: String = "",
+    val totalPaid: Long = 0L
 )

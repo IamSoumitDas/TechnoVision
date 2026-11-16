@@ -70,7 +70,7 @@ class TeacherAttendanceViewModel(
                 ?: "Teacher"
 
             kotlinx.coroutines.flow.combine(
-                attendanceRepository.getTeacherAttendanceRequestsStream(),
+                attendanceRepository.getTeacherAttendanceRequestsStream(teacherId = currentUid.ifBlank { null }),
                 staffRepository.getUsersMapStream()
             ) { allRequests, userMap ->
                 val resolvedName = userMap[currentUid]

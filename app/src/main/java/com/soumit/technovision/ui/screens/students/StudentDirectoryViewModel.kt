@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -48,6 +47,10 @@ class StudentDirectoryViewModel(
     init {
         loadUserRole()
         observeStudentsAndBalances()
+        viewModelScope.launch {
+            // One-off sync in the background so legacy students have totalPaid populated
+            feeRepository.syncAllStudentsTotalPaid()
+        }
     }
 
     private fun loadUserRole() {
@@ -64,38 +67,28 @@ class StudentDirectoryViewModel(
 
     private fun observeStudentsAndBalances() {
         viewModelScope.launch {
-            combine(
-                studentRepository.getStudentsStream(),
-                feeRepository.getFeePaymentsStream()
-            ) { students, payments ->
-                val paymentsMap = mutableMapOf<String, Long>()
-                for (payment in payments) {
-                    if (payment.studentId.isNotBlank()) {
-                        paymentsMap[payment.studentId] = (paymentsMap[payment.studentId] ?: 0L) + payment.amountPaid
+            studentRepository.getStudentsStream()
+                .catch { error ->
+                    _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
+                }
+                .collect { students ->
+                    val balances = mutableMapOf<String, Long>()
+                    for (student in students) {
+                        val billingDues = calculateBillingDuesUseCase(
+                            admissionDate = student.admissionDate,
+                            monthlyInstallment = student.monthlyInstallment,
+                            totalPaid = student.totalPaid
+                        )
+                        balances[student.id] = billingDues.outstandingBalance
+                    }
+                    _uiState.update {
+                        it.copy(
+                            students = students,
+                            outstandingBalances = balances,
+                            isLoading = false
+                        )
                     }
                 }
-                val balances = mutableMapOf<String, Long>()
-                for (student in students) {
-                    val paid = paymentsMap[student.id] ?: 0L
-                    val billingDues = calculateBillingDuesUseCase(
-                        admissionDate = student.admissionDate,
-                        monthlyInstallment = student.monthlyInstallment,
-                        totalPaid = paid
-                    )
-                    balances[student.id] = billingDues.outstandingBalance
-                }
-                Pair(students, balances)
-            }.catch { error ->
-                _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
-            }.collect { (students, balances) ->
-                _uiState.update {
-                    it.copy(
-                        students = students,
-                        outstandingBalances = balances,
-                        isLoading = false
-                    )
-                }
-            }
         }
     }
 
