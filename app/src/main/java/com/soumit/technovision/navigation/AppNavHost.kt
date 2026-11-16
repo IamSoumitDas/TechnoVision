@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.soumit.technovision.data.model.PortalAction
 import com.soumit.technovision.data.model.PortalSectionModel
 import com.soumit.technovision.ui.screens.attendance.AttendanceHistoryScreen
@@ -32,8 +33,8 @@ import com.soumit.technovision.ui.screens.students.UpdateDeleteStudentScreen
 @Composable
 fun AppNavHost(
     navController: NavHostController,
-    startDestination: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    startDestination: Any = Screen.Auth
 ) {
     NavHost(
         navController = navController,
@@ -41,24 +42,24 @@ fun AppNavHost(
         modifier = modifier
     ) {
         // Auth Screen
-        composable(Routes.AUTH) {
+        composable<Screen.Auth> {
             AuthScreen(
                 onLoginSuccess = { userRole ->
-                    val destination = when (userRole.lowercase()) {
-                        "owner" -> Routes.OWNER_HOME
-                        "faculty" -> Routes.FACULTY_HOME
-                        "receptionist" -> Routes.RECEPTIONIST_HOME
-                        else -> Routes.AUTH
+                    val destination: Any = when (userRole.lowercase()) {
+                        "owner" -> Screen.OwnerHome
+                        "faculty" -> Screen.FacultyHome
+                        "receptionist" -> Screen.ReceptionistHome
+                        else -> Screen.Auth
                     }
                     navController.navigate(destination) {
-                        popUpTo(Routes.AUTH) { inclusive = true }
+                        popUpTo<Screen.Auth> { inclusive = true }
                     }
                 }
             )
         }
 
         // 1. Owner Portal Route
-        composable(Routes.OWNER_HOME) {
+        composable<Screen.OwnerHome> {
             PortalDashboardScreen(
                 portalTitle = "Owner Portal",
                 roleSubtitle = "Techno Vision Portal",
@@ -66,28 +67,28 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "Student Management",
                         actions = listOf(
-                            PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate(Routes.ENROLL_STUDENT) },
-                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Routes.STUDENT_DIRECTORY) },
-                            PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate(Routes.ATTENDANCE) },
-                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.ATTENDANCE_HISTORY) },
-                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Routes.BATCHES) },
-                            PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Routes.FEE_COLLECTION) },
-                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Routes.GLOBAL_HISTORY) },
-                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Routes.BIRTHDAY_CALENDAR) }
+                            PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate(Screen.EnrollStudent) },
+                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
+                            PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate(Screen.Attendance) },
+                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
+                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Screen.Batches) },
+                            PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Screen.FeeCollection) },
+                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Screen.GlobalHistory) },
+                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
                         )
                     ),
                     PortalSectionModel(
                         title = "Staff Management",
                         actions = listOf(
-                            PortalAction("Manage Staff", "Add, edit & remove staffs", Icons.Default.Badge) { navController.navigate(Routes.MANAGE_STAFF) },
-                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) },
-                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
+                            PortalAction("Manage Staff", "Add, edit & remove staffs", Icons.Default.Badge) { navController.navigate(Screen.ManageStaff) },
+                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Screen.VerifyTeacherAttendance) },
+                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
                         )
                     ),
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Routes.SYSTEM_LOGS) }
+                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
                         )
                     )
                 )
@@ -95,7 +96,7 @@ fun AppNavHost(
         }
 
         // 2. Faculty Portal Route
-        composable(Routes.FACULTY_HOME) {
+        composable<Screen.FacultyHome> {
             PortalDashboardScreen(
                 portalTitle = "Faculty Portal",
                 roleSubtitle = "Techno Vision Portal",
@@ -103,24 +104,24 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "Student Management",
                         actions = listOf(
-                            PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate(Routes.ATTENDANCE) },
-                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.ATTENDANCE_HISTORY) },
-                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Routes.STUDENT_DIRECTORY) },
-                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Routes.BATCHES) },
-                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Routes.BIRTHDAY_CALENDAR) }
+                            PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate(Screen.Attendance) },
+                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
+                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
+                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Screen.Batches) },
+                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
                         )
                     ),
                     PortalSectionModel(
                         title = "Teacher Management",
                         actions = listOf(
-                            PortalAction("Faculty Attendance", "Request attendance", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.TEACHER_ATTENDANCE) },
-                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
+                            PortalAction("Faculty Attendance", "Request attendance", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.TeacherAttendance) },
+                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
                         )
                     ),
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Routes.SYSTEM_LOGS) }
+                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
                         )
                     )
                 )
@@ -128,7 +129,7 @@ fun AppNavHost(
         }
 
         // 3. Receptionist Portal Route
-        composable(Routes.RECEPTIONIST_HOME) {
+        composable<Screen.ReceptionistHome> {
             PortalDashboardScreen(
                 portalTitle = "Receptionist Portal",
                 roleSubtitle = "Techno Vision Portal",
@@ -136,26 +137,26 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "Student Management",
                         actions = listOf(
-                            PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate(Routes.ENROLL_STUDENT) },
-                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Routes.STUDENT_DIRECTORY) },
-                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Routes.ATTENDANCE_HISTORY) },
-                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Routes.BATCHES) },
-                            PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Routes.FEE_COLLECTION) },
-                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Routes.GLOBAL_HISTORY) },
-                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Routes.BIRTHDAY_CALENDAR) }
+                            PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate(Screen.EnrollStudent) },
+                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
+                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
+                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Screen.Batches) },
+                            PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Screen.FeeCollection) },
+                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Screen.GlobalHistory) },
+                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
                         )
                     ),
                     PortalSectionModel(
                         title = "Staff Management",
                         actions = listOf(
-                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) },
-                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
+                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Screen.VerifyTeacherAttendance) },
+                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
                         )
                     ),
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Routes.SYSTEM_LOGS) }
+                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
                         )
                     )
                 )
@@ -163,105 +164,105 @@ fun AppNavHost(
         }
 
         // Sub-screens & Functional Routes
-        composable(Routes.ENROLL_STUDENT) {
+        composable<Screen.EnrollStudent> {
             EnrollStudentScreen(
                 onBack = { navController.popBackStack() },
                 onStudentEnrolled = { studentId ->
-                    navController.navigate(Routes.studentViewer(studentId)) {
-                        popUpTo(Routes.ENROLL_STUDENT) { inclusive = true }
+                    navController.navigate(Screen.StudentViewer(studentId)) {
+                        popUpTo<Screen.EnrollStudent> { inclusive = true }
                     }
                 }
             )
         }
 
-        composable(Routes.STUDENT_VIEWER) { backStackEntry ->
-            val studentId = backStackEntry.arguments?.getString("studentId") ?: ""
+        composable<Screen.StudentViewer> { backStackEntry ->
+            val route = backStackEntry.toRoute<Screen.StudentViewer>()
             StudentViewerScreen(
-                studentId = studentId,
+                studentId = route.studentId,
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable(Routes.MANAGE_STAFF) {
+        composable<Screen.ManageStaff> {
             ManageStaffScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.ATTENDANCE) {
+        composable<Screen.Attendance> {
             TakeAttendanceScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToHistory = { navController.navigate(Routes.ATTENDANCE_HISTORY) }
+                onNavigateToHistory = { navController.navigate(Screen.AttendanceHistory) }
             )
         }
 
-        composable(Routes.ATTENDANCE_HISTORY) {
+        composable<Screen.AttendanceHistory> {
             AttendanceHistoryScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.STUDENT_DIRECTORY) {
+        composable<Screen.StudentDirectory> {
             StudentDirectoryScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToUpdateDelete = { studentId ->
-                    navController.navigate(Routes.updateDeleteStudent(studentId))
+                    navController.navigate(Screen.UpdateDeleteStudent(studentId))
                 },
                 onNavigateToViewer = { studentId ->
-                    navController.navigate(Routes.studentViewer(studentId))
+                    navController.navigate(Screen.StudentViewer(studentId))
                 }
             )
         }
 
-        composable(Routes.UPDATE_DELETE_STUDENT) { backStackEntry ->
-            val studentId = backStackEntry.arguments?.getString("studentId") ?: ""
+        composable<Screen.UpdateDeleteStudent> { backStackEntry ->
+            val route = backStackEntry.toRoute<Screen.UpdateDeleteStudent>()
             UpdateDeleteStudentScreen(
-                studentId = studentId,
+                studentId = route.studentId,
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable(Routes.BATCHES) {
+        composable<Screen.Batches> {
             BatchesScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.SYSTEM_LOGS) {
+        composable<Screen.SystemLogs> {
             SystemLogsScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.TEACHER_ATTENDANCE) {
+        composable<Screen.TeacherAttendance> {
             TeacherAttendanceScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToViewer = { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
+                onNavigateToViewer = { navController.navigate(Screen.FacultyAttendanceViewer) }
             )
         }
 
-        composable(Routes.VERIFY_TEACHER_ATTENDANCE) {
+        composable<Screen.VerifyTeacherAttendance> {
             VerifyTeacherAttendanceScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToViewer = { navController.navigate(Routes.FACULTY_ATTENDANCE_VIEWER) }
+                onNavigateToViewer = { navController.navigate(Screen.FacultyAttendanceViewer) }
             )
         }
 
-        composable(Routes.FACULTY_ATTENDANCE_VIEWER) {
+        composable<Screen.FacultyAttendanceViewer> {
             FacultyAttendanceViewerScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToVerify = { navController.navigate(Routes.VERIFY_TEACHER_ATTENDANCE) }
+                onNavigateToVerify = { navController.navigate(Screen.VerifyTeacherAttendance) }
             )
         }
 
-        composable(Routes.FEE_COLLECTION) {
+        composable<Screen.FeeCollection> {
             FeeCollectionScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToGlobalHistory = { navController.navigate(Routes.GLOBAL_HISTORY) }
+                onNavigateToGlobalHistory = { navController.navigate(Screen.GlobalHistory) }
             )
         }
 
-        composable(Routes.GLOBAL_HISTORY) {
+        composable<Screen.GlobalHistory> {
             GlobalHistoryScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.BIRTHDAY_CALENDAR) {
+        composable<Screen.BirthdayCalendar> {
             BirthdayCalendarScreen(
                 onBack = { navController.popBackStack() },
                 onStudentClick = { studentId ->
-                    navController.navigate(Routes.studentViewer(studentId))
+                    navController.navigate(Screen.StudentViewer(studentId))
                 }
             )
         }

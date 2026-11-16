@@ -6,7 +6,7 @@ import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.repository.AuthRepository
 import com.soumit.technovision.data.repository.FeeRepository
 import com.soumit.technovision.data.repository.StudentRepository
-import com.soumit.technovision.util.BillingUtils
+import com.soumit.technovision.domain.usecase.CalculateBillingDuesUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +38,8 @@ data class StudentDirectoryUiState(
 class StudentDirectoryViewModel(
     private val studentRepository: StudentRepository,
     private val feeRepository: FeeRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val calculateBillingDuesUseCase: CalculateBillingDuesUseCase = CalculateBillingDuesUseCase()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentDirectoryUiState())
@@ -75,13 +76,13 @@ class StudentDirectoryViewModel(
                 }
                 val balances = mutableMapOf<String, Long>()
                 for (student in students) {
-                    val expected = BillingUtils.calculateBillingMonths(
-                        student.admissionDate,
-                        student.monthlyInstallment
-                    ).second
                     val paid = paymentsMap[student.id] ?: 0L
-                    val due = expected - paid
-                    balances[student.id] = if (due > 0) due else 0L
+                    val billingDues = calculateBillingDuesUseCase(
+                        admissionDate = student.admissionDate,
+                        monthlyInstallment = student.monthlyInstallment,
+                        totalPaid = paid
+                    )
+                    balances[student.id] = billingDues.outstandingBalance
                 }
                 Pair(students, balances)
             }.catch { error ->

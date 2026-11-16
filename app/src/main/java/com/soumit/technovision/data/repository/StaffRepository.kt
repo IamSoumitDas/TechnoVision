@@ -120,7 +120,7 @@ class FirestoreStaffRepository(
             val secondaryApp = try {
                 FirebaseApp.getInstance("SecondaryStaffApp")
             } catch (_: Exception) {
-                val context = TechnoVisionApplication.instance?.applicationContext ?: primaryApp.applicationContext
+                val context = primaryApp.applicationContext
                 val builder = FirebaseOptions.Builder()
                     .setApiKey(primaryApp.options.apiKey)
                     .setApplicationId(primaryApp.options.applicationId)

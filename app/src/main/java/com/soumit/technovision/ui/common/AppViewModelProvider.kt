@@ -92,7 +92,8 @@ object AppViewModelProvider {
             StudentDirectoryViewModel(
                 studentRepository = appContainer().studentRepository,
                 feeRepository = appContainer().feeRepository,
-                authRepository = appContainer().authRepository
+                authRepository = appContainer().authRepository,
+                calculateBillingDuesUseCase = appContainer().calculateBillingDuesUseCase
             )
         }
         initializer {
@@ -152,9 +153,11 @@ object AppViewModelProvider {
 }
 
 fun CreationExtras.technoVisionApplication(): TechnoVisionApplication {
-    return TechnoVisionApplication.instance ?: throw IllegalStateException("TechnoVisionApplication is not initialized")
+    return (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as? TechnoVisionApplication)
+        ?: TechnoVisionApplication.instance
+        ?: throw IllegalStateException("TechnoVisionApplication is not initialized")
 }
 
 fun CreationExtras.appContainer(): AppContainer {
-    return TechnoVisionApplication.instance?.container ?: DefaultAppContainer()
+    return technoVisionApplication().container
 }

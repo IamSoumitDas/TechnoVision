@@ -9,6 +9,7 @@ interface AppContainer {
     val feeRepository: FeeRepository
     val staffRepository: StaffRepository
     val auditLogRepository: AuditLogRepository
+    val calculateBillingDuesUseCase: com.soumit.technovision.domain.usecase.CalculateBillingDuesUseCase
 }
 
 class DefaultAppContainer : AppContainer {
@@ -18,4 +19,7 @@ class DefaultAppContainer : AppContainer {
     override val feeRepository: FeeRepository by lazy { FirestoreFeeRepository() }
     override val staffRepository: StaffRepository by lazy { FirestoreStaffRepository() }
     override val auditLogRepository: AuditLogRepository by lazy { FirestoreAuditLogRepository() }
+    override val calculateBillingDuesUseCase: com.soumit.technovision.domain.usecase.CalculateBillingDuesUseCase by lazy {
+        com.soumit.technovision.domain.usecase.CalculateBillingDuesUseCase()
+    }
 }

@@ -1,5 +1,69 @@
 package com.soumit.technovision.navigation
 
+import kotlinx.serialization.Serializable
+
+/**
+ * Type-safe navigation destinations matching Google's recommended standard for Jetpack Navigation Compose.
+ */
+sealed interface Screen {
+    @Serializable
+    data object Auth : Screen
+
+    @Serializable
+    data object OwnerHome : Screen
+
+    @Serializable
+    data object FacultyHome : Screen
+
+    @Serializable
+    data object ReceptionistHome : Screen
+
+    @Serializable
+    data object EnrollStudent : Screen
+
+    @Serializable
+    data class StudentViewer(val studentId: String) : Screen
+
+    @Serializable
+    data object ManageStaff : Screen
+
+    @Serializable
+    data object Attendance : Screen
+
+    @Serializable
+    data object AttendanceHistory : Screen
+
+    @Serializable
+    data object StudentDirectory : Screen
+
+    @Serializable
+    data class UpdateDeleteStudent(val studentId: String) : Screen
+
+    @Serializable
+    data object Batches : Screen
+
+    @Serializable
+    data object SystemLogs : Screen
+
+    @Serializable
+    data object TeacherAttendance : Screen
+
+    @Serializable
+    data object VerifyTeacherAttendance : Screen
+
+    @Serializable
+    data object FeeCollection : Screen
+
+    @Serializable
+    data object GlobalHistory : Screen
+
+    @Serializable
+    data object FacultyAttendanceViewer : Screen
+
+    @Serializable
+    data object BirthdayCalendar : Screen
+}
+
 object Routes {
     const val AUTH = "auth"
     const val OWNER_HOME = "owner_home"
