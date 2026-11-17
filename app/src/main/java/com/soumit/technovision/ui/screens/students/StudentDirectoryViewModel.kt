@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -67,28 +68,34 @@ class StudentDirectoryViewModel(
 
     private fun observeStudentsAndBalances() {
         viewModelScope.launch {
-            studentRepository.getStudentsStream()
-                .catch { error ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
+            combine(
+                studentRepository.getStudentsStream(),
+                feeRepository.getFeePaymentsStream()
+            ) { students, payments ->
+                val paymentsByStudent = payments.groupBy { it.studentId }
+                val balances = mutableMapOf<String, Long>()
+                val updatedStudents = students.map { student ->
+                    val actualTotalPaid = paymentsByStudent[student.id]?.sumOf { it.amountPaid } ?: 0L
+                    val billingDues = calculateBillingDuesUseCase(
+                        admissionDate = student.admissionDate,
+                        monthlyInstallment = student.monthlyInstallment,
+                        totalPaid = actualTotalPaid
+                    )
+                    balances[student.id] = billingDues.outstandingBalance
+                    student.copy(totalPaid = actualTotalPaid)
                 }
-                .collect { students ->
-                    val balances = mutableMapOf<String, Long>()
-                    for (student in students) {
-                        val billingDues = calculateBillingDuesUseCase(
-                            admissionDate = student.admissionDate,
-                            monthlyInstallment = student.monthlyInstallment,
-                            totalPaid = student.totalPaid
-                        )
-                        balances[student.id] = billingDues.outstandingBalance
-                    }
-                    _uiState.update {
-                        it.copy(
-                            students = students,
-                            outstandingBalances = balances,
-                            isLoading = false
-                        )
-                    }
+                Pair(updatedStudents, balances)
+            }.catch { error ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
+            }.collect { (students, balances) ->
+                _uiState.update {
+                    it.copy(
+                        students = students,
+                        outstandingBalances = balances,
+                        isLoading = false
+                    )
                 }
+            }
         }
     }
 

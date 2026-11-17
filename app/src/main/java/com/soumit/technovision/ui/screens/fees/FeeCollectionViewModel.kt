@@ -104,9 +104,13 @@ class FeeCollectionViewModel(
                         val updatedSelected = if (currentSelected != null) {
                             list.find { it.id == currentSelected.id } ?: currentSelected
                         } else null
+                        val newExpected = if (updatedSelected != null) {
+                            BillingUtils.calculateBillingMonths(updatedSelected.admissionDate, updatedSelected.monthlyInstallment).second
+                        } else state.expectedTotalFees
                         state.copy(
                             studentList = list,
                             selectedStudent = updatedSelected,
+                            expectedTotalFees = newExpected,
                             isLoadingStudents = false
                         )
                     }
