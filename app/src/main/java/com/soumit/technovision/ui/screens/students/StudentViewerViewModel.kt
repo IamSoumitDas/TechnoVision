@@ -6,11 +6,14 @@ import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.repository.FeeRepository
 import com.soumit.technovision.data.repository.StudentRepository
 import com.soumit.technovision.util.BillingUtils
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -30,7 +33,8 @@ data class StudentViewerUiState(
 class StudentViewerViewModel(
     private val studentId: String,
     private val studentRepository: StudentRepository,
-    private val feeRepository: FeeRepository
+    private val feeRepository: FeeRepository,
+    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentViewerUiState())
@@ -72,7 +76,8 @@ class StudentViewerViewModel(
                         errorMessage = "Student not found"
                     )
                 }
-            }.catch { error ->
+            }.flowOn(defaultDispatcher)
+            .catch { error ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
             }.collect { newState ->
                 _uiState.value = newState

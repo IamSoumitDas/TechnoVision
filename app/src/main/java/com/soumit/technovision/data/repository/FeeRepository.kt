@@ -1,6 +1,7 @@
 package com.soumit.technovision.data.repository
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -8,10 +9,18 @@ import com.soumit.technovision.TechnoVisionApplication
 import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
 import com.soumit.technovision.data.model.FeePaymentModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -23,6 +32,7 @@ interface FeeRepository {
     suspend fun syncAllStudentsTotalPaid(): Result<Unit>
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class FirestoreFeeRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val localDb: LocalDatabase? = null,
@@ -35,101 +45,75 @@ class FirestoreFeeRepository(
     private val sync: DeltaSyncManager?
         get() = syncManager ?: TechnoVisionApplication.instance?.container?.deltaSyncManager
 
-    override fun getFeePaymentsStream(): Flow<List<FeePaymentModel>> = callbackFlow {
-        val database = db
-        if (database != null) {
-            trySend(database.getAllFeePayments())
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val _feePaymentsFlow = MutableStateFlow<List<FeePaymentModel>>(emptyList())
+    private val _isLoaded = MutableStateFlow(false)
 
-            val job = launch {
+    init {
+        repositoryScope.launch {
+            val database = db
+            if (database != null) {
+                _feePaymentsFlow.value = database.getAllFeePayments()
+                _isLoaded.value = true
                 database.feesUpdateFlow.collect {
-                    trySend(database.getAllFeePayments())
+                    _feePaymentsFlow.value = database.getAllFeePayments()
                 }
+            } else {
+                _isLoaded.value = true
             }
-
-            launch(Dispatchers.IO) {
-                sync?.syncFees()
-            }
-
-            awaitClose { job.cancel() }
-        } else {
-            val subscription = firestore.collection("fee_payments")
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        close(error)
-                        return@addSnapshotListener
-                    }
-                    if (snapshot != null) {
-                        val payments = snapshot.documents
-                            .filter { it.getBoolean("isDeleted") != true }
-                            .map { doc ->
-                                FeePaymentModel(
-                                    id = doc.id,
-                                    studentId = doc.getString("studentId") ?: "",
-                                    studentName = doc.getString("studentName") ?: "",
-                                    amountPaid = doc.getLong("amountPaid") ?: 0L,
-                                    paymentMethod = doc.getString("paymentMethod") ?: "",
-                                    remarks = doc.getString("remarks") ?: "",
-                                    receivedBy = doc.getString("receivedBy") ?: "",
-                                    timestamp = doc.getTimestamp("timestamp")
-                                )
-                            }
-                        trySend(payments)
-                    }
-                }
-            awaitClose { subscription.remove() }
         }
     }
 
-    override fun getPaymentsForStudentStream(studentId: String): Flow<List<FeePaymentModel>> = callbackFlow {
-        if (studentId.isBlank()) {
-            trySend(emptyList())
-            close()
-            return@callbackFlow
+    override fun getFeePaymentsStream(): Flow<List<FeePaymentModel>> {
+        if (db == null) {
+            return callbackFlow {
+                val subscription = firestore.collection("fee_payments")
+                    .orderBy("timestamp", Query.Direction.DESCENDING)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+                        if (snapshot != null) {
+                            val payments = snapshot.documents
+                                .filter { it.getBoolean("isDeleted") != true }
+                                .map { doc -> parseFeePayment(doc) }
+                            trySend(payments)
+                        }
+                    }
+                awaitClose { subscription.remove() }
+            }
         }
+        return _isLoaded.filter { it }.flatMapLatest { _feePaymentsFlow }
+    }
 
-        val database = db
-        if (database != null) {
-            trySend(database.getFeePaymentsForStudent(studentId))
+    override fun getPaymentsForStudentStream(studentId: String): Flow<List<FeePaymentModel>> {
+        if (studentId.isBlank()) return flowOf(emptyList())
 
-            val job = launch {
-                database.feesUpdateFlow.collect {
-                    trySend(database.getFeePaymentsForStudent(studentId))
-                }
-            }
-
-            launch(Dispatchers.IO) {
-                sync?.syncFees()
-            }
-
-            awaitClose { job.cancel() }
-        } else {
-            val subscription = firestore.collection("fee_payments")
-                .whereEqualTo("studentId", studentId)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        close(error)
-                        return@addSnapshotListener
+        if (db == null) {
+            return callbackFlow {
+                val subscription = firestore.collection("fee_payments")
+                    .whereEqualTo("studentId", studentId)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+                        if (snapshot != null) {
+                            val payments = snapshot.documents
+                                .filter { it.getBoolean("isDeleted") != true }
+                                .map { doc -> parseFeePayment(doc) }
+                                .sortedByDescending { it.timestamp?.seconds ?: 0L }
+                            trySend(payments)
+                        }
                     }
-                    if (snapshot != null) {
-                        val payments = snapshot.documents
-                            .filter { it.getBoolean("isDeleted") != true }
-                            .map { doc ->
-                                FeePaymentModel(
-                                    id = doc.id,
-                                    studentId = doc.getString("studentId") ?: "",
-                                    studentName = doc.getString("studentName") ?: "",
-                                    amountPaid = doc.getLong("amountPaid") ?: 0L,
-                                    paymentMethod = doc.getString("paymentMethod") ?: "",
-                                    remarks = doc.getString("remarks") ?: "",
-                                    receivedBy = doc.getString("receivedBy") ?: "",
-                                    timestamp = doc.getTimestamp("timestamp")
-                                )
-                            }.sortedByDescending { it.timestamp?.seconds ?: 0L }
-                        trySend(payments)
-                    }
-                }
-            awaitClose { subscription.remove() }
+                awaitClose { subscription.remove() }
+            }
+        }
+        return _isLoaded.filter { it }.flatMapLatest {
+            _feePaymentsFlow.map { list ->
+                list.filter { it.studentId == studentId }.sortedByDescending { it.timestamp?.seconds ?: 0L }
+            }
         }
     }
 
@@ -162,6 +146,8 @@ class FirestoreFeeRepository(
             // Save in local SQLite
             val savedPayment = payment.copy(id = docRef.id, timestamp = payment.timestamp ?: now)
             db?.upsertFeePayment(savedPayment, now.toDate().time)
+            _feePaymentsFlow.value = (listOf(savedPayment) + _feePaymentsFlow.value.filter { it.id != savedPayment.id })
+                .sortedByDescending { it.timestamp?.seconds ?: 0L }
 
             // Update student totalPaid in local SQLite
             val student = db?.getStudent(payment.studentId)
@@ -203,6 +189,8 @@ class FirestoreFeeRepository(
 
             // Update local SQLite
             db?.markFeePaymentDeleted(paymentId, now.toDate().time)
+            _feePaymentsFlow.value = _feePaymentsFlow.value.filter { it.id != paymentId }
+
             val student = db?.getStudent(studentId)
             if (student != null) {
                 db?.upsertStudent(student.copy(totalPaid = (student.totalPaid - amountPaid).coerceAtLeast(0L)), now.toDate().time)
@@ -212,6 +200,19 @@ class FirestoreFeeRepository(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun parseFeePayment(doc: DocumentSnapshot): FeePaymentModel {
+        return FeePaymentModel(
+            id = doc.id,
+            studentId = doc.getString("studentId") ?: "",
+            studentName = doc.getString("studentName") ?: "",
+            amountPaid = doc.getLong("amountPaid") ?: 0L,
+            paymentMethod = doc.getString("paymentMethod") ?: "",
+            remarks = doc.getString("remarks") ?: "",
+            receivedBy = doc.getString("receivedBy") ?: "",
+            timestamp = doc.getTimestamp("timestamp")
+        )
     }
 
     override suspend fun syncAllStudentsTotalPaid(): Result<Unit> {

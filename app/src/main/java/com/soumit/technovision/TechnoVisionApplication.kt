@@ -5,6 +5,7 @@ import com.soumit.technovision.di.AppContainer
 import com.soumit.technovision.di.DefaultAppContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class TechnoVisionApplication : Application() {
@@ -30,10 +31,19 @@ class TechnoVisionApplication : Application() {
 
         container = DefaultAppContainer(this)
 
-        // Non-blocking background sync of deltas (only reads documents modified since last sync)
-        CoroutineScope(Dispatchers.IO).launch {
+        // Pre-warm local database caches, repositories, and start live delta sync in background
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
-                container.deltaSyncManager.syncAll()
+                container.localDatabase.getAllStudents()
+                container.localDatabase.getAllFeePayments()
+                container.localDatabase.getAllAttendanceRecords()
+                container.localDatabase.getAllTeacherAttendance()
+
+                container.studentRepository
+                container.feeRepository
+                container.attendanceRepository
+
+                container.deltaSyncManager.startLiveDeltaSync(this)
             } catch (_: Exception) {
                 // Offline or sync error handled gracefully
             }

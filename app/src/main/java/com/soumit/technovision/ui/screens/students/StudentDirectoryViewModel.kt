@@ -7,13 +7,17 @@ import com.soumit.technovision.data.repository.AuthRepository
 import com.soumit.technovision.data.repository.FeeRepository
 import com.soumit.technovision.data.repository.StudentRepository
 import com.soumit.technovision.domain.usecase.CalculateBillingDuesUseCase
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 data class StudentDirectoryUiState(
     val students: List<StudentModel> = emptyList(),
@@ -39,7 +43,8 @@ class StudentDirectoryViewModel(
     private val studentRepository: StudentRepository,
     private val feeRepository: FeeRepository,
     private val authRepository: AuthRepository,
-    private val calculateBillingDuesUseCase: CalculateBillingDuesUseCase = CalculateBillingDuesUseCase()
+    private val calculateBillingDuesUseCase: CalculateBillingDuesUseCase = CalculateBillingDuesUseCase(),
+    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentDirectoryUiState())
@@ -86,19 +91,26 @@ class StudentDirectoryViewModel(
                 feeRepository.getFeePaymentsStream()
             ) { students, payments ->
                 val paymentsByStudent = payments.groupBy { it.studentId }
+                val calendar = Calendar.getInstance()
+                val curYear = calendar.get(Calendar.YEAR)
+                val curMonth = calendar.get(Calendar.MONTH) + 1
+
                 val balances = mutableMapOf<String, Long>()
                 val updatedStudents = students.map { student ->
                     val actualTotalPaid = paymentsByStudent[student.id]?.sumOf { it.amountPaid } ?: 0L
                     val billingDues = calculateBillingDuesUseCase(
                         admissionDate = student.admissionDate,
                         monthlyInstallment = student.monthlyInstallment,
-                        totalPaid = actualTotalPaid
+                        totalPaid = actualTotalPaid,
+                        currentYear = curYear,
+                        currentMonth = curMonth
                     )
                     balances[student.id] = billingDues.outstandingBalance
                     student.copy(totalPaid = actualTotalPaid)
                 }
                 Pair(updatedStudents, balances)
-            }.catch { error ->
+            }.flowOn(defaultDispatcher)
+            .catch { error ->
                 isStudentsLoaded = true
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
             }.collect { (students, balances) ->

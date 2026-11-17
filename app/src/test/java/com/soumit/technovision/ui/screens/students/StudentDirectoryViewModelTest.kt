@@ -100,7 +100,8 @@ class StudentDirectoryViewModelTest {
             studentRepository = studentRepo,
             feeRepository = feeRepo,
             authRepository = authRepo,
-            calculateBillingDuesUseCase = useCase
+            calculateBillingDuesUseCase = useCase,
+            defaultDispatcher = testDispatcher
         )
 
         advanceUntilIdle()
@@ -133,7 +134,8 @@ class StudentDirectoryViewModelTest {
         val viewModel = StudentDirectoryViewModel(
             studentRepository = studentRepo,
             feeRepository = feeRepo,
-            authRepository = authRepo
+            authRepository = authRepo,
+            defaultDispatcher = testDispatcher
         )
 
         advanceUntilIdle()

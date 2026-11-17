@@ -8,11 +8,14 @@ import com.soumit.technovision.data.repository.AuditLogRepository
 import com.soumit.technovision.data.repository.AuthRepository
 import com.soumit.technovision.data.repository.FeeRepository
 import com.soumit.technovision.data.repository.StudentRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -48,7 +51,8 @@ class GlobalHistoryViewModel(
     private val feeRepository: FeeRepository,
     private val studentRepository: StudentRepository,
     private val authRepository: AuthRepository,
-    private val auditLogRepository: AuditLogRepository
+    private val auditLogRepository: AuditLogRepository,
+    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GlobalHistoryUiState())
@@ -92,7 +96,8 @@ class GlobalHistoryViewModel(
             ) { payments, students ->
                 val sMap = students.associateBy { it.id }
                 Pair(payments, sMap)
-            }.catch { e ->
+            }.flowOn(defaultDispatcher)
+            .catch { e ->
                 isDataLoaded = true
                 _uiState.update {
                     it.copy(

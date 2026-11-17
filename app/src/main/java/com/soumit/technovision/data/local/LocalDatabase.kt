@@ -232,7 +232,10 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("students", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        cachedStudents = null
+        synchronized(this) {
+            val current = cachedStudents ?: getAllStudents()
+            cachedStudents = (current.filter { it.id != finalStudent.id } + finalStudent).sortedBy { it.fullName.lowercase() }
+        }
         _studentsUpdateFlow.tryEmit(Unit)
     }
 
@@ -241,11 +244,13 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         db.beginTransaction()
         try {
             for ((student, updatedAt) in students) {
-                var currentTotalPaid = 0L
-                val cursor = db.rawQuery("SELECT data_json FROM students WHERE id = ? AND is_deleted = 0", arrayOf(student.id))
-                cursor.use {
-                    if (it.moveToFirst()) {
-                        currentTotalPaid = studentFromJson(it.getString(0))?.totalPaid ?: 0L
+                var currentTotalPaid = cachedStudents?.find { it.id == student.id }?.totalPaid ?: 0L
+                if (currentTotalPaid == 0L) {
+                    val cursor = db.rawQuery("SELECT data_json FROM students WHERE id = ? AND is_deleted = 0", arrayOf(student.id))
+                    cursor.use {
+                        if (it.moveToFirst()) {
+                            currentTotalPaid = studentFromJson(it.getString(0))?.totalPaid ?: 0L
+                        }
                     }
                 }
                 val finalStudent = if (student.totalPaid == 0L && currentTotalPaid > 0L) {
@@ -266,7 +271,17 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
-        cachedStudents = null
+        synchronized(this) {
+            val map = (cachedStudents ?: getAllStudents()).associateBy { it.id }.toMutableMap()
+            for ((student, _) in students) {
+                val prev = map[student.id]
+                val finalS = if (student.totalPaid == 0L && prev != null && prev.totalPaid > 0L) {
+                    student.copy(totalPaid = prev.totalPaid)
+                } else student
+                map[student.id] = finalS
+            }
+            cachedStudents = map.values.sortedBy { it.fullName.lowercase() }
+        }
         _studentsUpdateFlow.tryEmit(Unit)
     }
 
@@ -277,7 +292,9 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("students", values, "id = ?", arrayOf(studentId))
-        cachedStudents = null
+        synchronized(this) {
+            cachedStudents = cachedStudents?.filter { it.id != studentId }
+        }
         _studentsUpdateFlow.tryEmit(Unit)
     }
 
@@ -345,7 +362,10 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("fee_payments", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        cachedFeePayments = null
+        synchronized(this) {
+            val list = (cachedFeePayments ?: getAllFeePayments()).filter { it.id != payment.id }
+            cachedFeePayments = (list + payment).sortedByDescending { it.timestamp?.seconds ?: 0L }
+        }
         _feesUpdateFlow.tryEmit(Unit)
     }
 
@@ -370,7 +390,13 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
-        cachedFeePayments = null
+        synchronized(this) {
+            val map = (cachedFeePayments ?: getAllFeePayments()).associateBy { it.id }.toMutableMap()
+            for ((payment, _) in payments) {
+                map[payment.id] = payment
+            }
+            cachedFeePayments = map.values.sortedByDescending { it.timestamp?.seconds ?: 0L }
+        }
         _feesUpdateFlow.tryEmit(Unit)
     }
 
@@ -381,7 +407,9 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("fee_payments", values, "id = ?", arrayOf(paymentId))
-        cachedFeePayments = null
+        synchronized(this) {
+            cachedFeePayments = cachedFeePayments?.filter { it.id != paymentId }
+        }
         _feesUpdateFlow.tryEmit(Unit)
     }
 
@@ -432,7 +460,10 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        cachedAttendance = null
+        synchronized(this) {
+            val list = (cachedAttendance ?: getAllAttendanceRecords()).filter { it.id != record.id }
+            cachedAttendance = (list + record).sortedByDescending { it.timestamp?.seconds ?: 0L }
+        }
         _attendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -457,7 +488,13 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
-        cachedAttendance = null
+        synchronized(this) {
+            val map = (cachedAttendance ?: getAllAttendanceRecords()).associateBy { it.id }.toMutableMap()
+            for ((record, _) in records) {
+                map[record.id] = record
+            }
+            cachedAttendance = map.values.sortedByDescending { it.timestamp?.seconds ?: 0L }
+        }
         _attendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -468,7 +505,9 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("attendance", values, "id = ?", arrayOf(id))
-        cachedAttendance = null
+        synchronized(this) {
+            cachedAttendance = cachedAttendance?.filter { it.id != id }
+        }
         _attendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -528,7 +567,10 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("teacher_attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        cachedTeacherAttendance = null
+        synchronized(this) {
+            val list = (cachedTeacherAttendance ?: getAllTeacherAttendance()).filter { it.id != req.id }
+            cachedTeacherAttendance = (list + req).sortedByDescending { it.timestamp?.seconds ?: 0L }
+        }
         _teacherAttendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -555,7 +597,13 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
-        cachedTeacherAttendance = null
+        synchronized(this) {
+            val map = (cachedTeacherAttendance ?: getAllTeacherAttendance()).associateBy { it.id }.toMutableMap()
+            for ((req, _) in records) {
+                map[req.id] = req
+            }
+            cachedTeacherAttendance = map.values.sortedByDescending { it.timestamp?.seconds ?: 0L }
+        }
         _teacherAttendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -566,7 +614,9 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("teacher_attendance", values, "id = ?", arrayOf(id))
-        cachedTeacherAttendance = null
+        synchronized(this) {
+            cachedTeacherAttendance = cachedTeacherAttendance?.filter { it.id != id }
+        }
         _teacherAttendanceUpdateFlow.tryEmit(Unit)
     }
 

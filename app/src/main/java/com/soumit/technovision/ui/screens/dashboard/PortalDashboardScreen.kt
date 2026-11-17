@@ -1,7 +1,6 @@
 package com.soumit.technovision.ui.screens.dashboard
 
 import android.content.res.Configuration
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -49,11 +47,6 @@ fun PortalDashboardContent(
     sections: List<PortalSectionModel>,
     userName: String
 ) {
-    val context = LocalContext.current
-    BackHandler {
-        (context as? android.app.Activity)?.finish()
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(

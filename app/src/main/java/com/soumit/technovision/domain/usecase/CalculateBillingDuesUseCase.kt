@@ -19,9 +19,16 @@ class CalculateBillingDuesUseCase {
     operator fun invoke(
         admissionDate: String,
         monthlyInstallment: Long,
-        totalPaid: Long = 0L
+        totalPaid: Long = 0L,
+        currentYear: Int = -1,
+        currentMonth: Int = -1
     ): BillingDues {
-        val (months, expected) = BillingUtils.calculateBillingMonths(admissionDate, monthlyInstallment)
+        val (months, expected) = BillingUtils.calculateBillingMonths(
+            admissionDateStr = admissionDate,
+            installment = monthlyInstallment,
+            currentYear = currentYear,
+            currentMonth = currentMonth
+        )
         val balance = (expected - totalPaid).coerceAtLeast(0L)
         return BillingDues(
             billableMonths = months,

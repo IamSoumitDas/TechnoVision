@@ -13,7 +13,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -27,6 +32,7 @@ interface StudentRepository {
     suspend fun deleteStudent(studentId: String, fullName: String): Result<Unit>
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class FirestoreStudentRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val localDb: LocalDatabase? = null,
@@ -36,45 +42,53 @@ class FirestoreStudentRepository(
     private val db: LocalDatabase?
         get() = localDb ?: TechnoVisionApplication.instance?.container?.localDatabase
 
-    private val sync: DeltaSyncManager?
-        get() = syncManager ?: TechnoVisionApplication.instance?.container?.deltaSyncManager
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val _studentsFlow = MutableStateFlow<List<StudentModel>>(emptyList())
+    private val _isLoaded = MutableStateFlow(false)
 
-    override fun getStudentsStream(): Flow<List<StudentModel>> = callbackFlow {
-        val database = db
-        if (database != null) {
-            trySend(database.getAllStudents())
-
-            val job = launch {
+    init {
+        repositoryScope.launch {
+            val database = db
+            if (database != null) {
+                _studentsFlow.value = database.getAllStudents()
+                _isLoaded.value = true
                 database.studentsUpdateFlow.collect {
-                    trySend(database.getAllStudents())
+                    _studentsFlow.value = database.getAllStudents()
                 }
+            } else {
+                _isLoaded.value = true
             }
-
-            launch(Dispatchers.IO) {
-                sync?.syncStudents()
-            }
-
-            awaitClose { job.cancel() }
-        } else {
-            val subscription = firestore.collection("students")
-                .orderBy("fullName", Query.Direction.ASCENDING)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        close(error)
-                        return@addSnapshotListener
-                    }
-                    if (snapshot != null) {
-                        val students = snapshot.documents
-                            .filter { it.getBoolean("isDeleted") != true }
-                            .map { doc -> parseStudent(doc) }
-                        trySend(students)
-                    }
-                }
-            awaitClose { subscription.remove() }
         }
     }
 
+    override fun getStudentsStream(): Flow<List<StudentModel>> {
+        if (db == null) {
+            return callbackFlow {
+                val subscription = firestore.collection("students")
+                    .orderBy("fullName", Query.Direction.ASCENDING)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+                        if (snapshot != null) {
+                            val students = snapshot.documents
+                                .filter { it.getBoolean("isDeleted") != true }
+                                .map { doc -> parseStudent(doc) }
+                            trySend(students)
+                        }
+                    }
+                awaitClose { subscription.remove() }
+            }
+        }
+        return _isLoaded.filter { it }.flatMapLatest { _studentsFlow }
+    }
+
     override suspend fun getStudentsOnce(): Result<List<StudentModel>> {
+        val inMemory = _studentsFlow.value
+        if (inMemory.isNotEmpty()) {
+            return Result.success(inMemory)
+        }
         val database = db
         if (database != null) {
             val localList = database.getAllStudents()
@@ -96,41 +110,36 @@ class FirestoreStudentRepository(
         }
     }
 
-    override fun getStudentStream(studentId: String): Flow<StudentModel?> = callbackFlow {
-        if (studentId.isBlank()) {
-            trySend(null)
-            close()
-            return@callbackFlow
-        }
+    override fun getStudentStream(studentId: String): Flow<StudentModel?> {
+        if (studentId.isBlank()) return flowOf(null)
 
-        val database = db
-        if (database != null) {
-            trySend(database.getStudent(studentId))
-
-            val job = launch {
-                database.studentsUpdateFlow.collect {
-                    trySend(database.getStudent(studentId))
-                }
+        if (db == null) {
+            return callbackFlow {
+                val subscription = firestore.collection("students").document(studentId)
+                    .addSnapshotListener { doc, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+                        if (doc != null && doc.exists() && doc.getBoolean("isDeleted") != true) {
+                            trySend(parseStudent(doc))
+                        } else {
+                            trySend(null)
+                        }
+                    }
+                awaitClose { subscription.remove() }
             }
-            awaitClose { job.cancel() }
-        } else {
-            val subscription = firestore.collection("students").document(studentId)
-                .addSnapshotListener { doc, error ->
-                    if (error != null) {
-                        close(error)
-                        return@addSnapshotListener
-                    }
-                    if (doc != null && doc.exists() && doc.getBoolean("isDeleted") != true) {
-                        trySend(parseStudent(doc))
-                    } else {
-                        trySend(null)
-                    }
-                }
-            awaitClose { subscription.remove() }
+        }
+        return _isLoaded.filter { it }.flatMapLatest {
+            _studentsFlow.map { list -> list.find { it.id == studentId } }
         }
     }
 
     override suspend fun getStudent(studentId: String): Result<StudentModel> {
+        val inMemory = _studentsFlow.value.find { it.id == studentId }
+        if (inMemory != null) {
+            return Result.success(inMemory)
+        }
         val local = db?.getStudent(studentId)
         if (local != null) {
             return Result.success(local)
@@ -181,6 +190,8 @@ class FirestoreStudentRepository(
 
             val enrolled = student.copy(id = newUserId, totalPaid = 0L)
             db?.upsertStudent(enrolled, now.toDate().time)
+            _studentsFlow.value = (listOf(enrolled) + _studentsFlow.value.filter { it.id != newUserId })
+                .sortedBy { it.fullName.lowercase() }
 
             Result.success(newUserId)
         } catch (e: Exception) {
@@ -221,6 +232,9 @@ class FirestoreStudentRepository(
                 student
             }
             db?.upsertStudent(resolvedStudent, now.toDate().time)
+            _studentsFlow.value = _studentsFlow.value.map {
+                if (it.id == resolvedStudent.id) resolvedStudent else it
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -237,6 +251,7 @@ class FirestoreStudentRepository(
             batch.commit().await()
 
             db?.markStudentDeleted(studentId, now.toDate().time)
+            _studentsFlow.value = _studentsFlow.value.filter { it.id != studentId }
 
             Result.success(Unit)
         } catch (e: Exception) {

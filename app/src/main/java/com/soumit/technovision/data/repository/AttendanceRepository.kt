@@ -1,6 +1,7 @@
 package com.soumit.technovision.data.repository
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.soumit.technovision.TechnoVisionApplication
@@ -8,10 +9,17 @@ import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
 import com.soumit.technovision.data.model.AttendanceRecordModel
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -26,6 +34,7 @@ interface AttendanceRepository {
     suspend fun rejectTeacherAttendance(requestId: String, rejectedBy: String): Result<Unit>
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class FirestoreAttendanceRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val localDb: LocalDatabase? = null,
@@ -38,81 +47,77 @@ class FirestoreAttendanceRepository(
     private val sync: DeltaSyncManager?
         get() = syncManager ?: TechnoVisionApplication.instance?.container?.deltaSyncManager
 
-    override fun getAttendanceRecordsStream(): Flow<List<AttendanceRecordModel>> = callbackFlow {
-        val database = db
-        if (database != null) {
-            trySend(database.getAllAttendanceRecords())
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val _attendanceRecordsFlow = MutableStateFlow<List<AttendanceRecordModel>>(emptyList())
+    private val _teacherAttendanceFlow = MutableStateFlow<List<TeacherAttendanceRequestModel>>(emptyList())
+    private val _isLoaded = MutableStateFlow(false)
 
-            val job = launch {
-                database.attendanceUpdateFlow.collect {
-                    trySend(database.getAllAttendanceRecords())
-                }
-            }
+    init {
+        repositoryScope.launch {
+            val database = db
+            if (database != null) {
+                _attendanceRecordsFlow.value = database.getAllAttendanceRecords()
+                _teacherAttendanceFlow.value = database.getAllTeacherAttendance()
+                _isLoaded.value = true
 
-            launch(Dispatchers.IO) {
-                sync?.syncAttendance()
-            }
-
-            awaitClose { job.cancel() }
-        } else {
-            val subscription = firestore.collection("attendance")
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        close(error)
-                        return@addSnapshotListener
-                    }
-                    if (snapshot != null) {
-                        val records = snapshot.documents
-                            .filter { it.getBoolean("isDeleted") != true }
-                            .map { doc ->
-                                AttendanceRecordModel(
-                                    id = doc.id,
-                                    date = doc.getString("date") ?: "",
-                                    timeSlot = doc.getString("timeSlot") ?: "",
-                                    presentStudentIds = (doc.get("presentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                                    absentStudentIds = (doc.get("absentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                                    additionalStudentIds = (doc.get("additionalStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                                    totalPresent = (doc.getLong("totalPresent") ?: 0L).toInt(),
-                                    totalAbsent = (doc.getLong("totalAbsent") ?: 0L).toInt(),
-                                    submittedBy = doc.getString("submittedBy") ?: "",
-                                    submittedByUid = doc.getString("submittedByUid") ?: "",
-                                    submittedByEmail = doc.getString("submittedByEmail") ?: doc.getString("takenBy") ?: "",
-                                    timestamp = doc.getTimestamp("timestamp")
-                                )
-                            }
-                        trySend(records)
+                launch {
+                    database.attendanceUpdateFlow.collect {
+                        _attendanceRecordsFlow.value = database.getAllAttendanceRecords()
                     }
                 }
-            awaitClose { subscription.remove() }
+                launch {
+                    database.teacherAttendanceUpdateFlow.collect {
+                        _teacherAttendanceFlow.value = database.getAllTeacherAttendance()
+                    }
+                }
+            } else {
+                _isLoaded.value = true
+            }
         }
     }
 
+    override fun getAttendanceRecordsStream(): Flow<List<AttendanceRecordModel>> {
+        if (db == null) {
+            return callbackFlow {
+                val subscription = firestore.collection("attendance")
+                    .orderBy("timestamp", Query.Direction.DESCENDING)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+                        if (snapshot != null) {
+                            val records = snapshot.documents
+                                .filter { it.getBoolean("isDeleted") != true }
+                                .map { doc -> parseAttendance(doc) }
+                            trySend(records)
+                        }
+                    }
+                awaitClose { subscription.remove() }
+            }
+        }
+        return _isLoaded.filter { it }.flatMapLatest { _attendanceRecordsFlow }
+    }
+
     override suspend fun getExistingAttendance(date: String, timeSlot: String): Result<AttendanceRecordModel?> {
+        val cleanDate = date.trim().replace('/', '-')
+        val inMemory = _attendanceRecordsFlow.value.find {
+            it.date.trim().replace('/', '-') == cleanDate && it.timeSlot.trim().equals(timeSlot.trim(), ignoreCase = true)
+        }
+        if (inMemory != null) {
+            return Result.success(inMemory)
+        }
+
         val local = db?.getExistingAttendance(date, timeSlot)
         if (local != null) {
             return Result.success(local)
         }
         return try {
-            val cleanDate = date.trim().replace('/', '-')
             val slotIdTag = timeSlot.replace(Regex("[^A-Za-z0-9]"), "_")
             val docId = "${cleanDate}_$slotIdTag"
             val doc = firestore.collection("attendance").document(docId).get().await()
             if (doc.exists() && doc.getBoolean("isDeleted") != true) {
-                val record = AttendanceRecordModel(
-                    id = doc.id,
-                    date = doc.getString("date") ?: "",
-                    timeSlot = doc.getString("timeSlot") ?: "",
-                    presentStudentIds = (doc.get("presentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                    absentStudentIds = (doc.get("absentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                    additionalStudentIds = (doc.get("additionalStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                    totalPresent = (doc.getLong("totalPresent") ?: 0L).toInt(),
-                    totalAbsent = (doc.getLong("totalAbsent") ?: 0L).toInt(),
-                    submittedBy = doc.getString("submittedBy") ?: "",
-                    submittedByUid = doc.getString("submittedByUid") ?: "",
-                    submittedByEmail = doc.getString("submittedByEmail") ?: doc.getString("takenBy") ?: "",
-                    timestamp = doc.getTimestamp("timestamp")
-                )
+                val record = parseAttendance(doc)
                 db?.upsertAttendanceRecord(record)
                 Result.success(record)
             } else {
@@ -158,7 +163,10 @@ class FirestoreAttendanceRepository(
                 transaction.set(docRef, data)
             }.await()
 
-            db?.upsertAttendanceRecord(record.copy(id = docId), now.toDate().time)
+            val saved = record.copy(id = docId)
+            db?.upsertAttendanceRecord(saved, now.toDate().time)
+            _attendanceRecordsFlow.value = (listOf(saved) + _attendanceRecordsFlow.value.filter { it.id != docId })
+                .sortedByDescending { it.timestamp?.seconds ?: 0L }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -166,56 +174,40 @@ class FirestoreAttendanceRepository(
         }
     }
 
-    override fun getTeacherAttendanceRequestsStream(teacherId: String?): Flow<List<TeacherAttendanceRequestModel>> = callbackFlow {
-        val database = db
-        if (database != null) {
-            trySend(database.getAllTeacherAttendance(teacherId))
-
-            val job = launch {
-                database.teacherAttendanceUpdateFlow.collect {
-                    trySend(database.getAllTeacherAttendance(teacherId))
+    override fun getTeacherAttendanceRequestsStream(teacherId: String?): Flow<List<TeacherAttendanceRequestModel>> {
+        if (db == null) {
+            return callbackFlow {
+                val query = if (!teacherId.isNullOrBlank()) {
+                    firestore.collection("teacher_attendance")
+                        .whereEqualTo("teacherId", teacherId)
+                } else {
+                    firestore.collection("teacher_attendance")
+                        .orderBy("timestamp", Query.Direction.DESCENDING)
                 }
-            }
 
-            launch(Dispatchers.IO) {
-                sync?.syncTeacherAttendance()
+                val subscription = query.addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val requests = snapshot.documents
+                            .filter { it.getBoolean("isDeleted") != true }
+                            .map { doc -> parseTeacherAttendance(doc) }
+                            .sortedByDescending { it.timestamp?.seconds ?: 0L }
+                        trySend(requests)
+                    }
+                }
+                awaitClose { subscription.remove() }
             }
+        }
 
-            awaitClose { job.cancel() }
-        } else {
-            val query = if (!teacherId.isNullOrBlank()) {
-                firestore.collection("teacher_attendance")
-                    .whereEqualTo("teacherId", teacherId)
+        return _isLoaded.filter { it }.flatMapLatest {
+            if (!teacherId.isNullOrBlank()) {
+                _teacherAttendanceFlow.map { list -> list.filter { it.teacherId == teacherId } }
             } else {
-                firestore.collection("teacher_attendance")
-                    .orderBy("timestamp", Query.Direction.DESCENDING)
+                _teacherAttendanceFlow
             }
-
-            val subscription = query.addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val requests = snapshot.documents
-                        .filter { it.getBoolean("isDeleted") != true }
-                        .map { doc ->
-                            TeacherAttendanceRequestModel(
-                                id = doc.id,
-                                teacherId = doc.getString("teacherId") ?: "",
-                                teacherName = doc.getString("teacherName") ?: "",
-                                date = doc.getString("date") ?: "",
-                                timeSlot = doc.getString("timeSlot") ?: "",
-                                status = doc.getString("status") ?: "Pending",
-                                timestamp = doc.getTimestamp("timestamp"),
-                                verifiedBy = doc.getString("verifiedBy") ?: "",
-                                rejectedBy = doc.getString("rejectedBy") ?: ""
-                            )
-                        }.sortedByDescending { it.timestamp?.seconds ?: 0L }
-                    trySend(requests)
-                }
-            }
-            awaitClose { subscription.remove() }
         }
     }
 
@@ -233,7 +225,11 @@ class FirestoreAttendanceRepository(
                 "isDeleted" to false
             )
             val docRef = firestore.collection("teacher_attendance").add(data).await()
-            db?.upsertTeacherAttendance(request.copy(id = docRef.id, status = "Pending"), now.toDate().time)
+            val saved = request.copy(id = docRef.id, status = "Pending")
+            db?.upsertTeacherAttendance(saved, now.toDate().time)
+            _teacherAttendanceFlow.value = (listOf(saved) + _teacherAttendanceFlow.value.filter { it.id != saved.id })
+                .sortedByDescending { it.timestamp?.seconds ?: 0L }
+
             Result.success(docRef.id)
         } catch (e: Exception) {
             Result.failure(e)
@@ -253,7 +249,11 @@ class FirestoreAttendanceRepository(
             // Update in local DB
             val existing = db?.getTeacherAttendance(requestId)
             if (existing != null) {
-                db?.upsertTeacherAttendance(existing.copy(status = "Verified", verifiedBy = verifiedBy), now.toDate().time)
+                val updated = existing.copy(status = "Verified", verifiedBy = verifiedBy)
+                db?.upsertTeacherAttendance(updated, now.toDate().time)
+                _teacherAttendanceFlow.value = _teacherAttendanceFlow.value.map {
+                    if (it.id == requestId) updated else it
+                }
             }
 
             Result.success(Unit)
@@ -274,12 +274,47 @@ class FirestoreAttendanceRepository(
 
             val existing = db?.getTeacherAttendance(requestId)
             if (existing != null) {
-                db?.upsertTeacherAttendance(existing.copy(status = "Rejected", rejectedBy = rejectedBy), now.toDate().time)
+                val updated = existing.copy(status = "Rejected", rejectedBy = rejectedBy)
+                db?.upsertTeacherAttendance(updated, now.toDate().time)
+                _teacherAttendanceFlow.value = _teacherAttendanceFlow.value.map {
+                    if (it.id == requestId) updated else it
+                }
             }
 
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun parseAttendance(doc: DocumentSnapshot): AttendanceRecordModel {
+        return AttendanceRecordModel(
+            id = doc.id,
+            date = doc.getString("date") ?: "",
+            timeSlot = doc.getString("timeSlot") ?: "",
+            presentStudentIds = (doc.get("presentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+            absentStudentIds = (doc.get("absentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+            additionalStudentIds = (doc.get("additionalStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+            totalPresent = (doc.getLong("totalPresent") ?: 0L).toInt(),
+            totalAbsent = (doc.getLong("totalAbsent") ?: 0L).toInt(),
+            submittedBy = doc.getString("submittedBy") ?: "",
+            submittedByUid = doc.getString("submittedByUid") ?: "",
+            submittedByEmail = doc.getString("submittedByEmail") ?: doc.getString("takenBy") ?: "",
+            timestamp = doc.getTimestamp("timestamp")
+        )
+    }
+
+    private fun parseTeacherAttendance(doc: DocumentSnapshot): TeacherAttendanceRequestModel {
+        return TeacherAttendanceRequestModel(
+            id = doc.id,
+            teacherId = doc.getString("teacherId") ?: "",
+            teacherName = doc.getString("teacherName") ?: "",
+            date = doc.getString("date") ?: "",
+            timeSlot = doc.getString("timeSlot") ?: "",
+            status = doc.getString("status") ?: "Pending",
+            timestamp = doc.getTimestamp("timestamp"),
+            verifiedBy = doc.getString("verifiedBy") ?: "",
+            rejectedBy = doc.getString("rejectedBy") ?: ""
+        )
     }
 }
