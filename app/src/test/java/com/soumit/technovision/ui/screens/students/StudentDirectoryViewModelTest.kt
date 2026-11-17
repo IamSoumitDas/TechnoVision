@@ -48,7 +48,9 @@ private class FakeFeeRepository(
     override suspend fun syncAllStudentsTotalPaid(): Result<Unit> = Result.success(Unit)
 }
 
-private class FakeAuthRepository : AuthRepository {
+private class FakeAuthRepository(
+    override val currentUserId: String? = "test_user_id"
+) : AuthRepository {
     override val currentUser: FirebaseUser? = null
     override fun authStateStream(): Flow<FirebaseUser?> = flowOf(null)
     override suspend fun getUserRole(userId: String): Result<String> = Result.success("owner")
@@ -74,7 +76,7 @@ class StudentDirectoryViewModelTest {
     }
 
     @Test
-    fun balancesCalculatedFromActualFeePayments_notStaleStudentTotalPaid() = runTest {
+    fun balancesCalculatedFromActualFeePayments_andRoleLoadedCorrectly() = runTest {
         // Student has totalPaid = 0 in StudentModel, but payments exist in FeeRepository
         val student1 = StudentModel(
             id = "s1",
@@ -91,7 +93,7 @@ class StudentDirectoryViewModelTest {
 
         val studentRepo = FakeStudentRepository(listOf(student1))
         val feeRepo = FakeFeeRepository(listOf(payment1))
-        val authRepo = FakeAuthRepository()
+        val authRepo = FakeAuthRepository(currentUserId = "test_user_id")
         val useCase = CalculateBillingDuesUseCase()
 
         val viewModel = StudentDirectoryViewModel(
@@ -112,5 +114,32 @@ class StudentDirectoryViewModelTest {
 
         assertEquals(expectedDues.outstandingBalance, state.outstandingBalances["s1"])
         assertEquals(500L, state.students.first().totalPaid)
+        org.junit.Assert.assertFalse(state.isLoading)
+        assertEquals("owner", state.userRole)
+    }
+
+    @Test
+    fun initialState_userRoleDefaultsToEmpty_notPrematureOwner() {
+        val initialState = StudentDirectoryUiState()
+        assertEquals("", initialState.userRole)
+        org.junit.Assert.assertTrue(initialState.isLoading)
+    }
+
+    @Test
+    fun whenUserNotLoggedIn_userRoleIsEmptyAndLoadingCompletes() = runTest {
+        val studentRepo = FakeStudentRepository(emptyList())
+        val feeRepo = FakeFeeRepository(emptyList())
+        val authRepo = FakeAuthRepository(currentUserId = null)
+        val viewModel = StudentDirectoryViewModel(
+            studentRepository = studentRepo,
+            feeRepository = feeRepo,
+            authRepository = authRepo
+        )
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("", state.userRole)
+        org.junit.Assert.assertFalse(state.isLoading)
     }
 }

@@ -48,7 +48,6 @@ class FirestoreFeeRepository(
 
             launch(Dispatchers.IO) {
                 sync?.syncFees()
-                trySend(database.getAllFeePayments())
             }
 
             awaitClose { job.cancel() }
@@ -101,7 +100,6 @@ class FirestoreFeeRepository(
 
             launch(Dispatchers.IO) {
                 sync?.syncFees()
-                trySend(database.getFeePaymentsForStudent(studentId))
             }
 
             awaitClose { job.cancel() }

@@ -52,7 +52,6 @@ class FirestoreStudentRepository(
 
             launch(Dispatchers.IO) {
                 sync?.syncStudents()
-                trySend(database.getAllStudents())
             }
 
             awaitClose { job.cancel() }

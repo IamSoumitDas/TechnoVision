@@ -43,6 +43,18 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
     private val _teacherAttendanceUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
     val teacherAttendanceUpdateFlow: SharedFlow<Unit> = _teacherAttendanceUpdateFlow.asSharedFlow()
 
+    @Volatile
+    private var cachedStudents: List<StudentModel>? = null
+
+    @Volatile
+    private var cachedFeePayments: List<FeePaymentModel>? = null
+
+    @Volatile
+    private var cachedAttendance: List<AttendanceRecordModel>? = null
+
+    @Volatile
+    private var cachedTeacherAttendance: List<TeacherAttendanceRequestModel>? = null
+
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.enableWriteAheadLogging()
@@ -132,6 +144,10 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         db.execSQL("DROP TABLE IF EXISTS attendance")
         db.execSQL("DROP TABLE IF EXISTS teacher_attendance")
         db.execSQL("DROP TABLE IF EXISTS sync_metadata")
+        cachedStudents = null
+        cachedFeePayments = null
+        cachedAttendance = null
+        cachedTeacherAttendance = null
         onCreate(db)
     }
 
@@ -165,22 +181,31 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
     // --- Students Operations ---
 
     fun getAllStudents(): List<StudentModel> {
-        val db = readableDatabase
-        val list = mutableListOf<StudentModel>()
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM students WHERE is_deleted = 0 ORDER BY full_name COLLATE NOCASE ASC",
-            null
-        )
-        cursor.use {
-            while (it.moveToNext()) {
-                val json = it.getString(0)
-                studentFromJson(json)?.let { student -> list.add(student) }
+        cachedStudents?.let { return it }
+        synchronized(this) {
+            cachedStudents?.let { return it }
+            val db = readableDatabase
+            val list = mutableListOf<StudentModel>()
+            val cursor = db.rawQuery(
+                "SELECT data_json FROM students WHERE is_deleted = 0 ORDER BY full_name COLLATE NOCASE ASC",
+                null
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    val json = it.getString(0)
+                    studentFromJson(json)?.let { student -> list.add(student) }
+                }
             }
+            cachedStudents = list
+            return list
         }
-        return list
     }
 
     fun getStudent(studentId: String): StudentModel? {
+        cachedStudents?.let { allStudents ->
+            val found = allStudents.find { it.id == studentId }
+            if (found != null) return found
+        }
         val db = readableDatabase
         val cursor = db.rawQuery(
             "SELECT data_json FROM students WHERE id = ? AND is_deleted = 0",
@@ -207,6 +232,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("students", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        cachedStudents = null
         _studentsUpdateFlow.tryEmit(Unit)
     }
 
@@ -240,6 +266,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
+        cachedStudents = null
         _studentsUpdateFlow.tryEmit(Unit)
     }
 
@@ -250,27 +277,36 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("students", values, "id = ?", arrayOf(studentId))
+        cachedStudents = null
         _studentsUpdateFlow.tryEmit(Unit)
     }
 
     // --- Fee Payments Operations ---
 
     fun getAllFeePayments(): List<FeePaymentModel> {
-        val db = readableDatabase
-        val list = mutableListOf<FeePaymentModel>()
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM fee_payments WHERE is_deleted = 0 ORDER BY timestamp_millis DESC",
-            null
-        )
-        cursor.use {
-            while (it.moveToNext()) {
-                feePaymentFromJson(it.getString(0))?.let { payment -> list.add(payment) }
+        cachedFeePayments?.let { return it }
+        synchronized(this) {
+            cachedFeePayments?.let { return it }
+            val db = readableDatabase
+            val list = mutableListOf<FeePaymentModel>()
+            val cursor = db.rawQuery(
+                "SELECT data_json FROM fee_payments WHERE is_deleted = 0 ORDER BY timestamp_millis DESC",
+                null
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    feePaymentFromJson(it.getString(0))?.let { payment -> list.add(payment) }
+                }
             }
+            cachedFeePayments = list
+            return list
         }
-        return list
     }
 
     fun getFeePaymentsForStudent(studentId: String): List<FeePaymentModel> {
+        cachedFeePayments?.let { allPayments ->
+            return allPayments.filter { it.studentId == studentId }
+        }
         val db = readableDatabase
         val list = mutableListOf<FeePaymentModel>()
         val cursor = db.rawQuery(
@@ -309,6 +345,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("fee_payments", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        cachedFeePayments = null
         _feesUpdateFlow.tryEmit(Unit)
     }
 
@@ -333,6 +370,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
+        cachedFeePayments = null
         _feesUpdateFlow.tryEmit(Unit)
     }
 
@@ -343,24 +381,30 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("fee_payments", values, "id = ?", arrayOf(paymentId))
+        cachedFeePayments = null
         _feesUpdateFlow.tryEmit(Unit)
     }
 
     // --- Attendance Operations ---
 
     fun getAllAttendanceRecords(): List<AttendanceRecordModel> {
-        val db = readableDatabase
-        val list = mutableListOf<AttendanceRecordModel>()
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM attendance WHERE is_deleted = 0 ORDER BY timestamp_millis DESC",
-            null
-        )
-        cursor.use {
-            while (it.moveToNext()) {
-                attendanceFromJson(it.getString(0))?.let { record -> list.add(record) }
+        cachedAttendance?.let { return it }
+        synchronized(this) {
+            cachedAttendance?.let { return it }
+            val db = readableDatabase
+            val list = mutableListOf<AttendanceRecordModel>()
+            val cursor = db.rawQuery(
+                "SELECT data_json FROM attendance WHERE is_deleted = 0 ORDER BY timestamp_millis DESC",
+                null
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    attendanceFromJson(it.getString(0))?.let { record -> list.add(record) }
+                }
             }
+            cachedAttendance = list
+            return list
         }
-        return list
     }
 
     fun getExistingAttendance(date: String, timeSlot: String): AttendanceRecordModel? {
@@ -388,6 +432,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        cachedAttendance = null
         _attendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -412,6 +457,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
+        cachedAttendance = null
         _attendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -422,12 +468,16 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("attendance", values, "id = ?", arrayOf(id))
+        cachedAttendance = null
         _attendanceUpdateFlow.tryEmit(Unit)
     }
 
     // --- Teacher Attendance Operations ---
 
     fun getAllTeacherAttendance(teacherId: String? = null): List<TeacherAttendanceRequestModel> {
+        if (teacherId.isNullOrBlank()) {
+            cachedTeacherAttendance?.let { return it }
+        }
         val db = readableDatabase
         val list = mutableListOf<TeacherAttendanceRequestModel>()
         val query = if (!teacherId.isNullOrBlank()) {
@@ -445,6 +495,9 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             while (it.moveToNext()) {
                 teacherAttendanceFromJson(it.getString(0))?.let { req -> list.add(req) }
             }
+        }
+        if (teacherId.isNullOrBlank()) {
+            cachedTeacherAttendance = list
         }
         return list
     }
@@ -475,6 +528,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("is_deleted", 0)
         }
         db.insertWithOnConflict("teacher_attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        cachedTeacherAttendance = null
         _teacherAttendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -501,6 +555,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } finally {
             db.endTransaction()
         }
+        cachedTeacherAttendance = null
         _teacherAttendanceUpdateFlow.tryEmit(Unit)
     }
 
@@ -511,6 +566,7 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             put("updated_at", updatedAt)
         }
         db.update("teacher_attendance", values, "id = ?", arrayOf(id))
+        cachedTeacherAttendance = null
         _teacherAttendanceUpdateFlow.tryEmit(Unit)
     }
 

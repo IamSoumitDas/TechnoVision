@@ -51,7 +51,6 @@ class FirestoreAttendanceRepository(
 
             launch(Dispatchers.IO) {
                 sync?.syncAttendance()
-                trySend(database.getAllAttendanceRecords())
             }
 
             awaitClose { job.cancel() }
@@ -180,7 +179,6 @@ class FirestoreAttendanceRepository(
 
             launch(Dispatchers.IO) {
                 sync?.syncTeacherAttendance()
-                trySend(database.getAllTeacherAttendance(teacherId))
             }
 
             awaitClose { job.cancel() }

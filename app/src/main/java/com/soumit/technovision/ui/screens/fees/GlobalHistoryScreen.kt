@@ -100,7 +100,7 @@ fun GlobalHistoryContent(
         }
     }
 
-    val isOwner = uiState.currentUserRole == "owner"
+    val isOwner = uiState.currentUserRole.equals("owner", ignoreCase = true)
 
     // Delete Payment Confirmation Dialog (Owner Only)
     if (uiState.paymentToDelete != null) {

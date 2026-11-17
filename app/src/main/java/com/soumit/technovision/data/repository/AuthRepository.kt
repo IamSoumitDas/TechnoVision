@@ -11,6 +11,7 @@ import kotlinx.coroutines.tasks.await
 
 interface AuthRepository {
     val currentUser: FirebaseUser?
+    val currentUserId: String? get() = currentUser?.uid
     fun authStateStream(): Flow<FirebaseUser?>
     suspend fun getUserRole(userId: String): Result<String>
     suspend fun getCurrentUserName(): Result<String>
@@ -24,6 +25,15 @@ class FirebaseAuthRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) : AuthRepository {
 
+    private data class RoleCache(val userId: String, val role: String)
+    private data class NameCache(val userId: String, val name: String)
+
+    @Volatile
+    private var roleCache: RoleCache? = null
+
+    @Volatile
+    private var nameCache: NameCache? = null
+
     override val currentUser: FirebaseUser?
         get() = auth.currentUser
 
@@ -36,6 +46,11 @@ class FirebaseAuthRepository(
     }
 
     override suspend fun getUserRole(userId: String): Result<String> {
+        val cached = roleCache
+        if (cached != null && cached.userId == userId) {
+            return Result.success(cached.role)
+        }
+
         return try {
             val doc = try {
                 firestore.collection("users").document(userId).get().await()
@@ -44,6 +59,7 @@ class FirebaseAuthRepository(
             }
             if (doc.exists()) {
                 val role = doc.getString("role") ?: "auth"
+                roleCache = RoleCache(userId, role)
                 Result.success(role)
             } else {
                 Result.failure(NoSuchElementException("User profile not found in database."))
@@ -54,7 +70,12 @@ class FirebaseAuthRepository(
     }
 
     override suspend fun getCurrentUserName(): Result<String> {
-        val uid = auth.currentUser?.uid ?: return Result.failure(IllegalStateException("No authenticated user"))
+        val uid = currentUserId ?: return Result.failure(IllegalStateException("No authenticated user"))
+        val cached = nameCache
+        if (cached != null && cached.userId == uid) {
+            return Result.success(cached.name)
+        }
+
         return try {
             val doc = try {
                 firestore.collection("users").document(uid).get().await()
@@ -62,6 +83,7 @@ class FirebaseAuthRepository(
                 firestore.collection("users").document(uid).get(Source.CACHE).await()
             }
             val name = doc.getString("fullName") ?: doc.getString("name") ?: auth.currentUser?.displayName ?: "User"
+            nameCache = NameCache(uid, name)
             Result.success(name)
         } catch (e: Exception) {
             Result.failure(e)
@@ -78,7 +100,7 @@ class FirebaseAuthRepository(
             if (roleResult.isSuccess) {
                 Result.success(roleResult.getOrThrow())
             } else {
-                auth.signOut()
+                signOut()
                 roleResult
             }
         } catch (e: Exception) {
@@ -96,6 +118,8 @@ class FirebaseAuthRepository(
     }
 
     override fun signOut() {
+        roleCache = null
+        nameCache = null
         auth.signOut()
     }
 }

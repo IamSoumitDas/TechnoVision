@@ -19,9 +19,19 @@ class DeltaSyncManager(
     companion object {
         private const val TAG = "DeltaSyncManager"
         private const val CLOCK_SKEW_BUFFER_MS = 5000L
+        private const val SYNC_THROTTLE_MS = 30_000L // 30-second cooldown per collection
     }
 
-    suspend fun syncStudents(): Result<Int> {
+    private val lastSyncAttempt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    suspend fun syncStudents(force: Boolean = false): Result<Int> {
+        val now = System.currentTimeMillis()
+        val lastAttempt = lastSyncAttempt["students"] ?: 0L
+        if (!force && now - lastAttempt < SYNC_THROTTLE_MS) {
+            return Result.success(0)
+        }
+        lastSyncAttempt["students"] = now
+
         return try {
             val lastSync = localDb.getLastSyncTime("students")
             val syncStartTime = System.currentTimeMillis()
@@ -36,6 +46,11 @@ class DeltaSyncManager(
             }
 
             val snapshot = query.get().await()
+            if (snapshot.isEmpty) {
+                localDb.setLastSyncTime("students", maxServerTime)
+                return Result.success(0)
+            }
+
             var count = 0
             val batchUpserts = mutableListOf<Pair<StudentModel, Long>>()
 
@@ -68,7 +83,14 @@ class DeltaSyncManager(
         }
     }
 
-    suspend fun syncFees(): Result<Int> {
+    suspend fun syncFees(force: Boolean = false): Result<Int> {
+        val now = System.currentTimeMillis()
+        val lastAttempt = lastSyncAttempt["fee_payments"] ?: 0L
+        if (!force && now - lastAttempt < SYNC_THROTTLE_MS) {
+            return Result.success(0)
+        }
+        lastSyncAttempt["fee_payments"] = now
+
         return try {
             val lastSync = localDb.getLastSyncTime("fee_payments")
             val syncStartTime = System.currentTimeMillis()
@@ -83,6 +105,11 @@ class DeltaSyncManager(
             }
 
             val snapshot = query.get().await()
+            if (snapshot.isEmpty) {
+                localDb.setLastSyncTime("fee_payments", maxServerTime)
+                return Result.success(0)
+            }
+
             var count = 0
             val batchUpserts = mutableListOf<Pair<FeePaymentModel, Long>>()
 
@@ -115,7 +142,14 @@ class DeltaSyncManager(
         }
     }
 
-    suspend fun syncAttendance(): Result<Int> {
+    suspend fun syncAttendance(force: Boolean = false): Result<Int> {
+        val now = System.currentTimeMillis()
+        val lastAttempt = lastSyncAttempt["attendance"] ?: 0L
+        if (!force && now - lastAttempt < SYNC_THROTTLE_MS) {
+            return Result.success(0)
+        }
+        lastSyncAttempt["attendance"] = now
+
         return try {
             val lastSync = localDb.getLastSyncTime("attendance")
             val syncStartTime = System.currentTimeMillis()
@@ -130,6 +164,11 @@ class DeltaSyncManager(
             }
 
             val snapshot = query.get().await()
+            if (snapshot.isEmpty) {
+                localDb.setLastSyncTime("attendance", maxServerTime)
+                return Result.success(0)
+            }
+
             var count = 0
             val batchUpserts = mutableListOf<Pair<AttendanceRecordModel, Long>>()
 
@@ -162,7 +201,14 @@ class DeltaSyncManager(
         }
     }
 
-    suspend fun syncTeacherAttendance(): Result<Int> {
+    suspend fun syncTeacherAttendance(force: Boolean = false): Result<Int> {
+        val now = System.currentTimeMillis()
+        val lastAttempt = lastSyncAttempt["teacher_attendance"] ?: 0L
+        if (!force && now - lastAttempt < SYNC_THROTTLE_MS) {
+            return Result.success(0)
+        }
+        lastSyncAttempt["teacher_attendance"] = now
+
         return try {
             val lastSync = localDb.getLastSyncTime("teacher_attendance")
             val syncStartTime = System.currentTimeMillis()
@@ -177,6 +223,11 @@ class DeltaSyncManager(
             }
 
             val snapshot = query.get().await()
+            if (snapshot.isEmpty) {
+                localDb.setLastSyncTime("teacher_attendance", maxServerTime)
+                return Result.success(0)
+            }
+
             var count = 0
             val batchUpserts = mutableListOf<Pair<TeacherAttendanceRequestModel, Long>>()
 
@@ -209,11 +260,11 @@ class DeltaSyncManager(
         }
     }
 
-    suspend fun syncAll(): Result<Unit> {
-        syncStudents()
-        syncFees()
-        syncAttendance()
-        syncTeacherAttendance()
+    suspend fun syncAll(force: Boolean = false): Result<Unit> {
+        syncStudents(force)
+        syncFees(force)
+        syncAttendance(force)
+        syncTeacherAttendance(force)
         return Result.success(Unit)
     }
 

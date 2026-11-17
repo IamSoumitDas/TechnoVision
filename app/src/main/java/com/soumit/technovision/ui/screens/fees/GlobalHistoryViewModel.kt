@@ -54,20 +54,33 @@ class GlobalHistoryViewModel(
     private val _uiState = MutableStateFlow(GlobalHistoryUiState())
     val uiState: StateFlow<GlobalHistoryUiState> = _uiState.asStateFlow()
 
+    private var isDataLoaded = false
+    private var isRoleLoaded = false
+
     init {
         loadUserRole()
         observeData()
     }
 
     private fun loadUserRole() {
+        val currentUserId = authRepository.currentUserId
+        if (currentUserId == null) {
+            isRoleLoaded = true
+            checkReady()
+            return
+        }
         viewModelScope.launch {
-            val user = authRepository.currentUser
-            if (user != null) {
-                val roleResult = authRepository.getUserRole(user.uid)
-                if (roleResult.isSuccess) {
-                    _uiState.update { it.copy(currentUserRole = roleResult.getOrThrow().lowercase()) }
-                }
-            }
+            val roleResult = authRepository.getUserRole(currentUserId)
+            val role = if (roleResult.isSuccess) roleResult.getOrThrow().trim().lowercase() else ""
+            isRoleLoaded = true
+            _uiState.update { it.copy(currentUserRole = role) }
+            checkReady()
+        }
+    }
+
+    private fun checkReady() {
+        if (isDataLoaded && isRoleLoaded) {
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 
@@ -80,6 +93,7 @@ class GlobalHistoryViewModel(
                 val sMap = students.associateBy { it.id }
                 Pair(payments, sMap)
             }.catch { e ->
+                isDataLoaded = true
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -87,13 +101,14 @@ class GlobalHistoryViewModel(
                     )
                 }
             }.collect { (payments, sMap) ->
+                isDataLoaded = true
                 _uiState.update {
                     it.copy(
                         paymentHistory = payments,
-                        studentsMap = sMap,
-                        isLoading = false
+                        studentsMap = sMap
                     )
                 }
+                checkReady()
             }
         }
     }

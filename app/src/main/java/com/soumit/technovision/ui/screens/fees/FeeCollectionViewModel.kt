@@ -69,6 +69,8 @@ class FeeCollectionViewModel(
     val uiState: StateFlow<FeeCollectionUiState> = _uiState.asStateFlow()
 
     private var paymentsJob: Job? = null
+    private var isStudentsLoaded = false
+    private var isRoleLoaded = false
 
     init {
         loadUserRole()
@@ -76,14 +78,24 @@ class FeeCollectionViewModel(
     }
 
     private fun loadUserRole() {
+        val currentUserId = authRepository.currentUserId
+        if (currentUserId == null) {
+            isRoleLoaded = true
+            checkReady()
+            return
+        }
         viewModelScope.launch {
-            val user = authRepository.currentUser
-            if (user != null) {
-                val roleResult = authRepository.getUserRole(user.uid)
-                if (roleResult.isSuccess) {
-                    _uiState.update { it.copy(currentUserRole = roleResult.getOrThrow().lowercase()) }
-                }
-            }
+            val roleResult = authRepository.getUserRole(currentUserId)
+            val role = if (roleResult.isSuccess) roleResult.getOrThrow().trim().lowercase() else ""
+            isRoleLoaded = true
+            _uiState.update { it.copy(currentUserRole = role) }
+            checkReady()
+        }
+    }
+
+    private fun checkReady() {
+        if (isStudentsLoaded && isRoleLoaded) {
+            _uiState.update { it.copy(isLoadingStudents = false) }
         }
     }
 
@@ -91,6 +103,7 @@ class FeeCollectionViewModel(
         viewModelScope.launch {
             studentRepository.getStudentsStream()
                 .catch { e ->
+                    isStudentsLoaded = true
                     _uiState.update {
                         it.copy(
                             isLoadingStudents = false,
@@ -99,6 +112,7 @@ class FeeCollectionViewModel(
                     }
                 }
                 .collect { list ->
+                    isStudentsLoaded = true
                     _uiState.update { state ->
                         val currentSelected = state.selectedStudent
                         val updatedSelected = if (currentSelected != null) {
@@ -110,10 +124,10 @@ class FeeCollectionViewModel(
                         state.copy(
                             studentList = list,
                             selectedStudent = updatedSelected,
-                            expectedTotalFees = newExpected,
-                            isLoadingStudents = false
+                            expectedTotalFees = newExpected
                         )
                     }
+                    checkReady()
                 }
         }
     }

@@ -20,7 +20,7 @@ data class StudentDirectoryUiState(
     val outstandingBalances: Map<String, Long> = emptyMap(),
     val searchQuery: String = "",
     val isLoading: Boolean = true,
-    val userRole: String = "owner",
+    val userRole: String = "",
     val errorMessage: String? = null
 ) {
     val filteredStudents: List<StudentModel>
@@ -45,6 +45,9 @@ class StudentDirectoryViewModel(
     private val _uiState = MutableStateFlow(StudentDirectoryUiState())
     val uiState: StateFlow<StudentDirectoryUiState> = _uiState.asStateFlow()
 
+    private var isStudentsLoaded = false
+    private var isRoleLoaded = false
+
     init {
         loadUserRole()
         observeStudentsAndBalances()
@@ -55,14 +58,24 @@ class StudentDirectoryViewModel(
     }
 
     private fun loadUserRole() {
+        val currentUserId = authRepository.currentUserId
+        if (currentUserId == null) {
+            isRoleLoaded = true
+            checkReady()
+            return
+        }
         viewModelScope.launch {
-            val currentUserId = authRepository.currentUser?.uid
-            if (currentUserId != null) {
-                val roleResult = authRepository.getUserRole(currentUserId)
-                if (roleResult.isSuccess) {
-                    _uiState.update { it.copy(userRole = roleResult.getOrThrow().trim().lowercase()) }
-                }
-            }
+            val roleResult = authRepository.getUserRole(currentUserId)
+            val role = if (roleResult.isSuccess) roleResult.getOrThrow().trim().lowercase() else ""
+            isRoleLoaded = true
+            _uiState.update { it.copy(userRole = role) }
+            checkReady()
+        }
+    }
+
+    private fun checkReady() {
+        if (isStudentsLoaded && isRoleLoaded) {
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 
@@ -86,15 +99,17 @@ class StudentDirectoryViewModel(
                 }
                 Pair(updatedStudents, balances)
             }.catch { error ->
+                isStudentsLoaded = true
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
             }.collect { (students, balances) ->
+                isStudentsLoaded = true
                 _uiState.update {
                     it.copy(
                         students = students,
-                        outstandingBalances = balances,
-                        isLoading = false
+                        outstandingBalances = balances
                     )
                 }
+                checkReady()
             }
         }
     }
