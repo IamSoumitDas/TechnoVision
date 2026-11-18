@@ -11,12 +11,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.soumit.technovision.R
 import com.soumit.technovision.data.model.PortalAction
 import com.soumit.technovision.data.model.PortalRoleSections
 import com.soumit.technovision.data.model.PortalSectionModel
@@ -26,7 +28,7 @@ import com.soumit.technovision.ui.theme.TechnoVisionTheme
 @Composable
 fun PortalDashboardScreen(
     portalTitle: String,
-    roleSubtitle: String = "Techno Vision Portal",
+    roleSubtitle: String = "",
     sections: List<PortalSectionModel>,
     viewModel: PortalDashboardViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -43,10 +45,12 @@ fun PortalDashboardScreen(
 @Composable
 fun PortalDashboardContent(
     portalTitle: String,
-    roleSubtitle: String = "Techno Vision Portal",
+    roleSubtitle: String = "",
     sections: List<PortalSectionModel>,
     userName: String
 ) {
+    val defaultSubtitle = stringResource(R.string.common_portal_subtitle)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -83,7 +87,7 @@ fun PortalDashboardContent(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = roleSubtitle.ifBlank { "Techno Vision Portal" },
+                                text = roleSubtitle.ifBlank { defaultSubtitle },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )

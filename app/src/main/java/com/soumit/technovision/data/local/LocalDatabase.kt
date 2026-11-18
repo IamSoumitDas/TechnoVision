@@ -1,173 +1,78 @@
 package com.soumit.technovision.data.local
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import com.google.firebase.Timestamp
+import com.soumit.technovision.data.local.room.*
 import com.soumit.technovision.data.model.AttendanceRecordModel
 import com.soumit.technovision.data.model.FeePaymentModel
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 
-class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+class LocalDatabase private constructor(private val appDb: AppDatabase) {
 
     companion object {
-        private const val DATABASE_NAME = "technovision_local.db"
-        private const val DATABASE_VERSION = 1
-
         @Volatile
         private var INSTANCE: LocalDatabase? = null
 
         fun getInstance(context: Context): LocalDatabase {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: LocalDatabase(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: LocalDatabase(AppDatabase.getInstance(context)).also { INSTANCE = it }
             }
         }
     }
 
-    private val _studentsUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
-    val studentsUpdateFlow: SharedFlow<Unit> = _studentsUpdateFlow.asSharedFlow()
+    val roomDatabase: AppDatabase get() = appDb
 
-    private val _feesUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
-    val feesUpdateFlow: SharedFlow<Unit> = _feesUpdateFlow.asSharedFlow()
+    // --- Reactive Flow streams backed directly by Room ---
 
-    private val _attendanceUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
-    val attendanceUpdateFlow: SharedFlow<Unit> = _attendanceUpdateFlow.asSharedFlow()
+    val studentsFlow: Flow<List<StudentModel>> =
+        appDb.studentDao().getAllStudentsFlow().map { list ->
+            list.mapNotNull { studentFromJson(it.dataJson) }
+        }
 
-    private val _teacherAttendanceUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
-    val teacherAttendanceUpdateFlow: SharedFlow<Unit> = _teacherAttendanceUpdateFlow.asSharedFlow()
+    val feePaymentsFlow: Flow<List<FeePaymentModel>> =
+        appDb.feePaymentDao().getAllFeePaymentsFlow().map { list ->
+            list.mapNotNull { feePaymentFromJson(it.dataJson) }
+        }
 
-    @Volatile
-    private var cachedStudents: List<StudentModel>? = null
+    val attendanceFlow: Flow<List<AttendanceRecordModel>> =
+        appDb.attendanceDao().getAllAttendanceFlow().map { list ->
+            list.mapNotNull { attendanceFromJson(it.dataJson) }
+        }
 
-    @Volatile
-    private var cachedFeePayments: List<FeePaymentModel>? = null
+    val teacherAttendanceFlow: Flow<List<TeacherAttendanceRequestModel>> =
+        appDb.teacherAttendanceDao().getAllTeacherAttendanceFlow().map { list ->
+            list.mapNotNull { teacherAttendanceFromJson(it.dataJson) }
+        }
 
-    @Volatile
-    private var cachedAttendance: List<AttendanceRecordModel>? = null
+    fun getStudentFlow(studentId: String): Flow<StudentModel?> =
+        appDb.studentDao().getStudentFlow(studentId).map { entity ->
+            entity?.let { studentFromJson(it.dataJson) }
+        }
 
-    @Volatile
-    private var cachedTeacherAttendance: List<TeacherAttendanceRequestModel>? = null
+    fun getFeePaymentsForStudentFlow(studentId: String): Flow<List<FeePaymentModel>> =
+        appDb.feePaymentDao().getFeePaymentsForStudentFlow(studentId).map { list ->
+            list.mapNotNull { feePaymentFromJson(it.dataJson) }
+        }
 
-    override fun onConfigure(db: SQLiteDatabase) {
-        super.onConfigure(db)
-        db.enableWriteAheadLogging()
-    }
-
-    override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE students (
-                id TEXT PRIMARY KEY,
-                full_name TEXT,
-                data_json TEXT,
-                updated_at INTEGER,
-                is_deleted INTEGER DEFAULT 0
-            )
-            """.trimIndent()
-        )
-        db.execSQL("CREATE INDEX idx_students_name ON students(full_name)")
-        db.execSQL("CREATE INDEX idx_students_deleted ON students(is_deleted)")
-
-        db.execSQL(
-            """
-            CREATE TABLE fee_payments (
-                id TEXT PRIMARY KEY,
-                student_id TEXT,
-                amount_paid INTEGER,
-                timestamp_millis INTEGER,
-                data_json TEXT,
-                updated_at INTEGER,
-                is_deleted INTEGER DEFAULT 0
-            )
-            """.trimIndent()
-        )
-        db.execSQL("CREATE INDEX idx_fees_student ON fee_payments(student_id)")
-        db.execSQL("CREATE INDEX idx_fees_time ON fee_payments(timestamp_millis)")
-        db.execSQL("CREATE INDEX idx_fees_deleted ON fee_payments(is_deleted)")
-
-        db.execSQL(
-            """
-            CREATE TABLE attendance (
-                id TEXT PRIMARY KEY,
-                date TEXT,
-                time_slot TEXT,
-                timestamp_millis INTEGER,
-                data_json TEXT,
-                updated_at INTEGER,
-                is_deleted INTEGER DEFAULT 0
-            )
-            """.trimIndent()
-        )
-        db.execSQL("CREATE INDEX idx_att_date_slot ON attendance(date, time_slot)")
-        db.execSQL("CREATE INDEX idx_att_time ON attendance(timestamp_millis)")
-        db.execSQL("CREATE INDEX idx_att_deleted ON attendance(is_deleted)")
-
-        db.execSQL(
-            """
-            CREATE TABLE teacher_attendance (
-                id TEXT PRIMARY KEY,
-                teacher_id TEXT,
-                date TEXT,
-                time_slot TEXT,
-                status TEXT,
-                timestamp_millis INTEGER,
-                data_json TEXT,
-                updated_at INTEGER,
-                is_deleted INTEGER DEFAULT 0
-            )
-            """.trimIndent()
-        )
-        db.execSQL("CREATE INDEX idx_tatt_teacher ON teacher_attendance(teacher_id)")
-        db.execSQL("CREATE INDEX idx_tatt_time ON teacher_attendance(timestamp_millis)")
-        db.execSQL("CREATE INDEX idx_tatt_deleted ON teacher_attendance(is_deleted)")
-
-        db.execSQL(
-            """
-            CREATE TABLE sync_metadata (
-                collection_name TEXT PRIMARY KEY,
-                last_sync_time INTEGER DEFAULT 0
-            )
-            """.trimIndent()
-        )
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS students")
-        db.execSQL("DROP TABLE IF EXISTS fee_payments")
-        db.execSQL("DROP TABLE IF EXISTS attendance")
-        db.execSQL("DROP TABLE IF EXISTS teacher_attendance")
-        db.execSQL("DROP TABLE IF EXISTS sync_metadata")
-        cachedStudents = null
-        cachedFeePayments = null
-        cachedAttendance = null
-        cachedTeacherAttendance = null
-        onCreate(db)
-    }
+    fun getTeacherAttendanceForTeacherFlow(teacherId: String): Flow<List<TeacherAttendanceRequestModel>> =
+        appDb.teacherAttendanceDao().getTeacherAttendanceForTeacherFlow(teacherId).map { list ->
+            list.mapNotNull { teacherAttendanceFromJson(it.dataJson) }
+        }
 
     // --- Sync Metadata ---
 
-    fun getLastSyncTime(collection: String): Long {
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT last_sync_time FROM sync_metadata WHERE collection_name = ?", arrayOf(collection))
-        return cursor.use {
-            if (it.moveToFirst()) it.getLong(0) else 0L
-        }
+    fun getLastSyncTime(collection: String): Long = runBlocking {
+        appDb.syncMetadataDao().getLastSyncTime(collection) ?: 0L
     }
 
-    fun setLastSyncTime(collection: String, timestamp: Long) {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put("collection_name", collection)
-            put("last_sync_time", timestamp)
-        }
-        db.insertWithOnConflict("sync_metadata", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    fun setLastSyncTime(collection: String, timestamp: Long) = runBlocking {
+        appDb.syncMetadataDao().setLastSyncTime(SyncMetadataEntity(collection, timestamp))
     }
 
     fun isMigrationDone(key: String): Boolean {
@@ -180,444 +85,209 @@ class LocalDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     // --- Students Operations ---
 
-    fun getAllStudents(): List<StudentModel> {
-        cachedStudents?.let { return it }
-        synchronized(this) {
-            cachedStudents?.let { return it }
-            val db = readableDatabase
-            val list = mutableListOf<StudentModel>()
-            val cursor = db.rawQuery(
-                "SELECT data_json FROM students WHERE is_deleted = 0 ORDER BY full_name COLLATE NOCASE ASC",
-                null
-            )
-            cursor.use {
-                while (it.moveToNext()) {
-                    val json = it.getString(0)
-                    studentFromJson(json)?.let { student -> list.add(student) }
-                }
-            }
-            cachedStudents = list
-            return list
-        }
+    fun getAllStudents(): List<StudentModel> = runBlocking {
+        appDb.studentDao().getAllStudents().mapNotNull { studentFromJson(it.dataJson) }
     }
 
-    fun getStudent(studentId: String): StudentModel? {
-        cachedStudents?.let { allStudents ->
-            val found = allStudents.find { it.id == studentId }
-            if (found != null) return found
-        }
-        val db = readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM students WHERE id = ? AND is_deleted = 0",
-            arrayOf(studentId)
-        )
-        return cursor.use {
-            if (it.moveToFirst()) studentFromJson(it.getString(0)) else null
-        }
+    fun getStudent(studentId: String): StudentModel? = runBlocking {
+        appDb.studentDao().getStudent(studentId)?.let { studentFromJson(it.dataJson) }
     }
 
-    fun upsertStudent(student: StudentModel, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
+    fun upsertStudent(student: StudentModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
         val existing = getStudent(student.id)
         val finalStudent = if (student.totalPaid == 0L && existing != null && existing.totalPaid > 0L) {
             student.copy(totalPaid = existing.totalPaid)
         } else {
             student
         }
-        val values = ContentValues().apply {
-            put("id", finalStudent.id)
-            put("full_name", finalStudent.fullName)
-            put("data_json", studentToJson(finalStudent))
-            put("updated_at", updatedAt)
-            put("is_deleted", 0)
-        }
-        db.insertWithOnConflict("students", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        synchronized(this) {
-            val current = cachedStudents ?: getAllStudents()
-            cachedStudents = (current.filter { it.id != finalStudent.id } + finalStudent).sortedBy { it.fullName.lowercase() }
-        }
-        _studentsUpdateFlow.tryEmit(Unit)
+        val entity = StudentEntity(
+            id = finalStudent.id,
+            fullName = finalStudent.fullName,
+            dataJson = studentToJson(finalStudent),
+            updatedAt = updatedAt,
+            isDeleted = 0
+        )
+        appDb.studentDao().upsert(entity)
     }
 
-    fun upsertStudentsBatch(students: List<Pair<StudentModel, Long>>) {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            for ((student, updatedAt) in students) {
-                var currentTotalPaid = cachedStudents?.find { it.id == student.id }?.totalPaid ?: 0L
-                if (currentTotalPaid == 0L) {
-                    val cursor = db.rawQuery("SELECT data_json FROM students WHERE id = ? AND is_deleted = 0", arrayOf(student.id))
-                    cursor.use {
-                        if (it.moveToFirst()) {
-                            currentTotalPaid = studentFromJson(it.getString(0))?.totalPaid ?: 0L
-                        }
-                    }
-                }
-                val finalStudent = if (student.totalPaid == 0L && currentTotalPaid > 0L) {
-                    student.copy(totalPaid = currentTotalPaid)
-                } else {
-                    student
-                }
-                val values = ContentValues().apply {
-                    put("id", finalStudent.id)
-                    put("full_name", finalStudent.fullName)
-                    put("data_json", studentToJson(finalStudent))
-                    put("updated_at", updatedAt)
-                    put("is_deleted", 0)
-                }
-                db.insertWithOnConflict("students", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    fun upsertStudentsBatch(students: List<Pair<StudentModel, Long>>) = runBlocking {
+        val entities = students.map { (student, updatedAt) ->
+            var currentTotalPaid = 0L
+            val existing = appDb.studentDao().getStudent(student.id)
+            if (existing != null) {
+                studentFromJson(existing.dataJson)?.totalPaid?.let { currentTotalPaid = it }
             }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-        synchronized(this) {
-            val map = (cachedStudents ?: getAllStudents()).associateBy { it.id }.toMutableMap()
-            for ((student, _) in students) {
-                val prev = map[student.id]
-                val finalS = if (student.totalPaid == 0L && prev != null && prev.totalPaid > 0L) {
-                    student.copy(totalPaid = prev.totalPaid)
-                } else student
-                map[student.id] = finalS
+            val finalStudent = if (student.totalPaid == 0L && currentTotalPaid > 0L) {
+                student.copy(totalPaid = currentTotalPaid)
+            } else {
+                student
             }
-            cachedStudents = map.values.sortedBy { it.fullName.lowercase() }
+            StudentEntity(
+                id = finalStudent.id,
+                fullName = finalStudent.fullName,
+                dataJson = studentToJson(finalStudent),
+                updatedAt = updatedAt,
+                isDeleted = 0
+            )
         }
-        _studentsUpdateFlow.tryEmit(Unit)
+        appDb.studentDao().upsertAll(entities)
     }
 
-    fun markStudentDeleted(studentId: String, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put("is_deleted", 1)
-            put("updated_at", updatedAt)
-        }
-        db.update("students", values, "id = ?", arrayOf(studentId))
-        synchronized(this) {
-            cachedStudents = cachedStudents?.filter { it.id != studentId }
-        }
-        _studentsUpdateFlow.tryEmit(Unit)
+    fun markStudentDeleted(studentId: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
+        appDb.studentDao().markDeleted(studentId, updatedAt)
     }
 
     // --- Fee Payments Operations ---
 
-    fun getAllFeePayments(): List<FeePaymentModel> {
-        cachedFeePayments?.let { return it }
-        synchronized(this) {
-            cachedFeePayments?.let { return it }
-            val db = readableDatabase
-            val list = mutableListOf<FeePaymentModel>()
-            val cursor = db.rawQuery(
-                "SELECT data_json FROM fee_payments WHERE is_deleted = 0 ORDER BY timestamp_millis DESC",
-                null
-            )
-            cursor.use {
-                while (it.moveToNext()) {
-                    feePaymentFromJson(it.getString(0))?.let { payment -> list.add(payment) }
-                }
-            }
-            cachedFeePayments = list
-            return list
-        }
+    fun getAllFeePayments(): List<FeePaymentModel> = runBlocking {
+        appDb.feePaymentDao().getAllFeePayments().mapNotNull { feePaymentFromJson(it.dataJson) }
     }
 
-    fun getFeePaymentsForStudent(studentId: String): List<FeePaymentModel> {
-        cachedFeePayments?.let { allPayments ->
-            return allPayments.filter { it.studentId == studentId }
-        }
-        val db = readableDatabase
-        val list = mutableListOf<FeePaymentModel>()
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM fee_payments WHERE student_id = ? AND is_deleted = 0 ORDER BY timestamp_millis DESC",
-            arrayOf(studentId)
-        )
-        cursor.use {
-            while (it.moveToNext()) {
-                feePaymentFromJson(it.getString(0))?.let { payment -> list.add(payment) }
-            }
-        }
-        return list
+    fun getFeePaymentsForStudent(studentId: String): List<FeePaymentModel> = runBlocking {
+        appDb.feePaymentDao().getFeePaymentsForStudent(studentId).mapNotNull { feePaymentFromJson(it.dataJson) }
     }
 
-    fun getFeePayment(paymentId: String): FeePaymentModel? {
-        val db = readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM fee_payments WHERE id = ? AND is_deleted = 0",
-            arrayOf(paymentId)
-        )
-        return cursor.use {
-            if (it.moveToFirst()) feePaymentFromJson(it.getString(0)) else null
-        }
+    fun getFeePayment(paymentId: String): FeePaymentModel? = runBlocking {
+        appDb.feePaymentDao().getFeePayment(paymentId)?.let { feePaymentFromJson(it.dataJson) }
     }
 
-    fun upsertFeePayment(payment: FeePaymentModel, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
+    fun upsertFeePayment(payment: FeePaymentModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
         val timeMillis = payment.timestamp?.toDate()?.time ?: System.currentTimeMillis()
-        val values = ContentValues().apply {
-            put("id", payment.id)
-            put("student_id", payment.studentId)
-            put("amount_paid", payment.amountPaid)
-            put("timestamp_millis", timeMillis)
-            put("data_json", feePaymentToJson(payment))
-            put("updated_at", updatedAt)
-            put("is_deleted", 0)
-        }
-        db.insertWithOnConflict("fee_payments", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        synchronized(this) {
-            val list = (cachedFeePayments ?: getAllFeePayments()).filter { it.id != payment.id }
-            cachedFeePayments = (list + payment).sortedByDescending { it.timestamp?.seconds ?: 0L }
-        }
-        _feesUpdateFlow.tryEmit(Unit)
+        val entity = FeePaymentEntity(
+            id = payment.id,
+            studentId = payment.studentId,
+            amountPaid = payment.amountPaid,
+            timestampMillis = timeMillis,
+            dataJson = feePaymentToJson(payment),
+            updatedAt = updatedAt,
+            isDeleted = 0
+        )
+        appDb.feePaymentDao().upsert(entity)
     }
 
-    fun upsertFeePaymentsBatch(payments: List<Pair<FeePaymentModel, Long>>) {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            for ((payment, updatedAt) in payments) {
-                val timeMillis = payment.timestamp?.toDate()?.time ?: System.currentTimeMillis()
-                val values = ContentValues().apply {
-                    put("id", payment.id)
-                    put("student_id", payment.studentId)
-                    put("amount_paid", payment.amountPaid)
-                    put("timestamp_millis", timeMillis)
-                    put("data_json", feePaymentToJson(payment))
-                    put("updated_at", updatedAt)
-                    put("is_deleted", 0)
-                }
-                db.insertWithOnConflict("fee_payments", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+    fun upsertFeePaymentsBatch(payments: List<Pair<FeePaymentModel, Long>>) = runBlocking {
+        val entities = payments.map { (payment, updatedAt) ->
+            val timeMillis = payment.timestamp?.toDate()?.time ?: System.currentTimeMillis()
+            FeePaymentEntity(
+                id = payment.id,
+                studentId = payment.studentId,
+                amountPaid = payment.amountPaid,
+                timestampMillis = timeMillis,
+                dataJson = feePaymentToJson(payment),
+                updatedAt = updatedAt,
+                isDeleted = 0
+            )
         }
-        synchronized(this) {
-            val map = (cachedFeePayments ?: getAllFeePayments()).associateBy { it.id }.toMutableMap()
-            for ((payment, _) in payments) {
-                map[payment.id] = payment
-            }
-            cachedFeePayments = map.values.sortedByDescending { it.timestamp?.seconds ?: 0L }
-        }
-        _feesUpdateFlow.tryEmit(Unit)
+        appDb.feePaymentDao().upsertAll(entities)
     }
 
-    fun markFeePaymentDeleted(paymentId: String, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put("is_deleted", 1)
-            put("updated_at", updatedAt)
-        }
-        db.update("fee_payments", values, "id = ?", arrayOf(paymentId))
-        synchronized(this) {
-            cachedFeePayments = cachedFeePayments?.filter { it.id != paymentId }
-        }
-        _feesUpdateFlow.tryEmit(Unit)
+    fun markFeePaymentDeleted(paymentId: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
+        appDb.feePaymentDao().markDeleted(paymentId, updatedAt)
     }
 
     // --- Attendance Operations ---
 
-    fun getAllAttendanceRecords(): List<AttendanceRecordModel> {
-        cachedAttendance?.let { return it }
-        synchronized(this) {
-            cachedAttendance?.let { return it }
-            val db = readableDatabase
-            val list = mutableListOf<AttendanceRecordModel>()
-            val cursor = db.rawQuery(
-                "SELECT data_json FROM attendance WHERE is_deleted = 0 ORDER BY timestamp_millis DESC",
-                null
-            )
-            cursor.use {
-                while (it.moveToNext()) {
-                    attendanceFromJson(it.getString(0))?.let { record -> list.add(record) }
-                }
-            }
-            cachedAttendance = list
-            return list
-        }
+    fun getAllAttendanceRecords(): List<AttendanceRecordModel> = runBlocking {
+        appDb.attendanceDao().getAllAttendance().mapNotNull { attendanceFromJson(it.dataJson) }
     }
 
-    fun getExistingAttendance(date: String, timeSlot: String): AttendanceRecordModel? {
-        val db = readableDatabase
+    fun getExistingAttendance(date: String, timeSlot: String): AttendanceRecordModel? = runBlocking {
         val altDate = if (date.contains('/')) date.replace('/', '-') else date.replace('-', '/')
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM attendance WHERE (date = ? OR date = ?) AND time_slot = ? AND is_deleted = 0",
-            arrayOf(date, altDate, timeSlot)
-        )
-        return cursor.use {
-            if (it.moveToFirst()) attendanceFromJson(it.getString(0)) else null
+        appDb.attendanceDao().getExistingAttendance(date, altDate, timeSlot)?.let {
+            attendanceFromJson(it.dataJson)
         }
     }
 
-    fun upsertAttendanceRecord(record: AttendanceRecordModel, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
+    fun upsertAttendanceRecord(record: AttendanceRecordModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
         val timeMillis = record.timestamp?.toDate()?.time ?: System.currentTimeMillis()
-        val values = ContentValues().apply {
-            put("id", record.id)
-            put("date", record.date)
-            put("time_slot", record.timeSlot)
-            put("timestamp_millis", timeMillis)
-            put("data_json", attendanceToJson(record))
-            put("updated_at", updatedAt)
-            put("is_deleted", 0)
-        }
-        db.insertWithOnConflict("attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        synchronized(this) {
-            val list = (cachedAttendance ?: getAllAttendanceRecords()).filter { it.id != record.id }
-            cachedAttendance = (list + record).sortedByDescending { it.timestamp?.seconds ?: 0L }
-        }
-        _attendanceUpdateFlow.tryEmit(Unit)
+        val entity = AttendanceEntity(
+            id = record.id,
+            date = record.date,
+            timeSlot = record.timeSlot,
+            timestampMillis = timeMillis,
+            dataJson = attendanceToJson(record),
+            updatedAt = updatedAt,
+            isDeleted = 0
+        )
+        appDb.attendanceDao().upsert(entity)
     }
 
-    fun upsertAttendanceBatch(records: List<Pair<AttendanceRecordModel, Long>>) {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            for ((record, updatedAt) in records) {
-                val timeMillis = record.timestamp?.toDate()?.time ?: System.currentTimeMillis()
-                val values = ContentValues().apply {
-                    put("id", record.id)
-                    put("date", record.date)
-                    put("time_slot", record.timeSlot)
-                    put("timestamp_millis", timeMillis)
-                    put("data_json", attendanceToJson(record))
-                    put("updated_at", updatedAt)
-                    put("is_deleted", 0)
-                }
-                db.insertWithOnConflict("attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+    fun upsertAttendanceBatch(records: List<Pair<AttendanceRecordModel, Long>>) = runBlocking {
+        val entities = records.map { (record, updatedAt) ->
+            val timeMillis = record.timestamp?.toDate()?.time ?: System.currentTimeMillis()
+            AttendanceEntity(
+                id = record.id,
+                date = record.date,
+                timeSlot = record.timeSlot,
+                timestampMillis = timeMillis,
+                dataJson = attendanceToJson(record),
+                updatedAt = updatedAt,
+                isDeleted = 0
+            )
         }
-        synchronized(this) {
-            val map = (cachedAttendance ?: getAllAttendanceRecords()).associateBy { it.id }.toMutableMap()
-            for ((record, _) in records) {
-                map[record.id] = record
-            }
-            cachedAttendance = map.values.sortedByDescending { it.timestamp?.seconds ?: 0L }
-        }
-        _attendanceUpdateFlow.tryEmit(Unit)
+        appDb.attendanceDao().upsertAll(entities)
     }
 
-    fun markAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put("is_deleted", 1)
-            put("updated_at", updatedAt)
-        }
-        db.update("attendance", values, "id = ?", arrayOf(id))
-        synchronized(this) {
-            cachedAttendance = cachedAttendance?.filter { it.id != id }
-        }
-        _attendanceUpdateFlow.tryEmit(Unit)
+    fun markAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
+        appDb.attendanceDao().markDeleted(id, updatedAt)
     }
 
     // --- Teacher Attendance Operations ---
 
-    fun getAllTeacherAttendance(teacherId: String? = null): List<TeacherAttendanceRequestModel> {
-        if (teacherId.isNullOrBlank()) {
-            cachedTeacherAttendance?.let { return it }
-        }
-        val db = readableDatabase
-        val list = mutableListOf<TeacherAttendanceRequestModel>()
-        val query = if (!teacherId.isNullOrBlank()) {
-            db.rawQuery(
-                "SELECT data_json FROM teacher_attendance WHERE teacher_id = ? AND is_deleted = 0 ORDER BY timestamp_millis DESC",
-                arrayOf(teacherId)
-            )
+    fun getAllTeacherAttendance(teacherId: String? = null): List<TeacherAttendanceRequestModel> = runBlocking {
+        if (!teacherId.isNullOrBlank()) {
+            appDb.teacherAttendanceDao().getTeacherAttendanceForTeacher(teacherId).mapNotNull {
+                teacherAttendanceFromJson(it.dataJson)
+            }
         } else {
-            db.rawQuery(
-                "SELECT data_json FROM teacher_attendance WHERE is_deleted = 0 ORDER BY timestamp_millis DESC",
-                null
+            appDb.teacherAttendanceDao().getAllTeacherAttendance().mapNotNull {
+                teacherAttendanceFromJson(it.dataJson)
+            }
+        }
+    }
+
+    fun getTeacherAttendance(id: String): TeacherAttendanceRequestModel? = runBlocking {
+        appDb.teacherAttendanceDao().getTeacherAttendance(id)?.let {
+            teacherAttendanceFromJson(it.dataJson)
+        }
+    }
+
+    fun upsertTeacherAttendance(req: TeacherAttendanceRequestModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
+        val timeMillis = req.timestamp?.toDate()?.time ?: System.currentTimeMillis()
+        val entity = TeacherAttendanceEntity(
+            id = req.id,
+            teacherId = req.teacherId,
+            date = req.date,
+            timeSlot = req.timeSlot,
+            status = req.status,
+            timestampMillis = timeMillis,
+            dataJson = teacherAttendanceToJson(req),
+            updatedAt = updatedAt,
+            isDeleted = 0
+        )
+        appDb.teacherAttendanceDao().upsert(entity)
+    }
+
+    fun upsertTeacherAttendanceBatch(records: List<Pair<TeacherAttendanceRequestModel, Long>>) = runBlocking {
+        val entities = records.map { (req, updatedAt) ->
+            val timeMillis = req.timestamp?.toDate()?.time ?: System.currentTimeMillis()
+            TeacherAttendanceEntity(
+                id = req.id,
+                teacherId = req.teacherId,
+                date = req.date,
+                timeSlot = req.timeSlot,
+                status = req.status,
+                timestampMillis = timeMillis,
+                dataJson = teacherAttendanceToJson(req),
+                updatedAt = updatedAt,
+                isDeleted = 0
             )
         }
-        query.use {
-            while (it.moveToNext()) {
-                teacherAttendanceFromJson(it.getString(0))?.let { req -> list.add(req) }
-            }
-        }
-        if (teacherId.isNullOrBlank()) {
-            cachedTeacherAttendance = list
-        }
-        return list
+        appDb.teacherAttendanceDao().upsertAll(entities)
     }
 
-    fun getTeacherAttendance(id: String): TeacherAttendanceRequestModel? {
-        val db = readableDatabase
-        val cursor = db.rawQuery(
-            "SELECT data_json FROM teacher_attendance WHERE id = ? AND is_deleted = 0",
-            arrayOf(id)
-        )
-        return cursor.use {
-            if (it.moveToFirst()) teacherAttendanceFromJson(it.getString(0)) else null
-        }
-    }
-
-    fun upsertTeacherAttendance(req: TeacherAttendanceRequestModel, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
-        val timeMillis = req.timestamp?.toDate()?.time ?: System.currentTimeMillis()
-        val values = ContentValues().apply {
-            put("id", req.id)
-            put("teacher_id", req.teacherId)
-            put("date", req.date)
-            put("time_slot", req.timeSlot)
-            put("status", req.status)
-            put("timestamp_millis", timeMillis)
-            put("data_json", teacherAttendanceToJson(req))
-            put("updated_at", updatedAt)
-            put("is_deleted", 0)
-        }
-        db.insertWithOnConflict("teacher_attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-        synchronized(this) {
-            val list = (cachedTeacherAttendance ?: getAllTeacherAttendance()).filter { it.id != req.id }
-            cachedTeacherAttendance = (list + req).sortedByDescending { it.timestamp?.seconds ?: 0L }
-        }
-        _teacherAttendanceUpdateFlow.tryEmit(Unit)
-    }
-
-    fun upsertTeacherAttendanceBatch(records: List<Pair<TeacherAttendanceRequestModel, Long>>) {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            for ((req, updatedAt) in records) {
-                val timeMillis = req.timestamp?.toDate()?.time ?: System.currentTimeMillis()
-                val values = ContentValues().apply {
-                    put("id", req.id)
-                    put("teacher_id", req.teacherId)
-                    put("date", req.date)
-                    put("time_slot", req.timeSlot)
-                    put("status", req.status)
-                    put("timestamp_millis", timeMillis)
-                    put("data_json", teacherAttendanceToJson(req))
-                    put("updated_at", updatedAt)
-                    put("is_deleted", 0)
-                }
-                db.insertWithOnConflict("teacher_attendance", null, values, SQLiteDatabase.CONFLICT_REPLACE)
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-        synchronized(this) {
-            val map = (cachedTeacherAttendance ?: getAllTeacherAttendance()).associateBy { it.id }.toMutableMap()
-            for ((req, _) in records) {
-                map[req.id] = req
-            }
-            cachedTeacherAttendance = map.values.sortedByDescending { it.timestamp?.seconds ?: 0L }
-        }
-        _teacherAttendanceUpdateFlow.tryEmit(Unit)
-    }
-
-    fun markTeacherAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put("is_deleted", 1)
-            put("updated_at", updatedAt)
-        }
-        db.update("teacher_attendance", values, "id = ?", arrayOf(id))
-        synchronized(this) {
-            cachedTeacherAttendance = cachedTeacherAttendance?.filter { it.id != id }
-        }
-        _teacherAttendanceUpdateFlow.tryEmit(Unit)
+    fun markTeacherAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking {
+        appDb.teacherAttendanceDao().markDeleted(id, updatedAt)
     }
 
     // --- JSON Serialization Helpers ---

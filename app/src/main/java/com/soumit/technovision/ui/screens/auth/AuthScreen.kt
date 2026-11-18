@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.text.input.ImeAction
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.soumit.technovision.R
 import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
@@ -94,7 +96,7 @@ fun AuthContent(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.School,
-                        contentDescription = "Logo",
+                        contentDescription = stringResource(R.string.auth_logo_desc),
                         modifier = Modifier.size(36.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -103,14 +105,14 @@ fun AuthContent(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "TechnoVision",
+                    text = stringResource(R.string.auth_app_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Text(
-                    text = "Sign in to access your portal",
+                    text = stringResource(R.string.auth_sign_in_prompt),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 32.dp)
@@ -120,7 +122,7 @@ fun AuthContent(
                 OutlinedTextField(
                     value = uiState.email,
                     onValueChange = onEmailChange,
-                    label = { Text("Email Address") },
+                    label = { Text(stringResource(R.string.auth_email_label)) },
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                     keyboardOptions = KeyboardOptions(
@@ -136,7 +138,7 @@ fun AuthContent(
                 OutlinedTextField(
                     value = uiState.password,
                     onValueChange = onPasswordChange,
-                    label = { Text("Password") },
+                    label = { Text(stringResource(R.string.auth_password_label)) },
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                     visualTransformation = if (uiState.passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -149,7 +151,7 @@ fun AuthContent(
                     ),
                     trailingIcon = {
                         val image = if (uiState.passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                        val description = if (uiState.passwordVisible) "Hide password" else "Show password"
+                        val description = if (uiState.passwordVisible) stringResource(R.string.auth_hide_password) else stringResource(R.string.auth_show_password)
                         IconButton(onClick = onTogglePasswordVisibility) {
                             Icon(imageVector = image, contentDescription = description)
                         }
@@ -166,7 +168,7 @@ fun AuthContent(
                 ) {
                     TextButton(onClick = onForgotPassword) {
                         Text(
-                            text = "Forgot Password?",
+                            text = stringResource(R.string.auth_forgot_password),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -194,7 +196,7 @@ fun AuthContent(
                             .height(50.dp)
                     ) {
                         Text(
-                            text = "Log In",
+                            text = stringResource(R.string.auth_login_button),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold
                         )

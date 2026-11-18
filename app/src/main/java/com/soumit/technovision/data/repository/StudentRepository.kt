@@ -50,10 +50,9 @@ class FirestoreStudentRepository(
         repositoryScope.launch {
             val database = db
             if (database != null) {
-                _studentsFlow.value = database.getAllStudents()
-                _isLoaded.value = true
-                database.studentsUpdateFlow.collect {
-                    _studentsFlow.value = database.getAllStudents()
+                database.studentsFlow.collect { students ->
+                    _studentsFlow.value = students
+                    _isLoaded.value = true
                 }
             } else {
                 _isLoaded.value = true

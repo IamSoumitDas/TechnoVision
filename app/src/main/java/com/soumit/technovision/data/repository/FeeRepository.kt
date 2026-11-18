@@ -53,10 +53,9 @@ class FirestoreFeeRepository(
         repositoryScope.launch {
             val database = db
             if (database != null) {
-                _feePaymentsFlow.value = database.getAllFeePayments()
-                _isLoaded.value = true
-                database.feesUpdateFlow.collect {
-                    _feePaymentsFlow.value = database.getAllFeePayments()
+                database.feePaymentsFlow.collect { payments ->
+                    _feePaymentsFlow.value = payments
+                    _isLoaded.value = true
                 }
             } else {
                 _isLoaded.value = true

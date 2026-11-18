@@ -3,11 +3,13 @@ package com.soumit.technovision
 import android.app.Application
 import com.soumit.technovision.di.AppContainer
 import com.soumit.technovision.di.DefaultAppContainer
+import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+@HiltAndroidApp
 class TechnoVisionApplication : Application() {
     lateinit var container: AppContainer
         private set
@@ -44,6 +46,9 @@ class TechnoVisionApplication : Application() {
                 container.attendanceRepository
 
                 container.deltaSyncManager.startLiveDeltaSync(this)
+
+                // Schedule reliable background delta sync via WorkManager
+                com.soumit.technovision.data.worker.DeltaSyncWorker.schedulePeriodicSync(this@TechnoVisionApplication)
             } catch (_: Exception) {
                 // Offline or sync error handled gracefully
             }

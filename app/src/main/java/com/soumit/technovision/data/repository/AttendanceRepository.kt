@@ -56,18 +56,15 @@ class FirestoreAttendanceRepository(
         repositoryScope.launch {
             val database = db
             if (database != null) {
-                _attendanceRecordsFlow.value = database.getAllAttendanceRecords()
-                _teacherAttendanceFlow.value = database.getAllTeacherAttendance()
-                _isLoaded.value = true
-
                 launch {
-                    database.attendanceUpdateFlow.collect {
-                        _attendanceRecordsFlow.value = database.getAllAttendanceRecords()
+                    database.attendanceFlow.collect { records ->
+                        _attendanceRecordsFlow.value = records
+                        _isLoaded.value = true
                     }
                 }
                 launch {
-                    database.teacherAttendanceUpdateFlow.collect {
-                        _teacherAttendanceFlow.value = database.getAllTeacherAttendance()
+                    database.teacherAttendanceFlow.collect { reqs ->
+                        _teacherAttendanceFlow.value = reqs
                     }
                 }
             } else {
