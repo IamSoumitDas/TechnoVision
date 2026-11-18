@@ -10,7 +10,7 @@ import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -68,33 +68,33 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
 
     // --- Sync Metadata ---
 
-    fun getLastSyncTime(collection: String): Long = runBlocking(Dispatchers.IO) {
+    suspend fun getLastSyncTime(collection: String): Long = withContext(Dispatchers.IO) {
         appDb.syncMetadataDao().getLastSyncTime(collection) ?: 0L
     }
 
-    fun setLastSyncTime(collection: String, timestamp: Long) = runBlocking(Dispatchers.IO) {
+    suspend fun setLastSyncTime(collection: String, timestamp: Long) = withContext(Dispatchers.IO) {
         appDb.syncMetadataDao().setLastSyncTime(SyncMetadataEntity(collection, timestamp))
     }
 
-    fun isMigrationDone(key: String): Boolean {
+    suspend fun isMigrationDone(key: String): Boolean {
         return getLastSyncTime("migration_$key") > 0L
     }
 
-    fun setMigrationDone(key: String) {
+    suspend fun setMigrationDone(key: String) {
         setLastSyncTime("migration_$key", System.currentTimeMillis())
     }
 
     // --- Students Operations ---
 
-    fun getAllStudents(): List<StudentModel> = runBlocking(Dispatchers.IO) {
+    suspend fun getAllStudents(): List<StudentModel> = withContext(Dispatchers.IO) {
         appDb.studentDao().getAllStudents().mapNotNull { studentFromJson(it.dataJson) }
     }
 
-    fun getStudent(studentId: String): StudentModel? = runBlocking(Dispatchers.IO) {
+    suspend fun getStudent(studentId: String): StudentModel? = withContext(Dispatchers.IO) {
         appDb.studentDao().getStudent(studentId)?.let { studentFromJson(it.dataJson) }
     }
 
-    fun upsertStudent(student: StudentModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertStudent(student: StudentModel, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         val existing = getStudent(student.id)
         val finalStudent = if (student.totalPaid == 0L && existing != null && existing.totalPaid > 0L) {
             student.copy(totalPaid = existing.totalPaid)
@@ -111,7 +111,7 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.studentDao().upsert(entity)
     }
 
-    fun upsertStudentsBatch(students: List<Pair<StudentModel, Long>>) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertStudentsBatch(students: List<Pair<StudentModel, Long>>) = withContext(Dispatchers.IO) {
         val existingStudents = appDb.studentDao().getAllStudents().associateBy { it.id }
         val entities = students.map { (student, updatedAt) ->
             var currentTotalPaid = 0L
@@ -135,25 +135,25 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.studentDao().upsertAll(entities)
     }
 
-    fun markStudentDeleted(studentId: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun markStudentDeleted(studentId: String, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         appDb.studentDao().markDeleted(studentId, updatedAt)
     }
 
     // --- Fee Payments Operations ---
 
-    fun getAllFeePayments(): List<FeePaymentModel> = runBlocking(Dispatchers.IO) {
+    suspend fun getAllFeePayments(): List<FeePaymentModel> = withContext(Dispatchers.IO) {
         appDb.feePaymentDao().getAllFeePayments().mapNotNull { feePaymentFromJson(it.dataJson) }
     }
 
-    fun getFeePaymentsForStudent(studentId: String): List<FeePaymentModel> = runBlocking(Dispatchers.IO) {
+    suspend fun getFeePaymentsForStudent(studentId: String): List<FeePaymentModel> = withContext(Dispatchers.IO) {
         appDb.feePaymentDao().getFeePaymentsForStudent(studentId).mapNotNull { feePaymentFromJson(it.dataJson) }
     }
 
-    fun getFeePayment(paymentId: String): FeePaymentModel? = runBlocking(Dispatchers.IO) {
+    suspend fun getFeePayment(paymentId: String): FeePaymentModel? = withContext(Dispatchers.IO) {
         appDb.feePaymentDao().getFeePayment(paymentId)?.let { feePaymentFromJson(it.dataJson) }
     }
 
-    fun upsertFeePayment(payment: FeePaymentModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertFeePayment(payment: FeePaymentModel, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         val timeMillis = payment.timestamp?.toDate()?.time ?: System.currentTimeMillis()
         val entity = FeePaymentEntity(
             id = payment.id,
@@ -167,7 +167,7 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.feePaymentDao().upsert(entity)
     }
 
-    fun upsertFeePaymentsBatch(payments: List<Pair<FeePaymentModel, Long>>) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertFeePaymentsBatch(payments: List<Pair<FeePaymentModel, Long>>) = withContext(Dispatchers.IO) {
         val entities = payments.map { (payment, updatedAt) ->
             val timeMillis = payment.timestamp?.toDate()?.time ?: System.currentTimeMillis()
             FeePaymentEntity(
@@ -183,24 +183,24 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.feePaymentDao().upsertAll(entities)
     }
 
-    fun markFeePaymentDeleted(paymentId: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun markFeePaymentDeleted(paymentId: String, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         appDb.feePaymentDao().markDeleted(paymentId, updatedAt)
     }
 
     // --- Attendance Operations ---
 
-    fun getAllAttendanceRecords(): List<AttendanceRecordModel> = runBlocking(Dispatchers.IO) {
+    suspend fun getAllAttendanceRecords(): List<AttendanceRecordModel> = withContext(Dispatchers.IO) {
         appDb.attendanceDao().getAllAttendance().mapNotNull { attendanceFromJson(it.dataJson) }
     }
 
-    fun getExistingAttendance(date: String, timeSlot: String): AttendanceRecordModel? = runBlocking(Dispatchers.IO) {
+    suspend fun getExistingAttendance(date: String, timeSlot: String): AttendanceRecordModel? = withContext(Dispatchers.IO) {
         val altDate = if (date.contains('/')) date.replace('/', '-') else date.replace('-', '/')
         appDb.attendanceDao().getExistingAttendance(date, altDate, timeSlot)?.let {
             attendanceFromJson(it.dataJson)
         }
     }
 
-    fun upsertAttendanceRecord(record: AttendanceRecordModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertAttendanceRecord(record: AttendanceRecordModel, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         val timeMillis = record.timestamp?.toDate()?.time ?: System.currentTimeMillis()
         val entity = AttendanceEntity(
             id = record.id,
@@ -214,7 +214,7 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.attendanceDao().upsert(entity)
     }
 
-    fun upsertAttendanceBatch(records: List<Pair<AttendanceRecordModel, Long>>) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertAttendanceBatch(records: List<Pair<AttendanceRecordModel, Long>>) = withContext(Dispatchers.IO) {
         val entities = records.map { (record, updatedAt) ->
             val timeMillis = record.timestamp?.toDate()?.time ?: System.currentTimeMillis()
             AttendanceEntity(
@@ -230,13 +230,13 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.attendanceDao().upsertAll(entities)
     }
 
-    fun markAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun markAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         appDb.attendanceDao().markDeleted(id, updatedAt)
     }
 
     // --- Teacher Attendance Operations ---
 
-    fun getAllTeacherAttendance(teacherId: String? = null): List<TeacherAttendanceRequestModel> = runBlocking(Dispatchers.IO) {
+    suspend fun getAllTeacherAttendance(teacherId: String? = null): List<TeacherAttendanceRequestModel> = withContext(Dispatchers.IO) {
         if (!teacherId.isNullOrBlank()) {
             appDb.teacherAttendanceDao().getTeacherAttendanceForTeacher(teacherId).mapNotNull {
                 teacherAttendanceFromJson(it.dataJson)
@@ -248,13 +248,13 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         }
     }
 
-    fun getTeacherAttendance(id: String): TeacherAttendanceRequestModel? = runBlocking(Dispatchers.IO) {
+    suspend fun getTeacherAttendance(id: String): TeacherAttendanceRequestModel? = withContext(Dispatchers.IO) {
         appDb.teacherAttendanceDao().getTeacherAttendance(id)?.let {
             teacherAttendanceFromJson(it.dataJson)
         }
     }
 
-    fun upsertTeacherAttendance(req: TeacherAttendanceRequestModel, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertTeacherAttendance(req: TeacherAttendanceRequestModel, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         val timeMillis = req.timestamp?.toDate()?.time ?: System.currentTimeMillis()
         val entity = TeacherAttendanceEntity(
             id = req.id,
@@ -270,7 +270,7 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.teacherAttendanceDao().upsert(entity)
     }
 
-    fun upsertTeacherAttendanceBatch(records: List<Pair<TeacherAttendanceRequestModel, Long>>) = runBlocking(Dispatchers.IO) {
+    suspend fun upsertTeacherAttendanceBatch(records: List<Pair<TeacherAttendanceRequestModel, Long>>) = withContext(Dispatchers.IO) {
         val entities = records.map { (req, updatedAt) ->
             val timeMillis = req.timestamp?.toDate()?.time ?: System.currentTimeMillis()
             TeacherAttendanceEntity(
@@ -288,7 +288,7 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.teacherAttendanceDao().upsertAll(entities)
     }
 
-    fun markTeacherAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) = runBlocking(Dispatchers.IO) {
+    suspend fun markTeacherAttendanceDeleted(id: String, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         appDb.teacherAttendanceDao().markDeleted(id, updatedAt)
     }
 

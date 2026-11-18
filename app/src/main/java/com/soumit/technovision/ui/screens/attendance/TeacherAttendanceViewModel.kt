@@ -30,7 +30,8 @@ data class TeacherAttendanceUiState(
     val userMessage: String? = null
 )
 
-class TeacherAttendanceViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class TeacherAttendanceViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val authRepository: AuthRepository,
     private val staffRepository: StaffRepository,

@@ -47,12 +47,13 @@ data class GlobalHistoryUiState(
         }
 }
 
-class GlobalHistoryViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class GlobalHistoryViewModel @javax.inject.Inject constructor(
     private val feeRepository: FeeRepository,
     private val studentRepository: StudentRepository,
     private val authRepository: AuthRepository,
     private val auditLogRepository: AuditLogRepository,
-    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GlobalHistoryUiState())

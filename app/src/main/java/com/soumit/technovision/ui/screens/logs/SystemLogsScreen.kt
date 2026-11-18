@@ -16,11 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.Timestamp
 import com.soumit.technovision.data.model.LogModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -28,7 +27,7 @@ import java.util.*
 @Composable
 fun SystemLogsScreen(
     onBack: () -> Unit,
-    viewModel: SystemLogsViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: SystemLogsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

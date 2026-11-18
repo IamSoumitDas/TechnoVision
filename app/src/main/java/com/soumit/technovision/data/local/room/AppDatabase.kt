@@ -38,7 +38,6 @@ abstract class AppDatabase : RoomDatabase() {
                     DATABASE_NAME
                 )
                     .fallbackToDestructiveMigration(dropAllTables = true)
-                    .allowMainThreadQueries()
                     .build()
                     .also { INSTANCE = it }
             }

@@ -1,15 +1,20 @@
 package com.soumit.technovision.ui.screens.students
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.repository.AuditLogRepository
 import com.soumit.technovision.data.repository.StudentRepository
+import com.soumit.technovision.navigation.Screen
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class UpdateDeleteStudentUiState(
     val studentId: String = "",
@@ -45,11 +50,15 @@ data class UpdateDeleteStudentUiState(
         get() = daySchedules.values.count { it != "Off" }
 }
 
-class UpdateDeleteStudentViewModel(
-    private val studentId: String,
+@HiltViewModel
+class UpdateDeleteStudentViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val studentRepository: StudentRepository,
     private val auditLogRepository: AuditLogRepository
 ) : ViewModel() {
+
+    private val studentId: String = savedStateHandle.get<String>("studentId")
+        ?: runCatching { savedStateHandle.toRoute<Screen.UpdateDeleteStudent>().studentId }.getOrDefault("")
 
     private val _uiState = MutableStateFlow(UpdateDeleteStudentUiState(studentId = studentId))
     val uiState: StateFlow<UpdateDeleteStudentUiState> = _uiState.asStateFlow()

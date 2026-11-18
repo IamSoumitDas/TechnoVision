@@ -29,15 +29,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.R
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
 @Composable
 fun AuthScreen(
     onLoginSuccess: (String) -> Unit,
-    viewModel: AuthViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current

@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.repository.AuditLogRepository
 import com.soumit.technovision.data.repository.StudentRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class EnrollStudentUiState(
     val fullName: String = "",
@@ -41,7 +43,8 @@ data class EnrollStudentUiState(
         get() = daySchedules.values.count { it != "Off" }
 }
 
-class EnrollStudentViewModel(
+@HiltViewModel
+class EnrollStudentViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
     private val auditLogRepository: AuditLogRepository
 ) : ViewModel() {

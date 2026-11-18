@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.firebase.crashlytics)
     // Add the Google Services plugin for Firebase
     id("com.google.gms.google-services")
 }
@@ -78,6 +79,8 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.crashlytics)
     implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -96,6 +99,7 @@ dependencies {
 
     // Hilt
     implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
 
     // WorkManager

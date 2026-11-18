@@ -26,7 +26,8 @@ data class AttendanceHistoryUiState(
     val errorMessage: String? = null
 )
 
-class AttendanceHistoryViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class AttendanceHistoryViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val studentRepository: StudentRepository,
     private val staffRepository: StaffRepository

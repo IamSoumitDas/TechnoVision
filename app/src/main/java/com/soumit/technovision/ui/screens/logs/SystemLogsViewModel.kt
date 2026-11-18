@@ -24,7 +24,8 @@ data class SystemLogsUiState(
     val errorMessage: String? = null
 )
 
-class SystemLogsViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class SystemLogsViewModel @javax.inject.Inject constructor(
     private val auditLogRepository: AuditLogRepository,
     private val staffRepository: StaffRepository
 ) : ViewModel() {

@@ -25,9 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.data.model.AttendanceRecordModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import com.soumit.technovision.util.AttendanceUtils
 import java.time.LocalDate
@@ -42,7 +41,7 @@ internal fun resolveTeacherName(
 @Composable
 fun AttendanceHistoryScreen(
     onBack: () -> Unit,
-    viewModel: AttendanceHistoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: AttendanceHistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 

@@ -30,7 +30,8 @@ data class VerifyTeacherAttendanceUiState(
         get() = requests.filter { !it.status.equals("Pending", ignoreCase = true) }
 }
 
-class VerifyTeacherAttendanceViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val staffRepository: StaffRepository,
     private val authRepository: AuthRepository,

@@ -29,10 +29,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soumit.technovision.data.model.StudentModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.net.URLEncoder
 import java.time.LocalDate
@@ -44,7 +43,7 @@ import java.util.Locale
 fun BirthdayCalendarScreen(
     onBack: () -> Unit,
     onStudentClick: (String) -> Unit,
-    viewModel: BirthdayCalendarViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: BirthdayCalendarViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current

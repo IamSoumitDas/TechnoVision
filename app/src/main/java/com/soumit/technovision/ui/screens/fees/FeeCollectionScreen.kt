@@ -20,10 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.data.model.FeePaymentModel
 import com.soumit.technovision.data.model.StudentModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -32,7 +31,7 @@ import java.util.*
 fun FeeCollectionScreen(
     onBack: () -> Unit,
     onNavigateToGlobalHistory: () -> Unit = {},
-    viewModel: FeeCollectionViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: FeeCollectionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current

@@ -135,6 +135,7 @@ class StudentDirectoryViewModelTest {
             studentRepository = studentRepo,
             feeRepository = feeRepo,
             authRepository = authRepo,
+            calculateBillingDuesUseCase = CalculateBillingDuesUseCase(),
             defaultDispatcher = testDispatcher
         )
 

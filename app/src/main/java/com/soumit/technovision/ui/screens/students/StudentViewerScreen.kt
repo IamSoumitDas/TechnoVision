@@ -19,19 +19,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.data.model.StudentModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
 @Composable
 fun StudentViewerScreen(
-    studentId: String,
+    @Suppress("UNUSED_PARAMETER") studentId: String,
     onBack: () -> Unit,
-    viewModel: StudentViewerViewModel = viewModel(
-        key = "student_viewer_$studentId",
-        factory = AppViewModelProvider.studentViewerFactory(studentId)
-    )
+    viewModel: StudentViewerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current

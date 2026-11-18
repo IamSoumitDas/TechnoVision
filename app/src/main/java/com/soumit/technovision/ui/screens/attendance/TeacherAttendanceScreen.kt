@@ -23,9 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -34,7 +33,7 @@ import java.util.*
 fun TeacherAttendanceScreen(
     onBack: () -> Unit,
     onNavigateToViewer: (() -> Unit)? = null,
-    viewModel: TeacherAttendanceViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: TeacherAttendanceViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current

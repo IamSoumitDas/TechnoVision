@@ -18,7 +18,8 @@ data class BatchesUiState(
     val errorMessage: String? = null
 )
 
-class BatchesViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class BatchesViewModel @javax.inject.Inject constructor(
     private val studentRepository: StudentRepository
 ) : ViewModel() {
 

@@ -17,12 +17,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.R
 import com.soumit.technovision.data.model.PortalAction
 import com.soumit.technovision.data.model.PortalRoleSections
 import com.soumit.technovision.data.model.PortalSectionModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
 @Composable
@@ -30,7 +29,7 @@ fun PortalDashboardScreen(
     portalTitle: String,
     roleSubtitle: String = "",
     sections: List<PortalSectionModel>,
-    viewModel: PortalDashboardViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: PortalDashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

@@ -57,7 +57,8 @@ data class FeeCollectionUiState(
         }
 }
 
-class FeeCollectionViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class FeeCollectionViewModel @javax.inject.Inject constructor(
     private val studentRepository: StudentRepository,
     private val feeRepository: FeeRepository,
     private val authRepository: AuthRepository,

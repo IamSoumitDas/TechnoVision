@@ -18,36 +18,115 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.R
 import com.soumit.technovision.data.model.StudentModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.screens.students.components.StudentCard
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
+
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun StudentDirectoryScreen(
     onBack: () -> Unit,
     onNavigateToUpdateDelete: (String) -> Unit,
     onNavigateToViewer: (String) -> Unit,
-    viewModel: StudentDirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: StudentDirectoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     StudentDirectoryContent(
         uiState = uiState,
         onSearchQueryChange = viewModel::onSearchQueryChanged,
+        onRefresh = viewModel::refresh,
         onBack = onBack,
         onNavigateToUpdateDelete = onNavigateToUpdateDelete,
         onNavigateToViewer = onNavigateToViewer
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ShimmerStudentCard() {
+    val transition = rememberInfiniteTransition(label = "ShimmerTransition")
+    val translateAnim = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ShimmerTranslate"
+    )
+
+    val shimmerColors = listOf(
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    )
+
+    val brush = Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset.Zero,
+        end = Offset(x = translateAnim.value, y = translateAnim.value)
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(brush)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(brush)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.4f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(brush)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentDirectoryContent(
     uiState: StudentDirectoryUiState,
     onSearchQueryChange: (String) -> Unit,
+    onRefresh: () -> Unit = {},
     onBack: () -> Unit,
     onNavigateToUpdateDelete: (String) -> Unit,
     onNavigateToViewer: (String) -> Unit
@@ -68,48 +147,60 @@ fun StudentDirectoryContent(
             )
         }
     ) { padding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = onRefresh,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = onSearchQueryChange,
-                label = { Text(stringResource(R.string.student_search_hint)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    label = { Text(stringResource(R.string.student_search_hint)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            if (uiState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    LoadingIndicator()
-                }
-            } else if (uiState.filteredStudents.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (uiState.errorMessage != null) stringResource(R.string.common_error_prefix, uiState.errorMessage) else stringResource(R.string.student_empty_list),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(uiState.filteredStudents, key = { it.id }) { student ->
-                        val outstandingDue = uiState.outstandingBalances[student.id] ?: 0L
-                        StudentCard(
-                            student = student,
-                            outstandingDue = outstandingDue,
-                            userRole = uiState.userRole,
-                            onCardClicked = { onNavigateToViewer(student.id) },
-                            onEditSelected = { onNavigateToUpdateDelete(student.id) }
+                if (uiState.isLoading) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        repeat(5) {
+                            ShimmerStudentCard()
+                        }
+                    }
+                } else if (uiState.filteredStudents.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (uiState.errorMessage != null) stringResource(R.string.common_error_prefix, uiState.errorMessage) else stringResource(R.string.student_empty_list),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.outline
                         )
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(uiState.filteredStudents, key = { it.id }) { student ->
+                            val outstandingDue = uiState.outstandingBalances[student.id] ?: 0L
+                            StudentCard(
+                                student = student,
+                                outstandingDue = outstandingDue,
+                                userRole = uiState.userRole,
+                                onCardClicked = { onNavigateToViewer(student.id) },
+                                onEditSelected = { onNavigateToUpdateDelete(student.id) }
+                            )
+                        }
                     }
                 }
             }

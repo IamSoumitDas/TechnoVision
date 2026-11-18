@@ -23,7 +23,8 @@ data class ManageStaffUiState(
     val errorMessage: String? = null
 )
 
-class ManageStaffViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class ManageStaffViewModel @javax.inject.Inject constructor(
     private val staffRepository: StaffRepository,
     private val auditLogRepository: AuditLogRepository
 ) : ViewModel() {

@@ -148,7 +148,8 @@ data class BirthdayCalendarUiState(
         get() = filteredItems.sortedBy { it.daysUntilNextBirthday }
 }
 
-class BirthdayCalendarViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class BirthdayCalendarViewModel @javax.inject.Inject constructor(
     private val studentRepository: StudentRepository
 ) : ViewModel() {
 

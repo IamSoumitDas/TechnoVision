@@ -65,7 +65,8 @@ data class TakeAttendanceUiState(
         get() = scheduledStudents.count { attendanceStates[it.id] != true }
 }
 
-class TakeAttendanceViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class TakeAttendanceViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val studentRepository: StudentRepository,
     private val staffRepository: StaffRepository,

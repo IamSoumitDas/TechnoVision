@@ -57,7 +57,8 @@ data class FacultyAttendanceViewerUiState(
         }
 }
 
-class FacultyAttendanceViewerViewModel(
+@dagger.hilt.android.lifecycle.HiltViewModel
+class FacultyAttendanceViewerViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val staffRepository: StaffRepository
 ) : ViewModel() {

@@ -7,6 +7,7 @@ import com.soumit.technovision.data.repository.AuthRepository
 import com.soumit.technovision.data.repository.FeeRepository
 import com.soumit.technovision.data.repository.StudentRepository
 import com.soumit.technovision.domain.usecase.CalculateBillingDuesUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,12 +19,14 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import javax.inject.Inject
 
 data class StudentDirectoryUiState(
     val students: List<StudentModel> = emptyList(),
     val outstandingBalances: Map<String, Long> = emptyMap(),
     val searchQuery: String = "",
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val userRole: String = "",
     val errorMessage: String? = null
 ) {
@@ -39,12 +42,13 @@ data class StudentDirectoryUiState(
         }
 }
 
-class StudentDirectoryViewModel(
+@HiltViewModel
+class StudentDirectoryViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
     private val feeRepository: FeeRepository,
     private val authRepository: AuthRepository,
-    private val calculateBillingDuesUseCase: CalculateBillingDuesUseCase = CalculateBillingDuesUseCase(),
-    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val calculateBillingDuesUseCase: CalculateBillingDuesUseCase,
+    private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentDirectoryUiState())
@@ -128,5 +132,15 @@ class StudentDirectoryViewModel(
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            runCatching {
+                feeRepository.syncAllStudentsTotalPaid()
+            }
+            _uiState.update { it.copy(isRefreshing = false) }
+        }
     }
 }

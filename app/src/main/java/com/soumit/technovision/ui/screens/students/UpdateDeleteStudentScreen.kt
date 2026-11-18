@@ -21,21 +21,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.soumit.technovision.ui.common.AppViewModelProvider
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.util.Calendar
 import java.util.Locale
 
 @Composable
 fun UpdateDeleteStudentScreen(
-    studentId: String,
+    @Suppress("UNUSED_PARAMETER") studentId: String,
     onBack: () -> Unit,
-    viewModel: UpdateDeleteStudentViewModel = viewModel(
-        key = "update_delete_$studentId",
-        factory = AppViewModelProvider.updateDeleteStudentFactory(studentId)
-    )
+    viewModel: UpdateDeleteStudentViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current

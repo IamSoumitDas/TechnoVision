@@ -1,13 +1,16 @@
 package com.soumit.technovision.ui.screens.students
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.repository.FeeRepository
 import com.soumit.technovision.data.repository.StudentRepository
+import com.soumit.technovision.navigation.Screen
 import com.soumit.technovision.util.BillingUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class StudentViewerUiState(
     val student: StudentModel? = null,
@@ -30,12 +34,16 @@ data class StudentViewerUiState(
         get() = (expectedTotalFees - totalPaid).coerceAtLeast(0L)
 }
 
-class StudentViewerViewModel(
-    private val studentId: String,
+@HiltViewModel
+class StudentViewerViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val studentRepository: StudentRepository,
     private val feeRepository: FeeRepository,
-    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
+
+    private val studentId: String = savedStateHandle.get<String>("studentId")
+        ?: runCatching { savedStateHandle.toRoute<Screen.StudentViewer>().studentId }.getOrDefault("")
 
     private val _uiState = MutableStateFlow(StudentViewerUiState())
     val uiState: StateFlow<StudentViewerUiState> = _uiState.asStateFlow()
