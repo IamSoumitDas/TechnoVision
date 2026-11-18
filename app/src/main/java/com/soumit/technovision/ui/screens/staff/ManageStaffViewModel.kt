@@ -63,7 +63,7 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
             return
         }
 
-        if (!Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
+        if (!isEmailValid(email)) {
             _uiState.update { it.copy(errorMessage = "Invalid email format.") }
             return
         }
@@ -180,6 +180,17 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
                     }
                 }
             )
+        }
+    }
+
+    private fun isEmailValid(email: String): Boolean {
+        val clean = email.trim()
+        if (clean.isBlank()) return false
+        val fallbackRegex = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+        return try {
+            Patterns.EMAIL_ADDRESS?.matcher(clean)?.matches() ?: fallbackRegex.matches(clean)
+        } catch (_: Throwable) {
+            fallbackRegex.matches(clean)
         }
     }
 }

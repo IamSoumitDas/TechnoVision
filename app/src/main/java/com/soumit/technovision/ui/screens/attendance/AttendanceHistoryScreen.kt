@@ -545,7 +545,12 @@ fun BatchAttendanceItemCard(
 fun AttendanceHistoryScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         AttendanceHistoryContent(
-            uiState = AttendanceHistoryUiState(isLoading = false),
+            uiState = AttendanceHistoryUiState(
+                attendanceRecords = com.soumit.technovision.ui.common.PreviewData.attendanceRecords,
+                studentsMap = com.soumit.technovision.ui.common.PreviewData.studentsMap,
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
+                isLoading = false
+            ),
             onBack = {},
             onOpenDetail = {},
             onCloseDetail = {}
@@ -558,7 +563,12 @@ fun AttendanceHistoryScreenPreviewLight() {
 fun AttendanceHistoryScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         AttendanceHistoryContent(
-            uiState = AttendanceHistoryUiState(isLoading = false),
+            uiState = AttendanceHistoryUiState(
+                attendanceRecords = com.soumit.technovision.ui.common.PreviewData.attendanceRecords,
+                studentsMap = com.soumit.technovision.ui.common.PreviewData.studentsMap,
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
+                isLoading = false
+            ),
             onBack = {},
             onOpenDetail = {},
             onCloseDetail = {}

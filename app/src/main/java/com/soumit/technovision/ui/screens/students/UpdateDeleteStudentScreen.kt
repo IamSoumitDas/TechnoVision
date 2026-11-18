@@ -564,16 +564,21 @@ fun UpdateDeleteStudentContent(
 @Preview(name = "Light Mode", showBackground = true)
 @Composable
 fun UpdateDeleteScreenPreviewLight() {
+    val sample = com.soumit.technovision.ui.common.PreviewData.sampleStudent
     TechnoVisionTheme(darkTheme = false) {
         UpdateDeleteStudentContent(
             uiState = UpdateDeleteStudentUiState(
-                fullName = "Aarav Sharma",
-                selectedClass = "X",
-                selectedSchool = "St. Xavier's School",
-                fatherName = "Rajesh Sharma",
-                motherName = "Sunita Sharma",
-                monthlyInstallment = "500",
-                phone = "9876543210",
+                fullName = sample.fullName,
+                selectedClass = sample.studentClass,
+                selectedSchool = sample.school,
+                selectedGender = sample.gender,
+                dob = sample.dob,
+                admissionDate = sample.admissionDate,
+                fatherName = sample.fatherName,
+                motherName = sample.motherName,
+                monthlyInstallment = sample.monthlyInstallment.toString(),
+                phone = sample.phone,
+                daySchedules = sample.weeklySchedule,
                 isLoading = false
             ),
             onBack = {},
@@ -598,16 +603,21 @@ fun UpdateDeleteScreenPreviewLight() {
 @Preview(name = "Dark Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun UpdateDeleteScreenPreviewDark() {
+    val sample = com.soumit.technovision.ui.common.PreviewData.sampleStudent
     TechnoVisionTheme(darkTheme = true) {
         UpdateDeleteStudentContent(
             uiState = UpdateDeleteStudentUiState(
-                fullName = "Aarav Sharma",
-                selectedClass = "X",
-                selectedSchool = "St. Xavier's School",
-                fatherName = "Rajesh Sharma",
-                motherName = "Sunita Sharma",
-                monthlyInstallment = "500",
-                phone = "9876543210",
+                fullName = sample.fullName,
+                selectedClass = sample.studentClass,
+                selectedSchool = sample.school,
+                selectedGender = sample.gender,
+                dob = sample.dob,
+                admissionDate = sample.admissionDate,
+                fatherName = sample.fatherName,
+                motherName = sample.motherName,
+                monthlyInstallment = sample.monthlyInstallment.toString(),
+                phone = sample.phone,
+                daySchedules = sample.weeklySchedule,
                 isLoading = false
             ),
             onBack = {},

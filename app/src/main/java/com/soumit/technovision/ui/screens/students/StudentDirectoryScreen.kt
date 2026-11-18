@@ -212,23 +212,8 @@ fun StudentDirectoryContent(
 @Composable
 fun StudentDirectoryScreenPreviewLight() {
     val previewState = StudentDirectoryUiState(
-        students = listOf(
-            StudentModel(
-                id = "1",
-                fullName = "Aarav Sharma",
-                studentClass = "X",
-                school = "St. Xavier's School",
-                phone = "9876543210"
-            ),
-            StudentModel(
-                id = "2",
-                fullName = "Priya Das",
-                studentClass = "XII",
-                school = "Alipurduar Girls High School",
-                phone = "9123456789"
-            )
-        ),
-        outstandingBalances = mapOf("1" to 500L, "2" to 0L),
+        students = com.soumit.technovision.ui.common.PreviewData.students,
+        outstandingBalances = com.soumit.technovision.ui.common.PreviewData.outstandingBalances,
         isLoading = false,
         userRole = "owner"
     )
@@ -247,16 +232,8 @@ fun StudentDirectoryScreenPreviewLight() {
 @Composable
 fun StudentDirectoryScreenPreviewDark() {
     val previewState = StudentDirectoryUiState(
-        students = listOf(
-            StudentModel(
-                id = "1",
-                fullName = "Aarav Sharma",
-                studentClass = "X",
-                school = "St. Xavier's School",
-                phone = "9876543210"
-            )
-        ),
-        outstandingBalances = mapOf("1" to 500L),
+        students = com.soumit.technovision.ui.common.PreviewData.students,
+        outstandingBalances = com.soumit.technovision.ui.common.PreviewData.outstandingBalances,
         isLoading = false,
         userRole = "owner"
     )

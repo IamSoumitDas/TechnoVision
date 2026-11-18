@@ -624,20 +624,11 @@ fun LogCard(log: LogModel, userMap: Map<String, String>) {
 @Preview(name = "Light Mode", showBackground = true)
 @Composable
 fun SystemLogsScreenPreviewLight() {
-    val todayDateStr = SimpleDateFormat("dd-MM-yyyy", Locale.US).format(Date())
     TechnoVisionTheme(darkTheme = false) {
         SystemLogsContent(
             uiState = SystemLogsUiState(
-                logs = listOf(
-                    LogModel(
-                        id = "1",
-                        action = "Attendance Verified",
-                        details = "Approved time slot [9:00 AM - 11:00 AM] for teacher Amitabha Teacher on date $todayDateStr (Verified by Soumit Das)",
-                        performedBy = "owner.preview@technovision.com",
-                        timestamp = Timestamp.now()
-                    )
-                ),
-                userMap = mapOf("owner.preview@technovision.com" to "Soumit Das"),
+                logs = com.soumit.technovision.ui.common.PreviewData.systemLogs,
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
                 isLoading = false
             ),
             onBack = {},
@@ -652,20 +643,11 @@ fun SystemLogsScreenPreviewLight() {
 @Preview(name = "Dark Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun SystemLogsScreenPreviewDark() {
-    val todayDateStr = SimpleDateFormat("dd-MM-yyyy", Locale.US).format(Date())
     TechnoVisionTheme(darkTheme = true) {
         SystemLogsContent(
             uiState = SystemLogsUiState(
-                logs = listOf(
-                    LogModel(
-                        id = "1",
-                        action = "Attendance Verified",
-                        details = "Approved time slot [9:00 AM - 11:00 AM] for teacher Amitabha Teacher on date $todayDateStr (Verified by Soumit Das)",
-                        performedBy = "owner.preview@technovision.com",
-                        timestamp = Timestamp.now()
-                    )
-                ),
-                userMap = mapOf("owner.preview@technovision.com" to "Soumit Das"),
+                logs = com.soumit.technovision.ui.common.PreviewData.systemLogs,
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
                 isLoading = false
             ),
             onBack = {},

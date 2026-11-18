@@ -53,7 +53,7 @@ class AuthViewModel @Inject constructor(
             return
         }
 
-        if (!Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()) {
+        if (!isEmailValid(state.email)) {
             _uiState.update {
                 it.copy(
                     statusMessage = "Please enter a valid email structure (e.g. name@example.com).",
@@ -101,7 +101,7 @@ class AuthViewModel @Inject constructor(
             return
         }
 
-        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        if (!isEmailValid(email)) {
             _uiState.update {
                 it.copy(
                     statusMessage = "Please enter a valid email address.",
@@ -132,6 +132,17 @@ class AuthViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    private fun isEmailValid(email: String): Boolean {
+        val clean = email.trim()
+        if (clean.isBlank()) return false
+        val fallbackRegex = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+        return try {
+            Patterns.EMAIL_ADDRESS?.matcher(clean)?.matches() ?: fallbackRegex.matches(clean)
+        } catch (_: Throwable) {
+            fallbackRegex.matches(clean)
         }
     }
 }

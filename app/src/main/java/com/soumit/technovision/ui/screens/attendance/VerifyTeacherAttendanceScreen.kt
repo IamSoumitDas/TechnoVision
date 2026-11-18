@@ -375,7 +375,12 @@ fun AdminVerifyRequestCard(
 fun VerifyTeacherAttendanceScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         VerifyTeacherAttendanceContent(
-            uiState = VerifyTeacherAttendanceUiState(isLoading = false),
+            uiState = VerifyTeacherAttendanceUiState(
+                requests = com.soumit.technovision.ui.common.PreviewData.teacherAttendanceRequests,
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
+                currentAdminName = com.soumit.technovision.ui.common.PreviewData.ownerStaff.fullName,
+                isLoading = false
+            ),
             onBack = {},
             onNavigateToViewer = null,
             onVerify = {},
@@ -389,7 +394,12 @@ fun VerifyTeacherAttendanceScreenPreviewLight() {
 fun VerifyTeacherAttendanceScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         VerifyTeacherAttendanceContent(
-            uiState = VerifyTeacherAttendanceUiState(isLoading = false),
+            uiState = VerifyTeacherAttendanceUiState(
+                requests = com.soumit.technovision.ui.common.PreviewData.teacherAttendanceRequests,
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
+                currentAdminName = com.soumit.technovision.ui.common.PreviewData.ownerStaff.fullName,
+                isLoading = false
+            ),
             onBack = {},
             onNavigateToViewer = null,
             onVerify = {},

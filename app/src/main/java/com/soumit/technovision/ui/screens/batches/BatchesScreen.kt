@@ -321,18 +321,7 @@ fun BatchesScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         BatchesContent(
             uiState = BatchesUiState(
-                studentList = listOf(
-                    StudentModel(
-                        id = "1",
-                        fullName = "Aarav Sharma",
-                        studentClass = "X",
-                        school = "St. Xavier's School",
-                        weeklySchedule = mapOf(
-                            "Sunday" to "9:00 AM - 11:00 AM",
-                            "Tuesday" to "9:00 AM - 11:00 AM"
-                        )
-                    )
-                ),
+                studentList = com.soumit.technovision.ui.common.PreviewData.students,
                 isLoading = false
             ),
             onBack = {},
@@ -347,18 +336,7 @@ fun BatchesScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         BatchesContent(
             uiState = BatchesUiState(
-                studentList = listOf(
-                    StudentModel(
-                        id = "1",
-                        fullName = "Aarav Sharma",
-                        studentClass = "X",
-                        school = "St. Xavier's School",
-                        weeklySchedule = mapOf(
-                            "Sunday" to "9:00 AM - 11:00 AM",
-                            "Tuesday" to "9:00 AM - 11:00 AM"
-                        )
-                    )
-                ),
+                studentList = com.soumit.technovision.ui.common.PreviewData.students,
                 isLoading = false
             ),
             onBack = {},

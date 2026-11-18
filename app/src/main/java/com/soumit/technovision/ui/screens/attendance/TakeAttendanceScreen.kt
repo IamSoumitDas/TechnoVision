@@ -745,7 +745,13 @@ fun AttendanceStudentCard(
 fun TakeAttendanceScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         TakeAttendanceContent(
-            uiState = TakeAttendanceUiState(isLoadingStudents = false),
+            uiState = TakeAttendanceUiState(
+                allStudents = com.soumit.technovision.ui.common.PreviewData.students,
+                attendanceStates = mapOf("student_01" to true, "student_04" to true, "student_09" to false),
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
+                currentUserName = com.soumit.technovision.ui.common.PreviewData.facultyStaff1.fullName,
+                isLoadingStudents = false
+            ),
             onBack = {},
             onNavigateToHistory = {},
             onSelectTimeSlot = {},
@@ -765,7 +771,13 @@ fun TakeAttendanceScreenPreviewLight() {
 fun TakeAttendanceScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         TakeAttendanceContent(
-            uiState = TakeAttendanceUiState(isLoadingStudents = false),
+            uiState = TakeAttendanceUiState(
+                allStudents = com.soumit.technovision.ui.common.PreviewData.students,
+                attendanceStates = mapOf("student_01" to true, "student_04" to true, "student_09" to false),
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
+                currentUserName = com.soumit.technovision.ui.common.PreviewData.facultyStaff1.fullName,
+                isLoadingStudents = false
+            ),
             onBack = {},
             onNavigateToHistory = {},
             onSelectTimeSlot = {},

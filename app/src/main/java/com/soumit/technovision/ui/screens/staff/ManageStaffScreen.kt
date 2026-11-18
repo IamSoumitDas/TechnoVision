@@ -163,8 +163,7 @@ fun ManageStaffContent(
         }
     }
 
-    if (staffToDelete != null) {
-        val target = staffToDelete!!
+    staffToDelete?.let { target ->
         AlertDialog(
             onDismissRequest = { staffToDelete = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
@@ -298,10 +297,10 @@ fun ManageStaffContent(
         )
     }
 
-    if (showEditDialog && selectedStaffForEdit != null) {
-        val staffEditTarget = selectedStaffForEdit!!
-        AlertDialog(
-            onDismissRequest = { showEditDialog = false },
+    if (showEditDialog) {
+        selectedStaffForEdit?.let { staffEditTarget ->
+            AlertDialog(
+                onDismissRequest = { showEditDialog = false },
             title = { Text("Edit Staff Member") },
             text = {
                 Column(
@@ -387,6 +386,7 @@ fun ManageStaffContent(
         )
     }
 }
+}
 
 @Composable
 fun StaffCard(
@@ -463,10 +463,7 @@ fun ManageStaffScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         ManageStaffContent(
             uiState = ManageStaffUiState(
-                staffList = listOf(
-                    StaffModel(id = "1", fullName = "Amitabha Teacher", email = "faculty1@technovision.com", role = "faculty", phone = "9876543210"),
-                    StaffModel(id = "2", fullName = "Rina Receptionist", email = "reception1@technovision.com", role = "receptionist", phone = "9123456789")
-                ),
+                staffList = com.soumit.technovision.ui.common.PreviewData.allStaff,
                 isLoading = false
             ),
             onBack = {},
@@ -483,10 +480,7 @@ fun ManageStaffScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         ManageStaffContent(
             uiState = ManageStaffUiState(
-                staffList = listOf(
-                    StaffModel(id = "1", fullName = "Amitabha Teacher", email = "faculty1@technovision.com", role = "faculty", phone = "9876543210"),
-                    StaffModel(id = "2", fullName = "Rina Receptionist", email = "reception1@technovision.com", role = "receptionist", phone = "9123456789")
-                ),
+                staffList = com.soumit.technovision.ui.common.PreviewData.allStaff,
                 isLoading = false
             ),
             onBack = {},

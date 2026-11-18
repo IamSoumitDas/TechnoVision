@@ -769,7 +769,16 @@ fun PaymentHistoryCard(
 fun FeeCollectionScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         FeeCollectionContent(
-            uiState = FeeCollectionUiState(isLoadingStudents = false),
+            uiState = FeeCollectionUiState(
+                studentList = com.soumit.technovision.ui.common.PreviewData.students,
+                selectedStudent = com.soumit.technovision.ui.common.PreviewData.students[0],
+                expectedTotalFees = 4000L,
+                totalPaid = 3500L,
+                amountPaid = "500",
+                paymentHistory = com.soumit.technovision.ui.common.PreviewData.feePayments,
+                isLoadingStudents = false,
+                currentUserRole = "owner"
+            ),
             onBack = {},
             onNavigateToGlobalHistory = {},
             onSelectStudent = {},
@@ -793,7 +802,16 @@ fun FeeCollectionScreenPreviewLight() {
 fun FeeCollectionScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         FeeCollectionContent(
-            uiState = FeeCollectionUiState(isLoadingStudents = false),
+            uiState = FeeCollectionUiState(
+                studentList = com.soumit.technovision.ui.common.PreviewData.students,
+                selectedStudent = com.soumit.technovision.ui.common.PreviewData.students[0],
+                expectedTotalFees = 4000L,
+                totalPaid = 3500L,
+                amountPaid = "500",
+                paymentHistory = com.soumit.technovision.ui.common.PreviewData.feePayments,
+                isLoadingStudents = false,
+                currentUserRole = "owner"
+            ),
             onBack = {},
             onNavigateToGlobalHistory = {},
             onSelectStudent = {},

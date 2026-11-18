@@ -420,7 +420,12 @@ fun GlobalHistoryContent(
 fun GlobalHistoryScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         GlobalHistoryContent(
-            uiState = GlobalHistoryUiState(isLoading = false),
+            uiState = GlobalHistoryUiState(
+                paymentHistory = com.soumit.technovision.ui.common.PreviewData.feePayments,
+                studentsMap = com.soumit.technovision.ui.common.PreviewData.studentsMap,
+                isLoading = false,
+                currentUserRole = "owner"
+            ),
             onBack = {},
             onSearchQueryChange = {},
             onMethodFilterChange = {},
@@ -435,7 +440,12 @@ fun GlobalHistoryScreenPreviewLight() {
 fun GlobalHistoryScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         GlobalHistoryContent(
-            uiState = GlobalHistoryUiState(isLoading = false),
+            uiState = GlobalHistoryUiState(
+                paymentHistory = com.soumit.technovision.ui.common.PreviewData.feePayments,
+                studentsMap = com.soumit.technovision.ui.common.PreviewData.studentsMap,
+                isLoading = false,
+                currentUserRole = "owner"
+            ),
             onBack = {},
             onSearchQueryChange = {},
             onMethodFilterChange = {},

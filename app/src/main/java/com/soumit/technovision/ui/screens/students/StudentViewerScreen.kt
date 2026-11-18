@@ -487,29 +487,13 @@ fun StudentViewerContent(
 @Preview(name = "Light Mode", showBackground = true)
 @Composable
 fun StudentViewerScreenPreview() {
+    val sample = com.soumit.technovision.ui.common.PreviewData.sampleStudent
     val previewState = StudentViewerUiState(
-        student = StudentModel(
-            id = "preview_id",
-            fullName = "Aarav Sharma",
-            studentClass = "X",
-            school = "St. Xavier's School",
-            dob = "12/05/2010",
-            gender = "Male",
-            admissionDate = "15/06/2026",
-            fatherName = "Rajesh Sharma",
-            motherName = "Sunita Sharma",
-            monthlyInstallment = 500L,
-            phone = "9876543210",
-            altPhone = "9123456789",
-            email = "aarav@example.com"
-        ),
-        weeklySchedule = mapOf(
-            "Sunday" to "9:00 AM - 11:00 AM",
-            "Tuesday" to "5:00 PM - 7:00 PM"
-        ),
-        totalPaid = 1500L,
-        calculatedMonthsDue = 4,
-        expectedTotalFees = 2000L,
+        student = sample,
+        weeklySchedule = sample.weeklySchedule,
+        totalPaid = sample.totalPaid,
+        calculatedMonthsDue = 8,
+        expectedTotalFees = 4000L,
         isLoading = false
     )
     TechnoVisionTheme {

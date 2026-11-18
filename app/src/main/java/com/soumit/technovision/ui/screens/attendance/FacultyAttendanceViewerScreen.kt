@@ -103,13 +103,11 @@ fun FacultyAttendanceViewerContent(
         uiState.selectedMonth
     ) {
         monthRecords.filter { record ->
-            val matchesDay = if (selectedDayInMonth != null) {
+            val matchesDay = selectedDayInMonth?.let { day ->
                 val parsed = AttendanceUtils.parseRecordDate(record.date)
-                val dayStr = String.format(Locale.US, "%02d-%02d-%04d", selectedDayInMonth!!, uiState.selectedMonth + 1, uiState.selectedYear)
-                record.date == dayStr || (parsed != null && parsed.third == selectedDayInMonth)
-            } else {
-                true
-            }
+                val dayStr = String.format(Locale.US, "%02d-%02d-%04d", day, uiState.selectedMonth + 1, uiState.selectedYear)
+                record.date == dayStr || (parsed != null && parsed.third == day)
+            } ?: true
 
             val matchesTeacher = selectedTeacherFilter == null ||
                     record.teacherName.equals(selectedTeacherFilter, ignoreCase = true)
@@ -673,18 +671,8 @@ fun FacultyAttendanceViewerScreenPreview() {
     TechnoVisionTheme {
         FacultyAttendanceViewerContent(
             uiState = FacultyAttendanceViewerUiState(
-                requests = listOf(
-                    TeacherAttendanceRequestModel(
-                        id = "m1",
-                        teacherId = "t1",
-                        teacherName = "Amitabha Teacher",
-                        date = "02-11-2026",
-                        timeSlot = "9:00 AM - 11:00 AM",
-                        status = "Verified",
-                        verifiedBy = "Soumit Das",
-                        timestamp = Timestamp.now()
-                    )
-                ),
+                requests = com.soumit.technovision.ui.common.PreviewData.teacherAttendanceRequests,
+                userMap = com.soumit.technovision.ui.common.PreviewData.userMap,
                 isLoading = false
             ),
             onBack = {},

@@ -540,7 +540,12 @@ fun TeacherRequestCard(request: TeacherAttendanceRequestModel) {
 fun TeacherAttendanceScreenPreviewLight() {
     TechnoVisionTheme(darkTheme = false) {
         TeacherAttendanceContent(
-            uiState = TeacherAttendanceUiState(isLoading = false),
+            uiState = TeacherAttendanceUiState(
+                requests = com.soumit.technovision.ui.common.PreviewData.teacherAttendanceRequests,
+                teacherName = com.soumit.technovision.ui.common.PreviewData.facultyStaff1.fullName,
+                teacherId = com.soumit.technovision.ui.common.PreviewData.facultyStaff1.id,
+                isLoading = false
+            ),
             onBack = {},
             onNavigateToViewer = null,
             onDateSelected = {},
@@ -555,7 +560,12 @@ fun TeacherAttendanceScreenPreviewLight() {
 fun TeacherAttendanceScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         TeacherAttendanceContent(
-            uiState = TeacherAttendanceUiState(isLoading = false),
+            uiState = TeacherAttendanceUiState(
+                requests = com.soumit.technovision.ui.common.PreviewData.teacherAttendanceRequests,
+                teacherName = com.soumit.technovision.ui.common.PreviewData.facultyStaff1.fullName,
+                teacherId = com.soumit.technovision.ui.common.PreviewData.facultyStaff1.id,
+                isLoading = false
+            ),
             onBack = {},
             onNavigateToViewer = null,
             onDateSelected = {},

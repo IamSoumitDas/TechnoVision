@@ -981,20 +981,16 @@ private fun sendWhatsAppWish(context: Context, phone: String, studentName: Strin
 @Composable
 fun BirthdayCalendarPreview() {
     TechnoVisionTheme {
-        val sampleStudent = StudentModel(
-            id = "1",
-            fullName = "Rahul Sharma",
-            studentClass = "10",
-            school = "Delhi Public School",
-            dob = "16/11/2010",
-            phone = "9876543210"
-        )
-        val sampleItem = BirthdayUtils.calculateBirthdayItem(sampleStudent, LocalDate.now())!!
+        val today = LocalDate.now()
+        val items = com.soumit.technovision.ui.common.PreviewData.students.mapNotNull { student ->
+            BirthdayUtils.calculateBirthdayItem(student, today)
+        }
+        val classes = listOf("All") + com.soumit.technovision.ui.common.PreviewData.students.map { it.studentClass }.distinct().sorted()
 
         BirthdayCalendarContent(
             uiState = BirthdayCalendarUiState(
-                allItems = listOf(sampleItem),
-                availableClasses = listOf("All", "10", "11", "12"),
+                allItems = items,
+                availableClasses = classes,
                 isLoading = false
             ),
             onBack = {},

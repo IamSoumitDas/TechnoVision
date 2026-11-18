@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.soumit.technovision.navigation.AppNavHost
+import com.soumit.technovision.navigation.Screen
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         AppNavHost(
                             navController = navController,
-                            startDestination = uiState.startDestination!!
+                            startDestination = uiState.startDestination ?: Screen.Auth
                         )
                     }
                 }
