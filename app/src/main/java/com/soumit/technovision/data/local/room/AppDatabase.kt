@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         TeacherAttendanceEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,7 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncMetadataDao(): SyncMetadataDao
 
     companion object {
-        private const val DATABASE_NAME = "technovision_local.db"
+        private const val DATABASE_NAME = "technovision_room.db"
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -37,7 +37,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .allowMainThreadQueries()
                     .build()
                     .also { INSTANCE = it }
             }
