@@ -16,8 +16,10 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +49,7 @@ fun AttendanceHistoryScreen(
 
     AttendanceHistoryContent(
         uiState = uiState,
+        onSearchQueryChange = viewModel::onSearchQueryChanged,
         onBack = onBack,
         onOpenDetail = viewModel::openDetail,
         onCloseDetail = viewModel::closeDetail
@@ -57,12 +60,29 @@ fun AttendanceHistoryScreen(
 @Composable
 fun AttendanceHistoryContent(
     uiState: AttendanceHistoryUiState,
+    onSearchQueryChange: (String) -> Unit = {},
     onBack: () -> Unit,
     onOpenDetail: (AttendanceRecordModel) -> Unit,
     onCloseDetail: () -> Unit
 ) {
-    val groupedRecordsByDate = remember(uiState.attendanceRecords) {
-        uiState.attendanceRecords.groupBy { it.date }
+    val filteredRecords = remember(uiState.attendanceRecords, uiState.searchQuery, uiState.userMap, uiState.studentsMap) {
+        if (uiState.searchQuery.isBlank()) {
+            uiState.attendanceRecords
+        } else {
+            val q = uiState.searchQuery.trim().lowercase()
+            uiState.attendanceRecords.filter { record ->
+                record.date.lowercase().contains(q) ||
+                record.timeSlot.lowercase().contains(q) ||
+                resolveTeacherName(record, uiState.userMap).lowercase().contains(q) ||
+                record.presentStudentIds.any { id ->
+                    uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
+                }
+            }
+        }
+    }
+
+    val groupedRecordsByDate = remember(filteredRecords) {
+        filteredRecords.groupBy { it.date }
             .toList()
             .sortedByDescending { (dateStr, _) ->
                 parseDateForSorting(dateStr)
@@ -91,6 +111,24 @@ fun AttendanceHistoryContent(
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = { Text("Search by date, slot, teacher, or student...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        }
+                    }
+                },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+            )
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -104,9 +142,9 @@ fun AttendanceHistoryContent(
                     fontWeight = FontWeight.Bold
                 )
 
-                if (uiState.attendanceRecords.isNotEmpty()) {
+                if (filteredRecords.isNotEmpty()) {
                     Text(
-                        text = "${uiState.attendanceRecords.size} Sessions Logged",
+                        text = "${filteredRecords.size} Sessions Logged",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -117,10 +155,10 @@ fun AttendanceHistoryContent(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
-            } else if (uiState.attendanceRecords.isEmpty()) {
+            } else if (filteredRecords.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "No attendance history logged yet.",
+                        text = if (uiState.searchQuery.isNotBlank()) "No matching session logs found." else "No attendance history logged yet.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.outline
                     )

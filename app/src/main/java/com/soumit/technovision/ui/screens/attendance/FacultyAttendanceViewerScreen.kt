@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -38,7 +39,7 @@ import java.util.*
 @Composable
 fun FacultyAttendanceViewerScreen(
     onBack: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") onNavigateToVerify: (() -> Unit)? = null,
+    onNavigateToVerify: (() -> Unit)? = null,
     viewModel: FacultyAttendanceViewerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -54,6 +55,7 @@ fun FacultyAttendanceViewerScreen(
     FacultyAttendanceViewerContent(
         uiState = uiState,
         onBack = onBack,
+        onNavigateToVerify = onNavigateToVerify,
         onMonthChanged = viewModel::onMonthChanged
     )
 }
@@ -63,6 +65,7 @@ fun FacultyAttendanceViewerScreen(
 fun FacultyAttendanceViewerContent(
     uiState: FacultyAttendanceViewerUiState,
     onBack: () -> Unit,
+    onNavigateToVerify: (() -> Unit)? = null,
     onMonthChanged: (Int, Int) -> Unit
 ) {
     val todayCal = remember { Calendar.getInstance() }
@@ -146,6 +149,17 @@ fun FacultyAttendanceViewerContent(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (onNavigateToVerify != null) {
+                        IconButton(onClick = onNavigateToVerify) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.FactCheck,
+                                contentDescription = "Verify Attendance",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
