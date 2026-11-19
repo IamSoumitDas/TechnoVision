@@ -32,6 +32,15 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    testOptions {
+        unitTests.all {
+            it.testLogging {
+                events("passed", "skipped", "failed", "standardError")
+                showStandardStreams = false
+            }
+        }
+    }
+
     buildTypes {
         release {
             optimization {

@@ -113,8 +113,12 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
                     action = "Attendance Verified",
                     details = "Approved time slot [${request.timeSlot}] for teacher ${request.teacherName} on date ${request.date} (Verified by $adminName)"
                 )
-                _uiState.update {
-                    it.copy(
+                _uiState.update { state ->
+                    val updatedList = state.requests.map {
+                        if (it.id == request.id) it.copy(status = "Verified", verifiedBy = adminName) else it
+                    }
+                    state.copy(
+                        requests = updatedList,
                         processingRequestId = null,
                         userMessage = "Verified attendance for ${request.teacherName}"
                     )
@@ -145,8 +149,12 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
                     action = "Attendance Rejected",
                     details = "Rejected time slot [${request.timeSlot}] for teacher ${request.teacherName} on date ${request.date} (Rejected by $adminName)"
                 )
-                _uiState.update {
-                    it.copy(
+                _uiState.update { state ->
+                    val updatedList = state.requests.map {
+                        if (it.id == request.id) it.copy(status = "Rejected", rejectedBy = adminName) else it
+                    }
+                    state.copy(
+                        requests = updatedList,
                         processingRequestId = null,
                         userMessage = "Rejected request for ${request.teacherName}"
                     )
