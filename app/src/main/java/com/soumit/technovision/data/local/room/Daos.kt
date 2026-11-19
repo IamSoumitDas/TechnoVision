@@ -110,3 +110,21 @@ interface SyncMetadataDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun setLastSyncTime(entity: SyncMetadataEntity)
 }
+
+@Dao
+interface SyncQueueDao {
+    @Query("SELECT * FROM sync_queue WHERE status = 'PENDING' ORDER BY created_at ASC")
+    suspend fun getPendingItems(): List<SyncQueueEntity>
+
+    @Query("SELECT * FROM sync_queue WHERE status = 'PENDING' ORDER BY created_at ASC")
+    fun getPendingItemsFlow(): Flow<List<SyncQueueEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun enqueue(entity: SyncQueueEntity): Long
+
+    @Query("UPDATE sync_queue SET status = :status, attempts = attempts + 1 WHERE id = :id")
+    suspend fun updateStatus(id: Long, status: String)
+
+    @Query("DELETE FROM sync_queue WHERE id = :id")
+    suspend fun delete(id: Long)
+}

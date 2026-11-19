@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.util.Date
 
 class DeltaSyncManager(
@@ -440,6 +441,62 @@ class DeltaSyncManager(
             activeListeners.add(teacherAttendanceReg)
         }
         Log.d(TAG, "Started live delta sync listeners.")
+        scope.launch { flushOfflineSyncQueue() }
+    }
+
+    suspend fun flushOfflineSyncQueue(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val pending = localDb.getPendingSyncItems()
+            if (pending.isEmpty()) return@withContext Result.success(0)
+
+            var flushedCount = 0
+            for (item in pending) {
+                if (item.entityType == "TEACHER_ATTENDANCE") {
+                    val req = localDb.teacherAttendanceFromJsonPublic(item.payloadJson)
+                    if (req != null) {
+                        try {
+                            val now = Timestamp.now()
+                            val data = hashMapOf(
+                                "teacherId" to req.teacherId,
+                                "teacherName" to req.teacherName,
+                                "date" to req.date,
+                                "timeSlot" to req.timeSlot,
+                                "status" to req.status.replace(" (Offline)", ""),
+                                "timestamp" to (req.timestamp ?: now),
+                                "updatedAt" to now,
+                                "isDeleted" to false
+                            )
+                            val docRef = if (req.id.startsWith("offline_")) {
+                                firestore.collection("teacher_attendance").document()
+                            } else {
+                                firestore.collection("teacher_attendance").document(req.id)
+                            }
+
+                            docRef.set(data).await()
+
+                            val updatedReq = req.copy(
+                                id = docRef.id,
+                                status = req.status.replace(" (Offline)", "")
+                            )
+                            if (req.id != docRef.id) {
+                                localDb.markTeacherAttendanceDeleted(req.id, now.toDate().time)
+                            }
+                            localDb.upsertTeacherAttendance(updatedReq, now.toDate().time)
+                            localDb.removeSyncItem(item.id)
+                            flushedCount++
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed syncing item ${item.id}: ${e.localizedMessage}")
+                            localDb.syncQueueDao.updateStatus(item.id, "PENDING")
+                        }
+                    } else {
+                        localDb.removeSyncItem(item.id)
+                    }
+                }
+            }
+            Result.success(flushedCount)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     fun stopLiveDeltaSync() {

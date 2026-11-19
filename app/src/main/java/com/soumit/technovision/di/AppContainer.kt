@@ -4,10 +4,12 @@ import android.content.Context
 import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
 import com.soumit.technovision.data.repository.*
+import com.soumit.technovision.util.NetworkMonitor
 
 interface AppContainer {
     val localDatabase: LocalDatabase
     val deltaSyncManager: DeltaSyncManager
+    val networkMonitor: NetworkMonitor
     val authRepository: AuthRepository
     val studentRepository: StudentRepository
     val attendanceRepository: AttendanceRepository
@@ -20,6 +22,7 @@ interface AppContainer {
 class DefaultAppContainer(private val context: Context) : AppContainer {
     override val localDatabase: LocalDatabase by lazy { LocalDatabase.getInstance(context) }
     override val deltaSyncManager: DeltaSyncManager by lazy { DeltaSyncManager(localDatabase) }
+    override val networkMonitor: NetworkMonitor by lazy { NetworkMonitor(context) }
     override val authRepository: AuthRepository by lazy { FirebaseAuthRepository() }
     override val studentRepository: StudentRepository by lazy { FirestoreStudentRepository(localDb = localDatabase, syncManager = deltaSyncManager) }
     override val attendanceRepository: AttendanceRepository by lazy { FirestoreAttendanceRepository(localDb = localDatabase, syncManager = deltaSyncManager) }

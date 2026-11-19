@@ -209,8 +209,11 @@ class FirestoreAttendanceRepository(
     }
 
     override suspend fun submitTeacherAttendanceRequest(request: TeacherAttendanceRequestModel): Result<String> {
+        val now = Timestamp.now()
+        val tempId = if (request.id.isNotBlank()) request.id else "offline_${System.currentTimeMillis()}"
+        val offlineRequest = request.copy(id = tempId, status = "Pending (Offline)", timestamp = now)
+
         return try {
-            val now = Timestamp.now()
             val data = hashMapOf(
                 "teacherId" to request.teacherId,
                 "teacherName" to request.teacherName,
@@ -229,7 +232,20 @@ class FirestoreAttendanceRepository(
 
             Result.success(docRef.id)
         } catch (e: Exception) {
-            Result.failure(e)
+            val database = db
+            if (database != null) {
+                database.upsertTeacherAttendance(offlineRequest, now.toDate().time)
+                database.enqueueSyncItem(
+                    entityType = "TEACHER_ATTENDANCE",
+                    docId = tempId,
+                    payloadJson = database.teacherAttendanceToJsonPublic(offlineRequest)
+                )
+                _teacherAttendanceFlow.value = (listOf(offlineRequest) + _teacherAttendanceFlow.value.filter { it.id != tempId })
+                    .sortedByDescending { it.timestamp?.seconds ?: 0L }
+                Result.success(tempId)
+            } else {
+                Result.failure(e)
+            }
         }
     }
 

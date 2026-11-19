@@ -40,6 +40,7 @@ data class FeeCollectionUiState(
     val paymentToDelete: FeePaymentModel? = null,
     val showDatePicker: Boolean = false,
     val methodExpanded: Boolean = false,
+    val isOnline: Boolean = true,
     val userMessage: String? = null
 ) {
     val balanceDue: Long
@@ -63,7 +64,8 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
     private val feeRepository: FeeRepository,
     private val authRepository: AuthRepository,
     private val auditLogRepository: AuditLogRepository,
-    private val staffRepository: StaffRepository
+    private val staffRepository: StaffRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FeeCollectionUiState())
@@ -76,6 +78,16 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
     init {
         loadUserRole()
         loadStudents()
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
     }
 
     private fun loadUserRole() {
@@ -201,6 +213,10 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
 
     fun submitPayment(onSuccess: () -> Unit) {
         val state = _uiState.value
+        if (!state.isOnline) {
+            _uiState.update { it.copy(userMessage = "Fee collection requires an active internet connection.") }
+            return
+        }
         val student = state.selectedStudent ?: return
         val amount = state.amountPaid.toLongOrNull() ?: 0L
 
@@ -278,7 +294,12 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
     }
 
     fun deletePayment(onSuccess: () -> Unit) {
-        val target = _uiState.value.paymentToDelete ?: return
+        val state = _uiState.value
+        if (!state.isOnline) {
+            _uiState.update { it.copy(userMessage = "Deleting payment requires an active internet connection.") }
+            return
+        }
+        val target = state.paymentToDelete ?: return
         val studentName = target.studentName.ifBlank { _uiState.value.selectedStudent?.fullName ?: "Student" }
 
         _uiState.update { it.copy(isDeletingPayment = true) }

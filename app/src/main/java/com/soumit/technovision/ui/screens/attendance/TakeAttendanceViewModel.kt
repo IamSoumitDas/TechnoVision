@@ -45,6 +45,7 @@ data class TakeAttendanceUiState(
     val isSearchExpanded: Boolean = false,
     val userMap: Map<String, String> = emptyMap(),
     val currentUserName: String = "Faculty",
+    val isOnline: Boolean = true,
     val userMessage: String? = null
 ) {
     val isAttendanceLocked: Boolean
@@ -71,7 +72,8 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
     private val studentRepository: StudentRepository,
     private val staffRepository: StaffRepository,
     private val authRepository: AuthRepository,
-    private val auditLogRepository: AuditLogRepository
+    private val auditLogRepository: AuditLogRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TakeAttendanceUiState())
@@ -81,6 +83,16 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
         loadUsers()
         loadStudents()
         checkExistingAttendance(_uiState.value.selectedTimeSlot)
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
     }
 
     private fun loadUsers() {
@@ -279,6 +291,10 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
     fun saveAttendance(onSuccess: () -> Unit) {
         val state = _uiState.value
+        if (!state.isOnline) {
+            _uiState.update { it.copy(userMessage = "Taking student attendance requires an active internet connection.") }
+            return
+        }
         val displayed = state.displayedStudents
         if (displayed.isEmpty()) {
             _uiState.update { it.copy(userMessage = "No students in this session to save.") }

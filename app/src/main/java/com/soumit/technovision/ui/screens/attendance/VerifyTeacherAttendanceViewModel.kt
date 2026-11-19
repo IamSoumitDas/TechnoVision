@@ -21,6 +21,7 @@ data class VerifyTeacherAttendanceUiState(
     val currentAdminName: String = "Admin",
     val isLoading: Boolean = true,
     val processingRequestId: String? = null,
+    val isOnline: Boolean = true,
     val userMessage: String? = null
 ) {
     val pendingRequests: List<TeacherAttendanceRequestModel>
@@ -35,7 +36,8 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val staffRepository: StaffRepository,
     private val authRepository: AuthRepository,
-    private val auditLogRepository: AuditLogRepository
+    private val auditLogRepository: AuditLogRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VerifyTeacherAttendanceUiState())
@@ -44,6 +46,16 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
     init {
         loadAdminName()
         observeData()
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
     }
 
     private fun loadAdminName() {
@@ -87,6 +99,10 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
     }
 
     fun verifyRequest(request: TeacherAttendanceRequestModel) {
+        if (!_uiState.value.isOnline) {
+            _uiState.update { it.copy(userMessage = "Verifying attendance requires an active internet connection.") }
+            return
+        }
         val adminName = _uiState.value.currentAdminName
         _uiState.update { it.copy(processingRequestId = request.id) }
 
@@ -115,6 +131,10 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
     }
 
     fun rejectRequest(request: TeacherAttendanceRequestModel) {
+        if (!_uiState.value.isOnline) {
+            _uiState.update { it.copy(userMessage = "Rejecting attendance requires an active internet connection.") }
+            return
+        }
         val adminName = _uiState.value.currentAdminName
         _uiState.update { it.copy(processingRequestId = request.id) }
 

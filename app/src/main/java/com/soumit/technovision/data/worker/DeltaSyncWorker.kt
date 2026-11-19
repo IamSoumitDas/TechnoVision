@@ -22,6 +22,9 @@ class DeltaSyncWorker(
         Log.d(TAG, "Starting periodic background delta sync via WorkManager...")
 
         try {
+            val flushResult = syncManager.flushOfflineSyncQueue()
+            Log.d(TAG, "Flushed offline sync queue: flushed ${flushResult.getOrNull()} items")
+
             val studentsResult = syncManager.syncStudents(force = true)
             val feesResult = syncManager.syncFees(force = true)
             val attendanceResult = syncManager.syncAttendance(force = true)

@@ -105,11 +105,13 @@ fun ManageStaffContent(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                shape = FloatingActionButtonDefaults.shape
-            ) {
-                Icon(Icons.Default.PersonAdd, contentDescription = "Add Staff")
+            if (uiState.isOnline) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    shape = FloatingActionButtonDefaults.shape
+                ) {
+                    Icon(Icons.Default.PersonAdd, contentDescription = "Add Staff")
+                }
             }
         }
     ) { padding ->
@@ -119,6 +121,13 @@ fun ManageStaffContent(
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            if (!uiState.isOnline) {
+                com.soumit.technovision.ui.common.OfflineWarningBanner(
+                    message = "Creating, modifying, or deleting staff login accounts requires an active internet connection to communicate with Firebase Authentication.",
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+
             Text(
                 text = "Center Staff Directory",
                 style = MaterialTheme.typography.titleMedium,
@@ -146,6 +155,7 @@ fun ManageStaffContent(
                     items(uiState.staffList, key = { it.id }) { staff ->
                         StaffCard(
                             staff = staff,
+                            isOnline = uiState.isOnline,
                             onEditClick = {
                                 selectedStaffForEdit = staff
                                 editFullName = staff.fullName
@@ -391,6 +401,7 @@ fun ManageStaffContent(
 @Composable
 fun StaffCard(
     staff: StaffModel,
+    isOnline: Boolean = true,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -438,14 +449,18 @@ fun StaffCard(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onEditClick) {
+                TextButton(
+                    onClick = onEditClick,
+                    enabled = isOnline
+                ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit")
+                    Text(if (isOnline) "Edit" else "Edit (Offline)")
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 TextButton(
                     onClick = onDeleteClick,
+                    enabled = isOnline,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))

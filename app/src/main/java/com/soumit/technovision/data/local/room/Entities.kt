@@ -113,3 +113,25 @@ data class SyncMetadataEntity(
     @ColumnInfo(name = "last_sync_time", defaultValue = "0")
     val lastSyncTime: Long = 0L
 )
+
+@Entity(
+    tableName = "sync_queue",
+    indices = [
+        Index(value = ["status"], name = "idx_sq_status"),
+        Index(value = ["created_at"], name = "idx_sq_created")
+    ]
+)
+data class SyncQueueEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    @ColumnInfo(name = "entity_type")
+    val entityType: String,
+    @ColumnInfo(name = "doc_id")
+    val docId: String,
+    @ColumnInfo(name = "payload_json")
+    val payloadJson: String,
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long = System.currentTimeMillis(),
+    val status: String = "PENDING",
+    val attempts: Int = 0
+)

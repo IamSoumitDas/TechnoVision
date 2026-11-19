@@ -487,4 +487,30 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
             null
         }
     }
+
+    // --- Sync Queue Operations ---
+
+    val syncQueueDao: SyncQueueDao
+        get() = appDb.syncQueueDao()
+
+    suspend fun enqueueSyncItem(entityType: String, docId: String, payloadJson: String): Long = withContext(Dispatchers.IO) {
+        appDb.syncQueueDao().enqueue(
+            SyncQueueEntity(
+                entityType = entityType,
+                docId = docId,
+                payloadJson = payloadJson
+            )
+        )
+    }
+
+    suspend fun getPendingSyncItems(): List<SyncQueueEntity> = withContext(Dispatchers.IO) {
+        appDb.syncQueueDao().getPendingItems()
+    }
+
+    suspend fun removeSyncItem(id: Long) = withContext(Dispatchers.IO) {
+        appDb.syncQueueDao().delete(id)
+    }
+
+    fun teacherAttendanceToJsonPublic(t: TeacherAttendanceRequestModel): String = teacherAttendanceToJson(t)
+    fun teacherAttendanceFromJsonPublic(str: String): TeacherAttendanceRequestModel? = teacherAttendanceFromJson(str)
 }

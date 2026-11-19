@@ -28,6 +28,7 @@ data class GlobalHistoryUiState(
     val currentUserRole: String = "",
     val paymentToDelete: FeePaymentModel? = null,
     val isDeletingPayment: Boolean = false,
+    val isOnline: Boolean = true,
     val userMessage: String? = null
 ) {
     val filteredPayments: List<FeePaymentModel>
@@ -53,7 +54,8 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
     private val studentRepository: StudentRepository,
     private val authRepository: AuthRepository,
     private val auditLogRepository: AuditLogRepository,
-    private val defaultDispatcher: CoroutineDispatcher
+    private val defaultDispatcher: CoroutineDispatcher,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GlobalHistoryUiState())
@@ -65,6 +67,16 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
     init {
         loadUserRole()
         observeData()
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
     }
 
     private fun loadUserRole() {
@@ -136,7 +148,12 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
     }
 
     fun deletePayment(onSuccess: () -> Unit) {
-        val target = _uiState.value.paymentToDelete ?: return
+        val state = _uiState.value
+        if (!state.isOnline) {
+            _uiState.update { it.copy(userMessage = "Deleting payment records requires an active internet connection.") }
+            return
+        }
+        val target = state.paymentToDelete ?: return
         val studentName = target.studentName.ifBlank { "Student" }
 
         _uiState.update { it.copy(isDeletingPayment = true) }

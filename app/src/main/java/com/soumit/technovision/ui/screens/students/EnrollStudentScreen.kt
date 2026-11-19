@@ -152,6 +152,12 @@ fun EnrollStudentContent(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (!uiState.isOnline) {
+                com.soumit.technovision.ui.common.OfflineWarningBanner(
+                    message = "Enrolling students requires an active internet connection to allocate student records safely."
+                )
+            }
+
             // Section 1: Personal & Family Information Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -494,11 +500,18 @@ fun EnrollStudentContent(
             } else {
                 Button(
                     onClick = onEnrollClicked,
+                    enabled = uiState.isOnline,
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Enroll Student", style = MaterialTheme.typography.titleSmall)
+                    if (!uiState.isOnline) {
+                        Icon(Icons.Default.WifiOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Requires Internet (Offline)", style = MaterialTheme.typography.titleSmall)
+                    } else {
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Enroll Student", style = MaterialTheme.typography.titleSmall)
+                    }
                 }
             }
 

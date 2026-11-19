@@ -30,10 +30,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            TechnoVisionTheme {
+            val uiState by viewModel.uiState.collectAsState()
+
+            TechnoVisionTheme(isOnline = uiState.isOnline) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    val uiState by viewModel.uiState.collectAsState()
 
                     if (uiState.isLoadingRole || uiState.startDestination == null) {
                         Box(

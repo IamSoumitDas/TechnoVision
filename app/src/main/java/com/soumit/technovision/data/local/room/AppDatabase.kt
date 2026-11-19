@@ -11,9 +11,10 @@ import androidx.room.RoomDatabase
         FeePaymentEntity::class,
         AttendanceEntity::class,
         TeacherAttendanceEntity::class,
-        SyncMetadataEntity::class
+        SyncMetadataEntity::class,
+        SyncQueueEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun attendanceDao(): AttendanceDao
     abstract fun teacherAttendanceDao(): TeacherAttendanceDao
     abstract fun syncMetadataDao(): SyncMetadataDao
+    abstract fun syncQueueDao(): SyncQueueDao
 
     companion object {
         private const val DATABASE_NAME = "technovision_room.db"

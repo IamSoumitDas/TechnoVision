@@ -163,6 +163,12 @@ fun UpdateDeleteStudentContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                if (!uiState.isOnline) {
+                    com.soumit.technovision.ui.common.OfflineWarningBanner(
+                        message = "Editing or deleting student profiles requires an active internet connection to prevent concurrent update conflicts."
+                    )
+                }
+
                 // Section 1: Personal & Family Information
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -495,11 +501,18 @@ fun UpdateDeleteStudentContent(
                 } else {
                     Button(
                         onClick = onUpdateClicked,
+                        enabled = uiState.isOnline,
                         modifier = Modifier.fillMaxWidth().height(50.dp)
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Update Information", style = MaterialTheme.typography.titleSmall)
+                        if (!uiState.isOnline) {
+                            Icon(Icons.Default.WifiOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Requires Internet (Offline)", style = MaterialTheme.typography.titleSmall)
+                        } else {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Update Information", style = MaterialTheme.typography.titleSmall)
+                        }
                     }
                 }
 
@@ -511,13 +524,14 @@ fun UpdateDeleteStudentContent(
                 } else {
                     OutlinedButton(
                         onClick = { showDeleteDialog = true },
+                        enabled = uiState.isOnline,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                        border = BorderStroke(1.dp, if (uiState.isOnline) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline),
                         modifier = Modifier.fillMaxWidth().height(50.dp)
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Delete Student Record", style = MaterialTheme.typography.titleSmall)
+                        Text(if (uiState.isOnline) "Delete Student Record" else "Delete (Requires Internet)", style = MaterialTheme.typography.titleSmall)
                     }
                 }
 

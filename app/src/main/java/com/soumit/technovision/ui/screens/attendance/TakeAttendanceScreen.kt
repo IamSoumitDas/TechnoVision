@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.WifiOff
+import com.soumit.technovision.ui.common.OfflineWarningBanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -187,9 +189,15 @@ fun TakeAttendanceContent(
                     } else {
                         Button(
                             onClick = onSaveAttendance,
+                            enabled = uiState.isOnline,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Save Batch Attendance")
+                            if (!uiState.isOnline) {
+                                Icon(Icons.Default.WifiOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text("Requires Internet (Offline)")
+                            } else {
+                                Text("Save Batch Attendance")
+                            }
                         }
                     }
                 }
@@ -202,6 +210,13 @@ fun TakeAttendanceContent(
                 .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
+            if (!uiState.isOnline) {
+                OfflineWarningBanner(
+                    message = "Recording student attendance requires an active internet connection to prevent session overwrites.",
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+
             Text(
                 text = "Batch Time Slot:",
                 style = MaterialTheme.typography.titleSmall,

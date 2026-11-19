@@ -27,6 +27,7 @@ data class TeacherAttendanceUiState(
     val selectedTimeSlot: String = "9:00 AM - 11:00 AM",
     val isLoading: Boolean = true,
     val isSubmitting: Boolean = false,
+    val isOnline: Boolean = true,
     val userMessage: String? = null
 )
 
@@ -35,7 +36,8 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val authRepository: AuthRepository,
     private val staffRepository: StaffRepository,
-    private val auditLogRepository: AuditLogRepository
+    private val auditLogRepository: AuditLogRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TeacherAttendanceUiState())
@@ -44,6 +46,16 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
     init {
         determineInitialSlot()
         observeTeacherAndRequests()
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
     }
 
     private fun determineInitialSlot() {
@@ -157,10 +169,16 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
                     action = "Teacher Attendance Requested",
                     details = "Submitted verification request for [${state.selectedTimeSlot}] on ${state.selectedDateStr} (Teacher: $teacherName)"
                 )
+                val isOffline = !state.isOnline || result.getOrNull()?.startsWith("offline_") == true
+                val msg = if (isOffline) {
+                    "Saved offline! Your request will sync automatically when connected."
+                } else {
+                    "Attendance verification requested successfully!"
+                }
                 _uiState.update {
                     it.copy(
                         isSubmitting = false,
-                        userMessage = "Attendance verification requested successfully!"
+                        userMessage = msg
                     )
                 }
                 onSuccess()

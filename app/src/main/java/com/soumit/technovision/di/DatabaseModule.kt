@@ -40,4 +40,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSyncMetadataDao(database: AppDatabase): SyncMetadataDao = database.syncMetadataDao()
+
+    @Provides
+    fun provideSyncQueueDao(database: AppDatabase): SyncQueueDao = database.syncQueueDao()
 }

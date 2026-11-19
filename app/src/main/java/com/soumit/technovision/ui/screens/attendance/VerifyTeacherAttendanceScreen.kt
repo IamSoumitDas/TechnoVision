@@ -108,6 +108,11 @@ fun VerifyTeacherAttendanceContent(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (!uiState.isOnline) {
+                com.soumit.technovision.ui.common.OfflineWarningBanner(
+                    message = "Approving or rejecting faculty attendance requests requires an active internet connection."
+                )
+            }
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 modifier = Modifier.fillMaxWidth()
@@ -181,6 +186,7 @@ fun VerifyTeacherAttendanceContent(
                         AdminVerifyRequestCard(
                             request = request,
                             userMap = uiState.userMap,
+                            isOnline = uiState.isOnline,
                             onVerify = { onVerify(request) },
                             onReject = { onReject(request) }
                         )
@@ -195,6 +201,7 @@ fun VerifyTeacherAttendanceContent(
 fun AdminVerifyRequestCard(
     request: TeacherAttendanceRequestModel,
     userMap: Map<String, String>,
+    isOnline: Boolean = true,
     onVerify: () -> Unit,
     onReject: () -> Unit
 ) {
@@ -324,11 +331,12 @@ fun AdminVerifyRequestCard(
                     ) {
                         OutlinedButton(
                             onClick = { showRejectDialog = true },
+                            enabled = isOnline,
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
                             ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                            border = BorderStroke(1.dp, if (isOnline) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline)
                         ) {
                             Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp).padding(end = 4.dp))
                             Text("Reject")
@@ -336,10 +344,16 @@ fun AdminVerifyRequestCard(
 
                         Button(
                             onClick = onVerify,
+                            enabled = isOnline,
                             modifier = Modifier.weight(1.5f)
                         ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp).padding(end = 4.dp))
-                            Text("Verify")
+                            if (!isOnline) {
+                                Icon(Icons.Default.WifiOff, contentDescription = null, modifier = Modifier.size(16.dp).padding(end = 4.dp))
+                                Text("Offline")
+                            } else {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp).padding(end = 4.dp))
+                                Text("Verify")
+                            }
                         }
                     }
                 }

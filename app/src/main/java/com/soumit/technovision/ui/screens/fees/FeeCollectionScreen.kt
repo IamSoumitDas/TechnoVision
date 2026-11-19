@@ -219,6 +219,12 @@ fun FeeCollectionContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                if (!uiState.isOnline) {
+                    com.soumit.technovision.ui.common.OfflineWarningBanner(
+                        message = "Collecting fees and recording ledger payments requires an active internet connection to prevent billing inconsistencies."
+                    )
+                }
+
                 Text(
                     text = "Receive Monthly Installment",
                     style = MaterialTheme.typography.titleMedium,
@@ -529,11 +535,16 @@ fun FeeCollectionContent(
                     } else {
                         Button(
                             onClick = onSubmitPayment,
-                            enabled = uiState.amountPaid.isNotBlank(),
+                            enabled = uiState.isOnline && uiState.amountPaid.isNotBlank(),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                            Text("Record & Save Payment")
+                            if (!uiState.isOnline) {
+                                Icon(Icons.Default.WifiOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text("Requires Internet (Offline)")
+                            } else {
+                                Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text("Record & Save Payment")
+                            }
                         }
                     }
 

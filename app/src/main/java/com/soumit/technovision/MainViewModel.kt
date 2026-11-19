@@ -13,12 +13,14 @@ import javax.inject.Inject
 
 data class MainUiState(
     val startDestination: Any? = null,
-    val isLoadingRole: Boolean = true
+    val isLoadingRole: Boolean = true,
+    val isOnline: Boolean = true
 )
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -26,6 +28,16 @@ class MainViewModel @Inject constructor(
 
     init {
         determineStartDestination()
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOnline = online)
+            }
+        }
     }
 
     private fun determineStartDestination() {

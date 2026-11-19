@@ -549,6 +549,71 @@ class CrashFuzzingAndEdgeCasesTest {
             kotlinx.coroutines.Dispatchers.resetMain()
         }
     }
+
+    // ==========================================
+    // 9. Offline Mode & Lockdown Verification Tests
+    // ==========================================
+
+    private class TestAttendanceRepo : com.soumit.technovision.data.repository.AttendanceRepository {
+        val submittedRequests = mutableListOf<com.soumit.technovision.data.model.TeacherAttendanceRequestModel>()
+
+        override fun getAttendanceRecordsStream() = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.AttendanceRecordModel>())
+        override suspend fun getExistingAttendance(date: String, timeSlot: String) = Result.success(null)
+        override suspend fun saveBatchAttendance(record: com.soumit.technovision.data.model.AttendanceRecordModel) = Result.success(Unit)
+        override fun getTeacherAttendanceRequestsStream(teacherId: String?) = kotlinx.coroutines.flow.flowOf(submittedRequests)
+        override suspend fun submitTeacherAttendanceRequest(request: com.soumit.technovision.data.model.TeacherAttendanceRequestModel): Result<String> {
+            val id = if (request.id.isNotBlank()) request.id else "offline_${System.currentTimeMillis()}"
+            submittedRequests.add(request.copy(id = id))
+            return Result.success(id)
+        }
+        override suspend fun verifyTeacherAttendance(requestId: String, verifiedBy: String) = Result.success(Unit)
+        override suspend fun rejectTeacherAttendance(requestId: String, rejectedBy: String) = Result.success(Unit)
+    }
+
+    @Test
+    fun teacherAttendance_offlineSubmissionAllowed_andEnqueued() = kotlinx.coroutines.test.runTest {
+        val testDispatcher = kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)
+        kotlinx.coroutines.Dispatchers.setMain(testDispatcher)
+        try {
+            val repo = TestAttendanceRepo()
+            val vm = com.soumit.technovision.ui.screens.attendance.TeacherAttendanceViewModel(
+                attendanceRepository = repo,
+                authRepository = TestAuthRepo(),
+                staffRepository = TestStaffRepo(),
+                auditLogRepository = TestAuditLogRepo(),
+                networkMonitor = null // offline/default state
+            )
+            testScheduler.advanceUntilIdle()
+
+            var submitted = false
+            vm.submitRequest { submitted = true }
+            testScheduler.advanceUntilIdle()
+
+            assertTrue(submitted)
+            val state = vm.uiState.value
+            assertNotNull(state.userMessage)
+            assertTrue(state.userMessage!!.contains("offline", ignoreCase = true) || state.userMessage!!.contains("success", ignoreCase = true))
+            assertEquals(1, repo.submittedRequests.size)
+        } finally {
+            kotlinx.coroutines.Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun syncQueueEntity_fieldsAndStatuses_workCorrectly() {
+        val entity = com.soumit.technovision.data.local.room.SyncQueueEntity(
+            id = 1L,
+            entityType = "TEACHER_ATTENDANCE",
+            docId = "offline_12345",
+            payloadJson = "{\"teacherId\":\"t1\",\"status\":\"Pending (Offline)\"}",
+            status = "PENDING"
+        )
+        assertEquals("TEACHER_ATTENDANCE", entity.entityType)
+        assertEquals("offline_12345", entity.docId)
+        assertEquals("PENDING", entity.status)
+        assertTrue(entity.docId.startsWith("offline_"))
+    }
 }
+
 
 

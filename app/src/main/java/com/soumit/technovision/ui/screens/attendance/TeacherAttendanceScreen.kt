@@ -207,8 +207,13 @@ fun TeacherAttendanceContent(
                                 onClick = onSubmitRequest,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                Text("Request Attendance for Slot")
+                                if (!uiState.isOnline) {
+                                    Icon(Icons.Default.CloudQueue, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                    Text("Request Attendance (Offline)")
+                                } else {
+                                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                    Text("Request Attendance for Slot")
+                                }
                             }
                         }
                     }

@@ -49,6 +49,18 @@ class TechnoVisionApplication : Application() {
 
                 // Schedule reliable background delta sync via WorkManager
                 com.soumit.technovision.data.worker.DeltaSyncWorker.schedulePeriodicSync(this@TechnoVisionApplication)
+
+                // Automatically flush offline sync queue when network becomes available
+                launch {
+                    container.networkMonitor.isOnline.collect { isOnline ->
+                        if (isOnline) {
+                            try {
+                                container.deltaSyncManager.flushOfflineSyncQueue()
+                            } catch (_: Exception) {
+                            }
+                        }
+                    }
+                }
             } catch (_: Exception) {
                 // Offline or sync error handled gracefully
             }

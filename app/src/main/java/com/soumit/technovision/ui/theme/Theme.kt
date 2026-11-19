@@ -31,9 +31,10 @@ val ExpressiveShapes = Shapes(
 fun TechnoVisionTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    isOnline: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
+    val baseScheme = when {
         dynamicColor && (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -41,6 +42,27 @@ fun TechnoVisionTheme(
 
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
+    }
+
+    // Lockdown / Offline mode: Shift primary colors to Warm Amber / Terracotta
+    val colorScheme = if (!isOnline) {
+        if (darkTheme) {
+            baseScheme.copy(
+                primary = OfflineDarkPrimary,
+                onPrimary = OfflineDarkOnPrimary,
+                primaryContainer = OfflineDarkPrimaryContainer,
+                onPrimaryContainer = OfflineDarkOnPrimaryContainer
+            )
+        } else {
+            baseScheme.copy(
+                primary = OfflineWarningPrimary,
+                onPrimary = OfflineWarningOnPrimary,
+                primaryContainer = OfflineWarningPrimaryContainer,
+                onPrimaryContainer = OfflineWarningOnPrimaryContainer
+            )
+        }
+    } else {
+        baseScheme
     }
 
     MaterialExpressiveTheme(

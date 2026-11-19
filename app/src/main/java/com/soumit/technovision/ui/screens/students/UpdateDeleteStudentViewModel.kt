@@ -44,7 +44,8 @@ data class UpdateDeleteStudentUiState(
     val isUpdating: Boolean = false,
     val isDeleting: Boolean = false,
     val errorMessage: String? = null,
-    val userMessage: String? = null
+    val userMessage: String? = null,
+    val isOnline: Boolean = true
 ) {
     val activeDaysCount: Int
         get() = daySchedules.values.count { it != "Off" }
@@ -54,7 +55,8 @@ data class UpdateDeleteStudentUiState(
 class UpdateDeleteStudentViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val studentRepository: StudentRepository,
-    private val auditLogRepository: AuditLogRepository
+    private val auditLogRepository: AuditLogRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val studentId: String = savedStateHandle.get<String>("studentId")
@@ -62,6 +64,20 @@ class UpdateDeleteStudentViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(UpdateDeleteStudentUiState(studentId = studentId))
     val uiState: StateFlow<UpdateDeleteStudentUiState> = _uiState.asStateFlow()
+
+    init {
+        loadStudent()
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
+    }
 
     init {
         loadStudent()
@@ -139,6 +155,10 @@ class UpdateDeleteStudentViewModel @Inject constructor(
 
     fun updateStudent(onSuccess: () -> Unit) {
         val s = _uiState.value
+        if (!s.isOnline) {
+            _uiState.update { it.copy(errorMessage = "Updating student requires an active internet connection.") }
+            return
+        }
 
         if (s.fullName.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Full name cannot be blank.") }
@@ -193,6 +213,10 @@ class UpdateDeleteStudentViewModel @Inject constructor(
 
     fun deleteStudent(onSuccess: () -> Unit) {
         val s = _uiState.value
+        if (!s.isOnline) {
+            _uiState.update { it.copy(errorMessage = "Deleting student requires an active internet connection.") }
+            return
+        }
         _uiState.update { it.copy(isDeleting = true, errorMessage = null) }
 
         viewModelScope.launch {

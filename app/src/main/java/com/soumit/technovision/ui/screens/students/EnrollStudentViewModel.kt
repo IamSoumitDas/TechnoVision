@@ -37,7 +37,8 @@ data class EnrollStudentUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val attemptedSubmit: Boolean = false,
-    val enrolledStudentId: String? = null
+    val enrolledStudentId: String? = null,
+    val isOnline: Boolean = true
 ) {
     val activeBatchDaysCount: Int
         get() = daySchedules.values.count { it != "Off" }
@@ -46,11 +47,25 @@ data class EnrollStudentUiState(
 @HiltViewModel
 class EnrollStudentViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
-    private val auditLogRepository: AuditLogRepository
+    private val auditLogRepository: AuditLogRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EnrollStudentUiState())
     val uiState: StateFlow<EnrollStudentUiState> = _uiState.asStateFlow()
+
+    init {
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
+    }
 
     fun onFullNameChanged(value: String) = _uiState.update { it.copy(fullName = value, errorMessage = null) }
     fun onClassChanged(value: String) = _uiState.update { it.copy(selectedClass = value, errorMessage = null) }
@@ -76,6 +91,10 @@ class EnrollStudentViewModel @Inject constructor(
 
     fun enrollStudent(onSuccess: (String) -> Unit) {
         val s = _uiState.value
+        if (!s.isOnline) {
+            _uiState.update { it.copy(errorMessage = "Student enrollment requires an active internet connection.") }
+            return
+        }
         _uiState.update { it.copy(attemptedSubmit = true) }
 
         if (s.fullName.isBlank() || s.selectedClass.isBlank() || s.selectedSchool.isBlank() ||

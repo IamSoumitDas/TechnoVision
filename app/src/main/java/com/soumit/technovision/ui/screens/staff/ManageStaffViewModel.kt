@@ -20,13 +20,15 @@ data class ManageStaffUiState(
     val isUpdating: Boolean = false,
     val isDeleting: Boolean = false,
     val userMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isOnline: Boolean = true
 )
 
 @dagger.hilt.android.lifecycle.HiltViewModel
 class ManageStaffViewModel @javax.inject.Inject constructor(
     private val staffRepository: StaffRepository,
-    private val auditLogRepository: AuditLogRepository
+    private val auditLogRepository: AuditLogRepository,
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ManageStaffUiState())
@@ -34,6 +36,16 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
 
     init {
         observeStaff()
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        if (networkMonitor == null) return
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.update { it.copy(isOnline = online) }
+            }
+        }
     }
 
     private fun observeStaff() {
@@ -58,6 +70,11 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
         role: String,
         onSuccess: () -> Unit
     ) {
+        if (!_uiState.value.isOnline) {
+            _uiState.update { it.copy(errorMessage = "Staff management requires an active internet connection.") }
+            return
+        }
+
         if (fullName.isBlank() || email.isBlank() || password.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Please fill in all required fields.") }
             return
@@ -117,6 +134,11 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
         role: String,
         onSuccess: () -> Unit
     ) {
+        if (!_uiState.value.isOnline) {
+            _uiState.update { it.copy(errorMessage = "Staff management requires an active internet connection.") }
+            return
+        }
+
         if (fullName.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Full name cannot be blank.") }
             return
@@ -153,6 +175,11 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
     }
 
     fun deleteStaff(staff: StaffModel, onSuccess: () -> Unit) {
+        if (!_uiState.value.isOnline) {
+            _uiState.update { it.copy(errorMessage = "Staff management requires an active internet connection.") }
+            return
+        }
+
         _uiState.update { it.copy(isDeleting = true, errorMessage = null) }
 
         viewModelScope.launch {

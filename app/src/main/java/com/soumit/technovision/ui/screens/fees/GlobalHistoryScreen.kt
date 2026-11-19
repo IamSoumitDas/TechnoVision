@@ -188,6 +188,12 @@ fun GlobalHistoryContent(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (!uiState.isOnline) {
+                com.soumit.technovision.ui.common.OfflineWarningBanner(
+                    message = "Viewing payment records is available offline. Voiding or deleting payment receipts requires an active internet connection."
+                )
+            }
+
             // Summary Cards Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -404,7 +410,7 @@ fun GlobalHistoryContent(
                                 payment = updatedPayment,
                                 showStudentName = true,
                                 studentSubtitle = resolvedSubtitle,
-                                canDelete = isOwner,
+                                canDelete = isOwner && uiState.isOnline,
                                 onDeleteClick = { onSetPaymentToDelete(updatedPayment) }
                             )
                         }
