@@ -292,6 +292,10 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
         appDb.teacherAttendanceDao().markDeleted(id, updatedAt)
     }
 
+    suspend fun deleteTeacherAttendancePermanently(id: String) = withContext(Dispatchers.IO) {
+        appDb.teacherAttendanceDao().deletePermanently(id)
+    }
+
     // --- JSON Serialization Helpers ---
 
     private fun studentToJson(s: StudentModel): String {

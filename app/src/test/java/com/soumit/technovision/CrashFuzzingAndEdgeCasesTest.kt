@@ -613,6 +613,22 @@ class CrashFuzzingAndEdgeCasesTest {
         assertEquals("PENDING", entity.status)
         assertTrue(entity.docId.startsWith("offline_"))
     }
+
+    @Test
+    fun mainViewModel_destinationResolution_preservesState() = kotlinx.coroutines.test.runTest {
+        val testDispatcher = kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)
+        kotlinx.coroutines.Dispatchers.setMain(testDispatcher)
+        try {
+            val authRepo = TestAuthRepo()
+            val vm = MainViewModel(authRepository = authRepo, networkMonitor = null)
+            testScheduler.advanceUntilIdle()
+            assertFalse(vm.uiState.value.isLoadingRole)
+            assertEquals(com.soumit.technovision.navigation.Screen.Auth, vm.uiState.value.startDestination)
+            assertTrue(vm.uiState.value.isOnline)
+        } finally {
+            kotlinx.coroutines.Dispatchers.resetMain()
+        }
+    }
 }
 
 

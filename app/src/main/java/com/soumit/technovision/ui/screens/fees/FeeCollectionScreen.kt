@@ -566,7 +566,7 @@ fun FeeCollectionContent(
                         )
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val canDelete = uiState.currentUserRole.equals("owner", ignoreCase = true)
+                            val canDelete = uiState.currentUserRole.equals("owner", ignoreCase = true) && uiState.isOnline
                             uiState.paymentHistory.forEach { payment ->
                                 PaymentHistoryCard(
                                     payment = payment,

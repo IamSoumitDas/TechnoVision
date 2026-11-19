@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -35,7 +36,7 @@ class MainViewModel @Inject constructor(
         if (networkMonitor == null) return
         viewModelScope.launch {
             networkMonitor.isOnline.collect { online ->
-                _uiState.value = _uiState.value.copy(isOnline = online)
+                _uiState.update { it.copy(isOnline = online) }
             }
         }
     }
@@ -43,7 +44,7 @@ class MainViewModel @Inject constructor(
     private fun determineStartDestination() {
         val currentUser = authRepository.currentUser
         if (currentUser == null) {
-            _uiState.value = MainUiState(startDestination = Screen.Auth, isLoadingRole = false)
+            _uiState.update { it.copy(startDestination = Screen.Auth, isLoadingRole = false) }
             return
         }
 
@@ -59,7 +60,7 @@ class MainViewModel @Inject constructor(
             } else {
                 Screen.Auth
             }
-            _uiState.value = MainUiState(startDestination = destination, isLoadingRole = false)
+            _uiState.update { it.copy(startDestination = destination, isLoadingRole = false) }
         }
     }
 }

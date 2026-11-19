@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 
 interface AttendanceRepository {
     fun getAttendanceRecordsStream(): Flow<List<AttendanceRecordModel>>
@@ -213,6 +214,22 @@ class FirestoreAttendanceRepository(
         val tempId = if (request.id.isNotBlank()) request.id else "offline_${System.currentTimeMillis()}"
         val offlineRequest = request.copy(id = tempId, status = "Pending (Offline)", timestamp = now)
 
+        val isOnline = TechnoVisionApplication.instance?.container?.networkMonitor?.isOnline?.value ?: true
+        val database = db
+
+        // If known to be offline, save locally and enqueue immediately without blocking
+        if (!isOnline && database != null) {
+            database.upsertTeacherAttendance(offlineRequest, now.toDate().time)
+            database.enqueueSyncItem(
+                entityType = "TEACHER_ATTENDANCE",
+                docId = tempId,
+                payloadJson = database.teacherAttendanceToJsonPublic(offlineRequest)
+            )
+            _teacherAttendanceFlow.value = (listOf(offlineRequest) + _teacherAttendanceFlow.value.filter { it.id != tempId })
+                .sortedByDescending { it.timestamp?.seconds ?: 0L }
+            return Result.success(tempId)
+        }
+
         return try {
             val data = hashMapOf(
                 "teacherId" to request.teacherId,
@@ -224,15 +241,16 @@ class FirestoreAttendanceRepository(
                 "updatedAt" to now,
                 "isDeleted" to false
             )
-            val docRef = firestore.collection("teacher_attendance").add(data).await()
-            val saved = request.copy(id = docRef.id, status = "Pending")
+            val docRef = withTimeout(5000L) {
+                firestore.collection("teacher_attendance").add(data).await()
+            }
+            val saved = request.copy(id = docRef.id, status = "Pending", timestamp = (request.timestamp ?: now))
             db?.upsertTeacherAttendance(saved, now.toDate().time)
             _teacherAttendanceFlow.value = (listOf(saved) + _teacherAttendanceFlow.value.filter { it.id != saved.id })
                 .sortedByDescending { it.timestamp?.seconds ?: 0L }
 
             Result.success(docRef.id)
         } catch (e: Exception) {
-            val database = db
             if (database != null) {
                 database.upsertTeacherAttendance(offlineRequest, now.toDate().time)
                 database.enqueueSyncItem(

@@ -100,6 +100,9 @@ interface TeacherAttendanceDao {
 
     @Query("UPDATE teacher_attendance SET is_deleted = 1, updated_at = :updatedAt WHERE id = :id")
     suspend fun markDeleted(id: String, updatedAt: Long)
+
+    @Query("DELETE FROM teacher_attendance WHERE id = :id")
+    suspend fun deletePermanently(id: String)
 }
 
 @Dao

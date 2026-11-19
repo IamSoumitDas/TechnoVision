@@ -13,8 +13,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.util.Date
 
 class DeltaSyncManager(
@@ -444,7 +446,13 @@ class DeltaSyncManager(
         scope.launch { flushOfflineSyncQueue() }
     }
 
+    private val flushMutex = Mutex()
+
     suspend fun flushOfflineSyncQueue(): Result<Int> = withContext(Dispatchers.IO) {
+        if (!flushMutex.tryLock()) {
+            Log.d(TAG, "flushOfflineSyncQueue already running, skipping concurrent trigger.")
+            return@withContext Result.success(0)
+        }
         try {
             val pending = localDb.getPendingSyncItems()
             if (pending.isEmpty()) return@withContext Result.success(0)
@@ -455,6 +463,7 @@ class DeltaSyncManager(
                     val req = localDb.teacherAttendanceFromJsonPublic(item.payloadJson)
                     if (req != null) {
                         try {
+                            localDb.syncQueueDao.updateStatus(item.id, "PROCESSING")
                             val now = Timestamp.now()
                             val data = hashMapOf(
                                 "teacherId" to req.teacherId,
@@ -472,14 +481,16 @@ class DeltaSyncManager(
                                 firestore.collection("teacher_attendance").document(req.id)
                             }
 
-                            docRef.set(data).await()
+                            withTimeout(7000L) {
+                                docRef.set(data).await()
+                            }
 
                             val updatedReq = req.copy(
                                 id = docRef.id,
                                 status = req.status.replace(" (Offline)", "")
                             )
                             if (req.id != docRef.id) {
-                                localDb.markTeacherAttendanceDeleted(req.id, now.toDate().time)
+                                localDb.deleteTeacherAttendancePermanently(req.id)
                             }
                             localDb.upsertTeacherAttendance(updatedReq, now.toDate().time)
                             localDb.removeSyncItem(item.id)
@@ -496,6 +507,8 @@ class DeltaSyncManager(
             Result.success(flushedCount)
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            flushMutex.unlock()
         }
     }
 
