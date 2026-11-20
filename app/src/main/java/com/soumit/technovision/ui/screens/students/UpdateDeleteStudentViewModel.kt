@@ -43,6 +43,7 @@ data class UpdateDeleteStudentUiState(
     val isLoading: Boolean = true,
     val isUpdating: Boolean = false,
     val isDeleting: Boolean = false,
+    val totalPaid: Long = 0L,
     val errorMessage: String? = null,
     val userMessage: String? = null,
     val isOnline: Boolean = true
@@ -79,10 +80,6 @@ class UpdateDeleteStudentViewModel @Inject constructor(
         }
     }
 
-    init {
-        loadStudent()
-    }
-
     private fun loadStudent() {
         if (studentId.isBlank()) {
             _uiState.update { it.copy(isLoading = false) }
@@ -115,6 +112,7 @@ class UpdateDeleteStudentViewModel @Inject constructor(
                             email = student.email,
                             batchTimeSlot = student.batchTimeSlot,
                             daySchedules = defaultSchedules,
+                            totalPaid = student.totalPaid,
                             isLoading = false
                         )
                     }
@@ -186,7 +184,8 @@ class UpdateDeleteStudentViewModel @Inject constructor(
             phone = s.phone.trim(),
             altPhone = s.altPhone.trim(),
             email = s.email,
-            batchTimeSlot = s.batchTimeSlot
+            batchTimeSlot = s.batchTimeSlot,
+            totalPaid = s.totalPaid
         )
 
         _uiState.update { it.copy(isUpdating = true, errorMessage = null) }

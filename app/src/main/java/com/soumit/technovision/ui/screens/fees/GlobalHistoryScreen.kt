@@ -90,13 +90,15 @@ fun GlobalHistoryContent(
 
     val groupedHistory = remember(uiState.filteredPayments) {
         val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-        uiState.filteredPayments.groupBy { payment ->
-            if (payment.timestamp != null) {
-                dateFormat.format(payment.timestamp.toDate())
-            } else {
-                "Unknown Date"
+        uiState.filteredPayments
+            .sortedByDescending { it.timestamp?.seconds ?: 0L }
+            .groupBy { payment ->
+                if (payment.timestamp != null) {
+                    dateFormat.format(payment.timestamp.toDate())
+                } else {
+                    "Unknown Date"
+                }
             }
-        }
     }
 
     val isOwner = uiState.currentUserRole.equals("owner", ignoreCase = true)

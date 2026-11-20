@@ -7,6 +7,7 @@ import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.repository.AttendanceRepository
 import com.soumit.technovision.data.repository.StaffRepository
 import com.soumit.technovision.data.repository.StudentRepository
+import com.soumit.technovision.util.AttendanceUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,11 +20,19 @@ data class AttendanceHistoryUiState(
     val attendanceRecords: List<AttendanceRecordModel> = emptyList(),
     val studentsMap: Map<String, StudentModel> = emptyMap(),
     val userMap: Map<String, String> = emptyMap(),
+    val teacherAttendanceMap: Map<String, String> = emptyMap(),
     val searchQuery: String = "",
     val isLoading: Boolean = true,
     val selectedRecord: AttendanceRecordModel? = null,
     val isDetailOpen: Boolean = false,
     val errorMessage: String? = null
+)
+
+private data class AttendanceData(
+    val records: List<AttendanceRecordModel>,
+    val studentsMap: Map<String, StudentModel>,
+    val userMap: Map<String, String>,
+    val teacherAttendanceMap: Map<String, String>
 )
 
 @dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,18 +54,26 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
             combine(
                 attendanceRepository.getAttendanceRecordsStream(),
                 studentRepository.getStudentsStream(),
-                staffRepository.getUsersMapStream()
-            ) { records, students, users ->
+                staffRepository.getUsersMapStream(),
+                attendanceRepository.getTeacherAttendanceRequestsStream(teacherId = null)
+            ) { records, students, users, teacherRequests ->
                 val sMap = students.associateBy { it.id }
-                Triple(records, sMap, users)
+                val teacherMap = teacherRequests
+                    .filter { it.teacherName.isNotBlank() }
+                    .associate { req ->
+                        val normKey = AttendanceUtils.normalizeSlotKey(req.date, req.timeSlot)
+                        normKey to req.teacherName
+                    }
+                AttendanceData(records, sMap, users, teacherMap)
             }.catch { e ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage) }
-            }.collect { (records, sMap, users) ->
+            }.collect { data ->
                 _uiState.update {
                     it.copy(
-                        attendanceRecords = records,
-                        studentsMap = sMap,
-                        userMap = users,
+                        attendanceRecords = data.records,
+                        studentsMap = data.studentsMap,
+                        userMap = data.userMap,
+                        teacherAttendanceMap = data.teacherAttendanceMap,
                         isLoading = false
                     )
                 }

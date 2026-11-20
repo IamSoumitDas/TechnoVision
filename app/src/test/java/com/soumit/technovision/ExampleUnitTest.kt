@@ -93,6 +93,35 @@ class ExampleUnitTest {
         )
         val resolved3 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record3, emptyMap())
         assertEquals("Priya Das", resolved3)
+
+        // Case 4: Historical record with empty fields resolved via teacherAttendanceMap
+        val record4 = com.soumit.technovision.data.model.AttendanceRecordModel(
+            date = "15-11-2026",
+            timeSlot = "9:00 AM - 11:00 AM"
+        )
+        val teacherAttendanceMap = mapOf(
+            "15-11-2026_9:00 am - 11:00 am" to "Soumit Das"
+        )
+        val resolved4 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record4, emptyMap(), teacherAttendanceMap)
+        assertEquals("Soumit Das", resolved4)
+
+        // Case 5: Legacy takenBy mapped to submittedByEmail as a person's name
+        val record5 = com.soumit.technovision.data.model.AttendanceRecordModel(
+            date = "15-11-2026",
+            timeSlot = "9:00 AM - 11:00 AM",
+            submittedByEmail = "Amitabha Roy"
+        )
+        val resolved5 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record5, emptyMap())
+        assertEquals("Amitabha Roy", resolved5)
+
+        // Case 6: Record with placeholder "unknown" or "Unknown Faculty" falls back or resolves via teacherAttendanceMap
+        val record6 = com.soumit.technovision.data.model.AttendanceRecordModel(
+            date = "15-11-2026",
+            timeSlot = "9:00 AM - 11:00 AM",
+            submittedBy = "unknown"
+        )
+        val resolved6 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record6, emptyMap(), teacherAttendanceMap)
+        assertEquals("Soumit Das", resolved6)
     }
 
     @Test
@@ -198,5 +227,40 @@ class ExampleUnitTest {
         assertFalse(itemTomorrow!!.isToday)
         assertEquals(1L, itemTomorrow.daysUntilNextBirthday)
         assertEquals(14, itemTomorrow.turningAge)
+    }
+
+    @Test
+    fun birthdayUtils_parseDob_handlesNonAsciiDigits() {
+        // Arabic-Indic digits: ١٥/٠٥/٢٠١٠ (15/05/2010)
+        val parsedArabic = com.soumit.technovision.ui.screens.students.BirthdayUtils.parseDob("١٥/٠٥/٢٠١٠")
+        assertNotNull(parsedArabic)
+        assertEquals(15, parsedArabic!!.day)
+        assertEquals(5, parsedArabic.month)
+        assertEquals(2010, parsedArabic.year)
+
+        // Devanagari digits: १५/०५/२०१० (15/05/2010)
+        val parsedDev = com.soumit.technovision.ui.screens.students.BirthdayUtils.parseDob("१५/०५/२०१०")
+        assertNotNull(parsedDev)
+        assertEquals(15, parsedDev!!.day)
+        assertEquals(5, parsedDev.month)
+        assertEquals(2010, parsedDev.year)
+    }
+
+    @Test
+    fun teacherAttendance_allowsResubmit_whenPreviouslyRejectedCaseInsensitive() {
+        val requests = listOf(
+            com.soumit.technovision.data.model.TeacherAttendanceRequestModel(
+                id = "req_1",
+                date = "20-11-2026",
+                timeSlot = "9:00 AM - 11:00 AM",
+                status = "rejected" // lower case
+            )
+        )
+        val alreadyRequested = requests.any {
+            it.date == "20-11-2026" &&
+                    it.timeSlot == "9:00 AM - 11:00 AM" &&
+                    !it.status.equals("Rejected", ignoreCase = true)
+        }
+        assertFalse("Should allow resubmission when existing request was rejected (case-insensitive)", alreadyRequested)
     }
 }

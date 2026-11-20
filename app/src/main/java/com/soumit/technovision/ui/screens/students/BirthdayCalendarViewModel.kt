@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.soumit.technovision.util.BillingUtils
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
@@ -31,7 +32,7 @@ object BirthdayUtils {
 
     fun parseDob(dobStr: String): ParsedDate? {
         if (dobStr.isBlank()) return null
-        val clean = dobStr.trim()
+        val clean = BillingUtils.normalizeDigits(dobStr.trim())
 
         // 1. dd/MM/yyyy or dd-MM-yyyy or dd.MM.yyyy
         val dmyRegex = Regex("""^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$""")

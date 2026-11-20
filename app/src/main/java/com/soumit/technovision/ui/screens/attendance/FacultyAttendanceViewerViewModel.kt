@@ -36,7 +36,9 @@ data class FacultyAttendanceViewerUiState(
 
     val teacherSummaries: List<TeacherSummary>
         get() {
-            val byTeacher = verifiedRequests.groupBy { it.teacherName }
+            val byTeacher = verifiedRequests.groupBy {
+                userMap[it.teacherId] ?: userMap[it.teacherName] ?: it.teacherName.ifBlank { "Faculty Member" }
+            }
             return byTeacher.map { (name, list) ->
                 val monthList = list.filter { req ->
                     val parsed = AttendanceUtils.parseRecordDate(req.date)

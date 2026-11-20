@@ -133,7 +133,7 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
         val alreadyRequested = state.requests.any {
             it.date == state.selectedDateStr &&
                     it.timeSlot == state.selectedTimeSlot &&
-                    it.status != "Rejected"
+                    !it.status.equals("Rejected", ignoreCase = true)
         }
 
         if (alreadyRequested) {

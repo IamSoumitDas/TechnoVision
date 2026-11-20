@@ -319,6 +319,21 @@ class FirestoreAttendanceRepository(
     }
 
     private fun parseAttendance(doc: DocumentSnapshot): AttendanceRecordModel {
+        val submittedBy = doc.getString("submittedBy")
+            ?: doc.getString("teacherName")
+            ?: doc.getString("facultyName")
+            ?: doc.getString("takenBy")?.takeIf { !it.contains("@") }
+            ?: ""
+        val submittedByEmail = doc.getString("submittedByEmail")
+            ?: doc.getString("facultyEmail")
+            ?: doc.getString("takenBy")?.takeIf { it.contains("@") }
+            ?: ""
+        val submittedByUid = doc.getString("submittedByUid")
+            ?: doc.getString("teacherId")
+            ?: doc.getString("facultyId")
+            ?: doc.getString("userId")
+            ?: ""
+
         return AttendanceRecordModel(
             id = doc.id,
             date = doc.getString("date") ?: "",
@@ -328,9 +343,9 @@ class FirestoreAttendanceRepository(
             additionalStudentIds = (doc.get("additionalStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             totalPresent = (doc.getLong("totalPresent") ?: 0L).toInt(),
             totalAbsent = (doc.getLong("totalAbsent") ?: 0L).toInt(),
-            submittedBy = doc.getString("submittedBy") ?: "",
-            submittedByUid = doc.getString("submittedByUid") ?: "",
-            submittedByEmail = doc.getString("submittedByEmail") ?: doc.getString("takenBy") ?: "",
+            submittedBy = submittedBy,
+            submittedByUid = submittedByUid,
+            submittedByEmail = submittedByEmail,
             timestamp = doc.getTimestamp("timestamp")
         )
     }

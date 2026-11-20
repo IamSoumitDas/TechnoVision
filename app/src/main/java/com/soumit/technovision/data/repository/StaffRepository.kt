@@ -31,7 +31,10 @@ class FirestoreStaffRepository(
 ) : StaffRepository {
 
     companion object {
-        private val STAFF_ROLES = listOf("owner", "faculty", "receptionist", "Faculty", "Receptionist", "Owner", "admin", "Admin")
+        private val STAFF_ROLES = listOf(
+            "owner", "faculty", "receptionist", "Faculty", "Receptionist", "Owner", "admin", "Admin",
+            "teacher", "Teacher", "staff", "Staff"
+        )
     }
 
     override fun getStaffStream(): Flow<List<StaffModel>> = callbackFlow {

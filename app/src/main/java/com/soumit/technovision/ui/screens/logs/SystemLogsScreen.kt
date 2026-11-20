@@ -492,7 +492,10 @@ fun LogCard(log: LogModel, userMap: Map<String, String>) {
         }
     }
 
-    val displayName = userMap[log.performedBy] ?: log.performedBy
+    val displayName = userMap[log.performedBy]
+        ?: userMap[log.performedBy.lowercase()]
+        ?: userMap[log.performedBy.trim()]
+        ?: log.performedBy
 
     val timeSlotRegex = remember {
         Regex("""(\d{1,2}:\d{2}\s*(?:AM|PM)\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM))""", RegexOption.IGNORE_CASE)

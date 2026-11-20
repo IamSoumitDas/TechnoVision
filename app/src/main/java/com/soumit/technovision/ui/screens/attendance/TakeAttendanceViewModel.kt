@@ -308,7 +308,12 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
         val currentUser = authRepository.currentUser
         val userUid = currentUser?.uid ?: ""
         val userEmail = currentUser?.email ?: ""
-        val resolvedName = state.currentUserName
+        val resolvedName = state.currentUserName.takeIf { it.isNotBlank() && it != "Faculty" }
+            ?: state.userMap[userUid]
+            ?: state.userMap[userEmail]
+            ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
+            ?: currentUser?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+            ?: "Faculty"
 
         val record = AttendanceRecordModel(
             date = state.currentDate,

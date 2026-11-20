@@ -83,10 +83,16 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
             }.catch { e ->
                 _uiState.update { it.copy(isLoading = false, userMessage = "Error: ${e.localizedMessage}") }
             }.collect { (reqs, users) ->
+                val user = authRepository.currentUser
+                val currentAdmin = _uiState.value.currentAdminName
+                val resolvedAdmin = if (currentAdmin == "Admin" && user != null) {
+                    users[user.uid] ?: users[user.email] ?: currentAdmin
+                } else currentAdmin
                 _uiState.update {
                     it.copy(
                         requests = reqs,
                         userMap = users,
+                        currentAdminName = resolvedAdmin,
                         isLoading = false
                     )
                 }

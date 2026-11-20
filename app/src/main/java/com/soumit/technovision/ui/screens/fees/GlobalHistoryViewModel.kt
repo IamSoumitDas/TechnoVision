@@ -41,6 +41,8 @@ data class GlobalHistoryUiState(
                         payment.remarks.contains(searchQuery, ignoreCase = true) ||
                         payment.receivedBy.contains(searchQuery, ignoreCase = true) ||
                         payment.paymentMethod.contains(searchQuery, ignoreCase = true) ||
+                        payment.amountPaid.toString().contains(searchQuery) ||
+                        (student?.fullName?.contains(searchQuery, ignoreCase = true) == true) ||
                         (student?.studentClass?.contains(searchQuery, ignoreCase = true) == true) ||
                         (student?.school?.contains(searchQuery, ignoreCase = true) == true)
                 matchesMethod && matchesQuery
