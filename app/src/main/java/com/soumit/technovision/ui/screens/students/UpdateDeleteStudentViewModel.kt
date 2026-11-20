@@ -169,22 +169,23 @@ class UpdateDeleteStudentViewModel @Inject constructor(
             return
         }
 
+        val cleanPhone = s.phone.replace(Regex("\\s+"), "")
         val studentModel = StudentModel(
             id = studentId,
             fullName = s.fullName.trim(),
-            studentClass = s.selectedClass,
-            school = s.selectedSchool,
-            dob = s.dob,
-            gender = s.selectedGender,
-            admissionDate = s.admissionDate,
+            studentClass = s.selectedClass.trim(),
+            school = s.selectedSchool.trim(),
+            dob = s.dob.trim(),
+            gender = s.selectedGender.trim(),
+            admissionDate = s.admissionDate.trim(),
             fatherName = s.fatherName.trim(),
             motherName = s.motherName.trim(),
             monthlyInstallment = installmentVal,
             weeklySchedule = s.daySchedules,
-            phone = s.phone.trim(),
+            phone = cleanPhone,
             altPhone = s.altPhone.trim(),
-            email = s.email,
-            batchTimeSlot = s.batchTimeSlot,
+            email = s.email.trim(),
+            batchTimeSlot = s.batchTimeSlot.trim(),
             totalPaid = s.totalPaid
         )
 

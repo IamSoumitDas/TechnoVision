@@ -19,7 +19,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
-import java.util.Calendar
+import com.soumit.technovision.util.AttendanceUtils
 
 @Composable
 fun BatchesScreen(
@@ -42,19 +42,8 @@ fun BatchesContent(
     onBack: () -> Unit,
     onViewSelected: (String) -> Unit
 ) {
-    val calendar = Calendar.getInstance()
-    val dayOfWeekIndex = calendar.get(Calendar.DAY_OF_WEEK)
-    val daysArray = arrayOf("", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-    val todayName = if (dayOfWeekIndex in daysArray.indices) daysArray[dayOfWeekIndex] else "Sunday"
-
-    val timeSlots = listOf(
-        "9:00 AM - 11:00 AM",
-        "11:00 AM - 1:00 PM",
-        "1:00 PM - 3:00 PM",
-        "3:00 PM - 5:00 PM",
-        "5:00 PM - 7:00 PM",
-        "7:00 PM - 9:00 PM"
-    )
+    val todayName = AttendanceUtils.getTodayDayName()
+    val timeSlots = AttendanceUtils.BATCH_TIME_SLOTS
 
     val weekDays = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 

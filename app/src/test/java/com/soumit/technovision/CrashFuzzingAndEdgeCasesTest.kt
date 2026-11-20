@@ -629,6 +629,91 @@ class CrashFuzzingAndEdgeCasesTest {
             kotlinx.coroutines.Dispatchers.resetMain()
         }
     }
+
+    @Test
+    fun getSafeLong_handlesVariousTypesSafely() {
+        assertEquals(500L, com.soumit.technovision.util.parseSafeLong(500.0))
+        assertEquals(250L, com.soumit.technovision.util.parseSafeLong(250.5f))
+        assertEquals(1000L, com.soumit.technovision.util.parseSafeLong(1000L))
+        assertEquals(42L, com.soumit.technovision.util.parseSafeLong(42))
+        assertEquals(750L, com.soumit.technovision.util.parseSafeLong("  750  "))
+        assertEquals(0L, com.soumit.technovision.util.parseSafeLong("abc"))
+        assertEquals(99L, com.soumit.technovision.util.parseSafeLong(null, 99L))
+    }
+
+    @Test
+    fun attendanceHistory_unverifiedOrRejectedTeacher_isNotAssociated() = kotlinx.coroutines.test.runTest {
+        val testDispatcher = kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)
+        kotlinx.coroutines.Dispatchers.setMain(testDispatcher)
+        try {
+            val attendanceRepo = object : com.soumit.technovision.data.repository.AttendanceRepository {
+                override fun getAttendanceRecordsStream() = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.AttendanceRecordModel>())
+                override suspend fun getExistingAttendance(date: String, timeSlot: String) = Result.success(null)
+                override suspend fun saveBatchAttendance(record: com.soumit.technovision.data.model.AttendanceRecordModel) = Result.success(Unit)
+                override fun getTeacherAttendanceRequestsStream(teacherId: String?) = kotlinx.coroutines.flow.flowOf(
+                    listOf(
+                        com.soumit.technovision.data.model.TeacherAttendanceRequestModel(
+                            id = "t1",
+                            teacherName = "Rejected Teacher",
+                            date = "20-11-2026",
+                            timeSlot = "9:00 AM - 11:00 AM",
+                            status = "Rejected"
+                        ),
+                        com.soumit.technovision.data.model.TeacherAttendanceRequestModel(
+                            id = "t2",
+                            teacherName = "Pending Teacher",
+                            date = "20-11-2026",
+                            timeSlot = "11:00 AM - 1:00 PM",
+                            status = "Pending"
+                        ),
+                        com.soumit.technovision.data.model.TeacherAttendanceRequestModel(
+                            id = "t3",
+                            teacherName = "Verified Teacher",
+                            date = "20-11-2026",
+                            timeSlot = "1:00 PM - 3:00 PM",
+                            status = "Verified"
+                        )
+                    )
+                )
+                override suspend fun submitTeacherAttendanceRequest(request: com.soumit.technovision.data.model.TeacherAttendanceRequestModel) = Result.success("t_ok")
+                override suspend fun verifyTeacherAttendance(requestId: String, verifiedBy: String) = Result.success(Unit)
+                override suspend fun rejectTeacherAttendance(requestId: String, rejectedBy: String) = Result.success(Unit)
+            }
+
+            val studentRepo = object : com.soumit.technovision.data.repository.StudentRepository {
+                override fun getStudentsStream() = kotlinx.coroutines.flow.flowOf(emptyList<StudentModel>())
+                override suspend fun getStudentsOnce() = Result.success(emptyList<StudentModel>())
+                override fun getStudentStream(studentId: String) = kotlinx.coroutines.flow.flowOf(null)
+                override suspend fun getStudent(studentId: String) = Result.failure<StudentModel>(NoSuchElementException())
+                override suspend fun enrollStudent(student: StudentModel) = Result.success("1")
+                override suspend fun updateStudent(student: StudentModel) = Result.success(Unit)
+                override suspend fun deleteStudent(studentId: String, fullName: String) = Result.success(Unit)
+            }
+
+            val staffRepo = object : com.soumit.technovision.data.repository.StaffRepository {
+                override fun getStaffStream() = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.StaffModel>())
+                override fun getUsersMapStream() = kotlinx.coroutines.flow.flowOf(emptyMap<String, String>())
+                override suspend fun getUsersMap() = Result.success(emptyMap<String, String>())
+                override suspend fun createStaff(fullName: String, email: String, password: String, phone: String, role: String) = Result.success("1")
+                override suspend fun updateStaff(id: String, fullName: String, phone: String, role: String) = Result.success(Unit)
+                override suspend fun deleteStaff(id: String) = Result.success(Unit)
+            }
+
+            val vm = com.soumit.technovision.ui.screens.attendance.AttendanceHistoryViewModel(
+                attendanceRepository = attendanceRepo,
+                studentRepository = studentRepo,
+                staffRepository = staffRepo
+            )
+            testScheduler.advanceUntilIdle()
+
+            val teacherMap = vm.uiState.value.teacherAttendanceMap
+            assertFalse(teacherMap.containsValue("Rejected Teacher"))
+            assertFalse(teacherMap.containsValue("Pending Teacher"))
+            assertTrue(teacherMap.containsValue("Verified Teacher"))
+        } finally {
+            kotlinx.coroutines.Dispatchers.resetMain()
+        }
+    }
 }
 
 

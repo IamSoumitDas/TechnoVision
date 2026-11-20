@@ -59,7 +59,7 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
             ) { records, students, users, teacherRequests ->
                 val sMap = students.associateBy { it.id }
                 val teacherMap = teacherRequests
-                    .filter { it.teacherName.isNotBlank() }
+                    .filter { it.teacherName.isNotBlank() && it.status.equals("Verified", ignoreCase = true) }
                     .associate { req ->
                         val normKey = AttendanceUtils.normalizeSlotKey(req.date, req.timeSlot)
                         normKey to req.teacherName

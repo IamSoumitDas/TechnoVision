@@ -77,6 +77,12 @@ fun AttendanceHistoryContent(
                 resolveTeacherName(record, uiState.userMap, uiState.teacherAttendanceMap).lowercase().contains(q) ||
                 record.presentStudentIds.any { id ->
                     uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
+                } ||
+                record.absentStudentIds.any { id ->
+                    uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
+                } ||
+                record.additionalStudentIds.any { id ->
+                    uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
                 }
             }
         }

@@ -96,11 +96,7 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
 
     suspend fun upsertStudent(student: StudentModel, updatedAt: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         val existing = getStudent(student.id)
-        val finalStudent = if (student.totalPaid == 0L && existing != null && existing.totalPaid > 0L) {
-            student.copy(totalPaid = existing.totalPaid)
-        } else {
-            student
-        }
+        val finalStudent = student.copy(totalPaid = maxOf(student.totalPaid, existing?.totalPaid ?: 0L))
         val entity = StudentEntity(
             id = finalStudent.id,
             fullName = finalStudent.fullName,
@@ -119,11 +115,7 @@ class LocalDatabase private constructor(private val appDb: AppDatabase) {
             if (existing != null) {
                 studentFromJson(existing.dataJson)?.totalPaid?.let { currentTotalPaid = it }
             }
-            val finalStudent = if (student.totalPaid == 0L && currentTotalPaid > 0L) {
-                student.copy(totalPaid = currentTotalPaid)
-            } else {
-                student
-            }
+            val finalStudent = student.copy(totalPaid = maxOf(student.totalPaid, currentTotalPaid))
             StudentEntity(
                 id = finalStudent.id,
                 fullName = finalStudent.fullName,

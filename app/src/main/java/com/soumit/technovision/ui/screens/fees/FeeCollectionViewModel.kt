@@ -228,10 +228,19 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
         _uiState.update { it.copy(isSaving = true) }
 
         viewModelScope.launch {
+            val cleanDateStr = BillingUtils.normalizeDigits(state.paymentDateStr.trim())
             val parsedDate = try {
-                SimpleDateFormat("dd/MM/yyyy", Locale.US).parse(state.paymentDateStr)
+                SimpleDateFormat("dd/MM/yyyy", Locale.US).parse(cleanDateStr)
             } catch (_: Exception) {
-                null
+                try {
+                    SimpleDateFormat("dd-MM-yyyy", Locale.US).parse(cleanDateStr)
+                } catch (_: Exception) {
+                    try {
+                        SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(cleanDateStr)
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
             }
             val dateObj = if (parsedDate != null) {
                 val cal = java.util.Calendar.getInstance().apply {

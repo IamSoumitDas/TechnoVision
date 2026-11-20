@@ -8,6 +8,7 @@ import com.soumit.technovision.TechnoVisionApplication
 import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
 import com.soumit.technovision.data.model.StudentModel
+import com.soumit.technovision.util.getSafeLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -224,12 +225,9 @@ class FirestoreStudentRepository(
             batch.set(firestore.collection("users").document(student.id), mapOf("fullName" to student.fullName.trim(), "phone" to student.phone.trim()), com.google.firebase.firestore.SetOptions.merge())
             batch.commit().await()
 
-            val currentTotalPaid = db?.getStudent(student.id)?.totalPaid ?: student.totalPaid
-            val resolvedStudent = if (student.totalPaid == 0L && currentTotalPaid > 0L) {
-                student.copy(totalPaid = currentTotalPaid)
-            } else {
-                student
-            }
+            val currentTotalPaid = db?.getStudent(student.id)?.totalPaid ?: 0L
+            val actualTotalPaid = maxOf(student.totalPaid, currentTotalPaid)
+            val resolvedStudent = student.copy(totalPaid = actualTotalPaid)
             db?.upsertStudent(resolvedStudent, now.toDate().time)
             _studentsFlow.value = _studentsFlow.value.map {
                 if (it.id == resolvedStudent.id) resolvedStudent else it
@@ -269,13 +267,13 @@ class FirestoreStudentRepository(
             admissionDate = doc.getString("admissionDate") ?: "",
             fatherName = doc.getString("fatherName") ?: "",
             motherName = doc.getString("motherName") ?: "",
-            monthlyInstallment = doc.getLong("monthlyInstallment") ?: 500L,
+            monthlyInstallment = doc.getSafeLong("monthlyInstallment", 500L),
             phone = doc.getString("phone") ?: "",
             altPhone = doc.getString("altPhone") ?: "",
             email = doc.getString("email") ?: "",
             batchTimeSlot = doc.getString("batchTimeSlot") ?: "",
             weeklySchedule = parseWeeklySchedule(doc.get("weeklySchedule")),
-            totalPaid = doc.getLong("totalPaid") ?: 0L
+            totalPaid = doc.getSafeLong("totalPaid", 0L)
         )
     }
 

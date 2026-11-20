@@ -35,8 +35,4 @@ class PortalDashboardViewModel @Inject constructor(
             _uiState.update { it.copy(userName = name, isLoading = false) }
         }
     }
-
-    fun signOut() {
-        authRepository.signOut()
-    }
 }

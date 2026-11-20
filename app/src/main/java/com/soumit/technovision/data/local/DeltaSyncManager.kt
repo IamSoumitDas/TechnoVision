@@ -9,6 +9,7 @@ import com.soumit.technovision.data.model.AttendanceRecordModel
 import com.soumit.technovision.data.model.FeePaymentModel
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
+import com.soumit.technovision.util.getSafeLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -547,13 +548,13 @@ class DeltaSyncManager(
             admissionDate = doc.getString("admissionDate") ?: "",
             fatherName = doc.getString("fatherName") ?: "",
             motherName = doc.getString("motherName") ?: "",
-            monthlyInstallment = doc.getLong("monthlyInstallment") ?: 500L,
+            monthlyInstallment = doc.getSafeLong("monthlyInstallment", 500L),
             phone = doc.getString("phone") ?: "",
             altPhone = doc.getString("altPhone") ?: "",
             email = doc.getString("email") ?: "",
             batchTimeSlot = doc.getString("batchTimeSlot") ?: "",
             weeklySchedule = schedMap,
-            totalPaid = doc.getLong("totalPaid") ?: 0L
+            totalPaid = doc.getSafeLong("totalPaid", 0L)
         )
     }
 
@@ -562,7 +563,7 @@ class DeltaSyncManager(
             id = doc.id,
             studentId = doc.getString("studentId") ?: "",
             studentName = doc.getString("studentName") ?: "",
-            amountPaid = doc.getLong("amountPaid") ?: 0L,
+            amountPaid = doc.getSafeLong("amountPaid", 0L),
             paymentMethod = doc.getString("paymentMethod") ?: "",
             remarks = doc.getString("remarks") ?: "",
             receivedBy = doc.getString("receivedBy") ?: "",
@@ -593,8 +594,8 @@ class DeltaSyncManager(
             presentStudentIds = (doc.get("presentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             absentStudentIds = (doc.get("absentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             additionalStudentIds = (doc.get("additionalStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-            totalPresent = (doc.getLong("totalPresent") ?: 0L).toInt(),
-            totalAbsent = (doc.getLong("totalAbsent") ?: 0L).toInt(),
+            totalPresent = doc.getSafeLong("totalPresent", 0L).toInt(),
+            totalAbsent = doc.getSafeLong("totalAbsent", 0L).toInt(),
             submittedBy = submittedBy,
             submittedByUid = submittedByUid,
             submittedByEmail = submittedByEmail,

@@ -9,6 +9,7 @@ import com.soumit.technovision.TechnoVisionApplication
 import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
 import com.soumit.technovision.data.model.FeePaymentModel
+import com.soumit.technovision.util.getSafeLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -206,7 +207,7 @@ class FirestoreFeeRepository(
             id = doc.id,
             studentId = doc.getString("studentId") ?: "",
             studentName = doc.getString("studentName") ?: "",
-            amountPaid = doc.getLong("amountPaid") ?: 0L,
+            amountPaid = doc.getSafeLong("amountPaid", 0L),
             paymentMethod = doc.getString("paymentMethod") ?: "",
             remarks = doc.getString("remarks") ?: "",
             receivedBy = doc.getString("receivedBy") ?: "",
@@ -225,7 +226,7 @@ class FirestoreFeeRepository(
             for (doc in paymentsSnapshot.documents) {
                 if (doc.getBoolean("isDeleted") == true) continue
                 val sId = doc.getString("studentId") ?: continue
-                val amt = doc.getLong("amountPaid") ?: 0L
+                val amt = doc.getSafeLong("amountPaid", 0L)
                 studentSums[sId] = (studentSums[sId] ?: 0L) + amt
             }
 
@@ -237,23 +238,33 @@ class FirestoreFeeRepository(
 
             val batches = mutableListOf(firestore.batch())
             var operationCount = 0
+            val now = Timestamp.now()
 
             for (doc in studentsSnapshot.documents) {
                 if (doc.getBoolean("isDeleted") == true) continue
                 val correctTotal = studentSums[doc.id] ?: 0L
-                val currentTotal = doc.getLong("totalPaid")
-                if (currentTotal == null || currentTotal != correctTotal) {
+                val currentTotal = doc.getSafeLong("totalPaid", 0L)
+                val hasTotalPaidField = doc.contains("totalPaid")
+                if (!hasTotalPaidField || currentTotal != correctTotal) {
                     if (operationCount >= 450) {
                         batches.add(firestore.batch())
                         operationCount = 0
                     }
-                    batches.last().update(doc.reference, "totalPaid", correctTotal)
+                    batches.last().update(doc.reference, mapOf("totalPaid" to correctTotal, "updatedAt" to now))
                     operationCount++
+
+                    // Also immediately update local Room database
+                    val studentInLocal = db?.getStudent(doc.id)
+                    if (studentInLocal != null) {
+                        db?.upsertStudent(studentInLocal.copy(totalPaid = correctTotal), now.toDate().time)
+                    }
                 }
             }
 
-            for (b in batches) {
-                b.commit().await()
+            if (operationCount > 0 || batches.size > 1) {
+                for (b in batches) {
+                    b.commit().await()
+                }
             }
             db?.setMigrationDone("sync_total_paid")
             Result.success(Unit)

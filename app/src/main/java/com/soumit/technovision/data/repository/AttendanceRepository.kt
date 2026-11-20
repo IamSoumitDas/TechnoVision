@@ -9,6 +9,7 @@ import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
 import com.soumit.technovision.data.model.AttendanceRecordModel
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
+import com.soumit.technovision.util.getSafeLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -341,8 +342,8 @@ class FirestoreAttendanceRepository(
             presentStudentIds = (doc.get("presentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             absentStudentIds = (doc.get("absentStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             additionalStudentIds = (doc.get("additionalStudentIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-            totalPresent = (doc.getLong("totalPresent") ?: 0L).toInt(),
-            totalAbsent = (doc.getLong("totalAbsent") ?: 0L).toInt(),
+            totalPresent = doc.getSafeLong("totalPresent", 0L).toInt(),
+            totalAbsent = doc.getSafeLong("totalAbsent", 0L).toInt(),
             submittedBy = submittedBy,
             submittedByUid = submittedByUid,
             submittedByEmail = submittedByEmail,
