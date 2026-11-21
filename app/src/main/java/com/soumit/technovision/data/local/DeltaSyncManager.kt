@@ -573,18 +573,28 @@ class DeltaSyncManager(
 
     private fun parseAttendance(doc: DocumentSnapshot): AttendanceRecordModel {
         val submittedBy = doc.getString("submittedBy")
+            ?: doc.getString("submittedByName")
             ?: doc.getString("teacherName")
             ?: doc.getString("facultyName")
+            ?: doc.getString("staffName")
+            ?: doc.getString("userName")
+            ?: doc.getString("recordedBy")
+            ?: doc.getString("createdBy")
             ?: doc.getString("takenBy")?.takeIf { !it.contains("@") }
             ?: ""
         val submittedByEmail = doc.getString("submittedByEmail")
             ?: doc.getString("facultyEmail")
+            ?: doc.getString("teacherEmail")
+            ?: doc.getString("email")
+            ?: doc.getString("userEmail")
             ?: doc.getString("takenBy")?.takeIf { it.contains("@") }
             ?: ""
         val submittedByUid = doc.getString("submittedByUid")
             ?: doc.getString("teacherId")
             ?: doc.getString("facultyId")
             ?: doc.getString("userId")
+            ?: doc.getString("uid")
+            ?: doc.getString("staffId")
             ?: ""
 
         return AttendanceRecordModel(

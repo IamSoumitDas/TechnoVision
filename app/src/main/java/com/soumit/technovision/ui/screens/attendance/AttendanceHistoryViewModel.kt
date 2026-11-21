@@ -58,13 +58,47 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
                 attendanceRepository.getTeacherAttendanceRequestsStream(teacherId = null)
             ) { records, students, users, teacherRequests ->
                 val sMap = students.associateBy { it.id }
-                val teacherMap = teacherRequests
-                    .filter { it.teacherName.isNotBlank() && it.status.equals("Verified", ignoreCase = true) }
-                    .associate { req ->
-                        val normKey = AttendanceUtils.normalizeSlotKey(req.date, req.timeSlot)
-                        normKey to req.teacherName
+
+                // 1. Augment userMap with teacherId -> teacherName from verified teacher attendance requests
+                val augmentedUserMap = users.toMutableMap()
+                teacherRequests
+                    .filter { it.status.equals("Verified", ignoreCase = true) && !AttendanceUtils.isPlaceholderName(it.teacherName) }
+                    .forEach { req ->
+                        val tId = req.teacherId.trim()
+                        val tName = req.teacherName.trim()
+                        if (tId.isNotBlank() && tName.isNotBlank()) {
+                            augmentedUserMap.putIfAbsent(tId, tName)
+                        }
                     }
-                AttendanceData(records, sMap, users, teacherMap)
+
+                // 2. Build teacherAttendanceMap for (date, slot) -> teacherName from verified requests
+                val teacherMap = mutableMapOf<String, String>()
+                val verifiedRequests = teacherRequests
+                    .filter {
+                        it.teacherName.isNotBlank() &&
+                        it.status.equals("Verified", ignoreCase = true) &&
+                        !AttendanceUtils.isPlaceholderName(it.teacherName)
+                    }
+
+                for (req in verifiedRequests) {
+                    val normKey = AttendanceUtils.normalizeSlotKey(req.date, req.timeSlot)
+                    val rawKey = "${req.date}_${req.timeSlot}"
+                    val cleanDate = req.date.trim().replace('/', '-')
+                    val cleanSlot = req.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+                    val legacyKey = "${cleanDate}_${cleanSlot}"
+
+                    teacherMap[normKey] = req.teacherName
+                    teacherMap[rawKey] = req.teacherName
+                    teacherMap[legacyKey] = req.teacherName
+
+                    AttendanceUtils.parseRecordDate(req.date)?.let { parsed ->
+                        val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                        val canonicalKey = AttendanceUtils.normalizeSlotKey(canonicalDate, req.timeSlot)
+                        teacherMap[canonicalKey] = req.teacherName
+                    }
+                }
+
+                AttendanceData(records, sMap, augmentedUserMap, teacherMap)
             }.catch { e ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage) }
             }.collect { data ->

@@ -33,7 +33,8 @@ class FirestoreStaffRepository(
     companion object {
         private val STAFF_ROLES = listOf(
             "owner", "faculty", "receptionist", "Faculty", "Receptionist", "Owner", "admin", "Admin",
-            "teacher", "Teacher", "staff", "Staff"
+            "teacher", "Teacher", "staff", "Staff", "FACULTY", "TEACHER", "ADMIN", "OWNER",
+            "faculty member", "Faculty Member", "instructor", "Instructor"
         )
     }
 
@@ -85,6 +86,8 @@ class FirestoreStaffRepository(
                             map[email.lowercase()] = fullName
                         }
                         map[uid] = fullName
+                        doc.getString("uid")?.takeIf { it.isNotBlank() }?.let { map[it] = fullName }
+                        doc.getString("userId")?.takeIf { it.isNotBlank() }?.let { map[it] = fullName }
                     }
                     trySend(map)
                 }
@@ -124,6 +127,8 @@ class FirestoreStaffRepository(
                     map[email.lowercase()] = fullName
                 }
                 map[uid] = fullName
+                doc.getString("uid")?.takeIf { it.isNotBlank() }?.let { map[it] = fullName }
+                doc.getString("userId")?.takeIf { it.isNotBlank() }?.let { map[it] = fullName }
             }
             Result.success(map)
         } catch (e: Exception) {

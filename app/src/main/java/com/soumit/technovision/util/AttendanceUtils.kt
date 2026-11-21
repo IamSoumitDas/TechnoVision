@@ -160,9 +160,47 @@ object AttendanceUtils {
         }
     }
 
+    fun isPlaceholderName(name: String?): Boolean {
+        if (name.isNullOrBlank()) return true
+        val lower = name.trim().lowercase()
+        return lower in listOf(
+            "faculty", "teacher", "unknown", "unknown faculty", "unknown teacher",
+            "admin", "administrator", "staff", "user", "null", "none", "n/a", "another user"
+        )
+    }
+
+    fun formatEmailPrefixToName(emailOrPrefix: String): String {
+        val prefix = if (emailOrPrefix.contains("@")) emailOrPrefix.substringBefore("@") else emailOrPrefix
+        if (isPlaceholderName(prefix)) return ""
+        return prefix
+            .replace(".", " ")
+            .replace("_", " ")
+            .replace("-", " ")
+            .split(" ")
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+    }
+
+    fun normalizeDate(dateStr: String): String {
+        val parsed = parseRecordDate(dateStr)
+        return if (parsed != null) {
+            String.format(Locale.US, "%02d-%02d-%04d", parsed.third, parsed.second + 1, parsed.first)
+        } else {
+            dateStr.trim().replace('/', '-')
+        }
+    }
+
+    fun normalizeTimeSlot(timeSlot: String): String {
+        var slot = timeSlot.replace('–', '-').replace('—', '-')
+        slot = slot.replace(Regex("\\s*-\\s*"), " - ")
+        slot = slot.replace(Regex("(?i)(\\d)(am|pm)"), "$1 $2")
+        slot = slot.replace(Regex("(^|\\s)0(\\d:)"), "$1$2")
+        return slot.replace(Regex("\\s+"), " ").trim().lowercase()
+    }
+
     fun normalizeSlotKey(date: String, timeSlot: String): String {
-        val cleanDate = date.trim().replace('/', '-')
-        val cleanSlot = timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+        val cleanDate = normalizeDate(date)
+        val cleanSlot = normalizeTimeSlot(timeSlot)
         return "${cleanDate}_${cleanSlot}"
     }
 
@@ -175,13 +213,15 @@ object AttendanceUtils {
         if (teacherAttendanceMap.isNotEmpty()) {
             val normKey = normalizeSlotKey(record.date, record.timeSlot)
             val rawKey = "${record.date}_${record.timeSlot}"
-            val fromTeacherAttendance = teacherAttendanceMap[normKey] ?: teacherAttendanceMap[rawKey]
-            if (!fromTeacherAttendance.isNullOrBlank() &&
-                !fromTeacherAttendance.equals("Faculty", ignoreCase = true) &&
-                !fromTeacherAttendance.equals("Teacher", ignoreCase = true) &&
-                !fromTeacherAttendance.equals("Unknown", ignoreCase = true) &&
-                !fromTeacherAttendance.equals("Unknown Faculty", ignoreCase = true)
-            ) {
+            val rawCleanDate = record.date.trim().replace('/', '-')
+            val rawCleanSlot = record.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+            val legacyKey = "${rawCleanDate}_${rawCleanSlot}"
+
+            val fromTeacherAttendance = teacherAttendanceMap[normKey]
+                ?: teacherAttendanceMap[legacyKey]
+                ?: teacherAttendanceMap[rawKey]
+
+            if (!fromTeacherAttendance.isNullOrBlank() && !isPlaceholderName(fromTeacherAttendance)) {
                 return fromTeacherAttendance
             }
         }
@@ -190,78 +230,59 @@ object AttendanceUtils {
         val uid = record.submittedByUid.trim()
         if (uid.isNotBlank() && userMap.containsKey(uid)) {
             val name = userMap[uid]
-            if (!name.isNullOrBlank()) return name
+            if (!name.isNullOrBlank() && !isPlaceholderName(name)) return name
         }
 
         // 3. Direct match in userMap by Email
         val email = record.submittedByEmail.trim()
         if (email.isNotBlank()) {
             val mapped = userMap[email] ?: userMap[email.lowercase()]
-            if (!mapped.isNullOrBlank()) return mapped
+            if (!mapped.isNullOrBlank() && !isPlaceholderName(mapped)) return mapped
         }
 
         // 4. Check if submittedBy itself is an email or UID in userMap
         val submitted = record.submittedBy.trim()
         if (submitted.isNotBlank()) {
             val mapped = userMap[submitted] ?: userMap[submitted.lowercase()]
-            if (!mapped.isNullOrBlank()) return mapped
+            if (!mapped.isNullOrBlank() && !isPlaceholderName(mapped)) return mapped
         }
 
         // 5. Check if submittedBy on the record is already an authentic teacher name
         if (submitted.isNotBlank() &&
-            !submitted.equals("Faculty", ignoreCase = true) &&
-            !submitted.equals("Teacher", ignoreCase = true) &&
-            !submitted.equals("Unknown", ignoreCase = true) &&
-            !submitted.equals("Unknown Faculty", ignoreCase = true) &&
+            !isPlaceholderName(submitted) &&
             !submitted.contains("@") &&
-            submitted.length < 35
+            submitted.length < 40
         ) {
             return submitted
         }
 
         // 6. Check if submittedByEmail was actually a name (e.g. legacy takenBy mapped to submittedByEmail)
         if (email.isNotBlank() &&
+            !isPlaceholderName(email) &&
             !email.contains("@") &&
-            !email.equals("Faculty", ignoreCase = true) &&
-            !email.equals("Teacher", ignoreCase = true) &&
-            !email.equals("Unknown", ignoreCase = true) &&
-            !email.equals("Unknown Faculty", ignoreCase = true) &&
-            email.length < 35
+            email.length < 40
         ) {
             return email
         }
 
         // 7. Format name from submittedBy if it's an email address
         if (submitted.contains("@")) {
-            val prefix = submitted.substringBefore("@")
-            if (!prefix.equals("faculty", ignoreCase = true) && !prefix.equals("teacher", ignoreCase = true)) {
-                return prefix
-                    .replace(".", " ")
-                    .replace("_", " ")
-                    .split(" ")
-                    .filter { it.isNotBlank() }
-                    .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            val formatted = formatEmailPrefixToName(submitted)
+            if (formatted.isNotBlank() && !isPlaceholderName(formatted)) {
+                return formatted
             }
         }
 
         // 8. Format name from submittedByEmail if it's an email address
         if (email.contains("@")) {
-            val prefix = email.substringBefore("@")
-            if (!prefix.equals("faculty", ignoreCase = true) && !prefix.equals("teacher", ignoreCase = true)) {
-                return prefix
-                    .replace(".", " ")
-                    .replace("_", " ")
-                    .split(" ")
-                    .filter { it.isNotBlank() }
-                    .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            val formatted = formatEmailPrefixToName(email)
+            if (formatted.isNotBlank() && !isPlaceholderName(formatted)) {
+                return formatted
             }
         }
 
-        // 9. If submittedBy is not blank and not a generic "Unknown" placeholder
-        if (submitted.isNotBlank() &&
-            !submitted.equals("Unknown", ignoreCase = true) &&
-            !submitted.equals("Unknown Faculty", ignoreCase = true)
-        ) {
+        // 9. If submittedBy is not blank and not a generic placeholder
+        if (submitted.isNotBlank() && !isPlaceholderName(submitted)) {
             return submitted
         }
 

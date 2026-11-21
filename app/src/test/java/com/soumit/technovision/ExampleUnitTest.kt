@@ -122,6 +122,33 @@ class ExampleUnitTest {
         )
         val resolved6 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record6, emptyMap(), teacherAttendanceMap)
         assertEquals("Soumit Das", resolved6)
+
+        // Case 7: ISO date format YYYY-MM-DD matches normalized teacherAttendanceMap
+        val record7 = com.soumit.technovision.data.model.AttendanceRecordModel(
+            date = "2026-11-15",
+            timeSlot = "9:00 AM - 11:00 AM",
+            submittedBy = "Faculty"
+        )
+        val resolved7 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record7, emptyMap(), teacherAttendanceMap)
+        assertEquals("Soumit Das", resolved7)
+
+        // Case 8: Time slot with leading zero (09:00 AM - 11:00 AM) and en-dash matches normalized slot
+        val record8 = com.soumit.technovision.data.model.AttendanceRecordModel(
+            date = "15-11-2026",
+            timeSlot = "09:00 AM – 11:00 AM",
+            submittedBy = "Faculty"
+        )
+        val resolved8 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record8, emptyMap(), teacherAttendanceMap)
+        assertEquals("Soumit Das", resolved8)
+
+        // Case 9: Record with placeholder "Faculty" and no matches returns "Unknown Faculty" instead of "Faculty"
+        val record9 = com.soumit.technovision.data.model.AttendanceRecordModel(
+            date = "15-11-2026",
+            timeSlot = "9:00 AM - 11:00 AM",
+            submittedBy = "Faculty"
+        )
+        val resolved9 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record9, emptyMap(), emptyMap())
+        assertEquals("Unknown Faculty", resolved9)
     }
 
     @Test

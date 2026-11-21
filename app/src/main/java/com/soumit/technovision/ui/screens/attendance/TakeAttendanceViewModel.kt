@@ -97,12 +97,22 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
     private fun loadUsers() {
         viewModelScope.launch {
+            // Pre-load current user's display name from auth / user profile immediately
+            val currentNameRes = authRepository.getCurrentUserName()
+            if (currentNameRes.isSuccess) {
+                val name = currentNameRes.getOrNull()
+                if (!name.isNullOrBlank() && !AttendanceUtils.isPlaceholderName(name)) {
+                    _uiState.update { it.copy(currentUserName = name) }
+                }
+            }
+
             staffRepository.getUsersMapStream().collect { map ->
                 val currentUser = authRepository.currentUser
-                val resolvedName = map[currentUser?.uid]
-                    ?: map[currentUser?.email]
-                    ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
-                    ?: currentUser?.email?.substringBefore("@")
+                val resolvedName = map[currentUser?.uid]?.takeIf { !AttendanceUtils.isPlaceholderName(it) }
+                    ?: map[currentUser?.email]?.takeIf { !AttendanceUtils.isPlaceholderName(it) }
+                    ?: _uiState.value.currentUserName.takeIf { !AttendanceUtils.isPlaceholderName(it) }
+                    ?: currentUser?.displayName?.takeIf { it.isNotBlank() && !AttendanceUtils.isPlaceholderName(it) }
+                    ?: currentUser?.email?.let { AttendanceUtils.formatEmailPrefixToName(it) }?.takeIf { it.isNotBlank() }
                     ?: "Faculty"
 
                 _uiState.update {
@@ -308,11 +318,13 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
         val currentUser = authRepository.currentUser
         val userUid = currentUser?.uid ?: ""
         val userEmail = currentUser?.email ?: ""
-        val resolvedName = state.currentUserName.takeIf { it.isNotBlank() && it != "Faculty" }
-            ?: state.userMap[userUid]
-            ?: state.userMap[userEmail]
-            ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
-            ?: currentUser?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+        val formattedEmailName = currentUser?.email?.let { AttendanceUtils.formatEmailPrefixToName(it) }?.takeIf { it.isNotBlank() }
+
+        val resolvedName = state.currentUserName.takeIf { it.isNotBlank() && !AttendanceUtils.isPlaceholderName(it) }
+            ?: state.userMap[userUid]?.takeIf { !AttendanceUtils.isPlaceholderName(it) }
+            ?: state.userMap[userEmail]?.takeIf { !AttendanceUtils.isPlaceholderName(it) }
+            ?: currentUser?.displayName?.takeIf { it.isNotBlank() && !AttendanceUtils.isPlaceholderName(it) }
+            ?: formattedEmailName
             ?: "Faculty"
 
         val record = AttendanceRecordModel(
