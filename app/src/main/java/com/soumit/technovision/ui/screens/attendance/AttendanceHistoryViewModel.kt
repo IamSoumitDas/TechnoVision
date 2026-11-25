@@ -21,6 +21,7 @@ data class AttendanceHistoryUiState(
     val studentsMap: Map<String, StudentModel> = emptyMap(),
     val userMap: Map<String, String> = emptyMap(),
     val teacherAttendanceMap: Map<String, String> = emptyMap(),
+    val fallbackTeacherMap: Map<String, String> = emptyMap(),
     val searchQuery: String = "",
     val isLoading: Boolean = true,
     val selectedRecord: AttendanceRecordModel? = null,
@@ -32,14 +33,16 @@ private data class AttendanceData(
     val records: List<AttendanceRecordModel>,
     val studentsMap: Map<String, StudentModel>,
     val userMap: Map<String, String>,
-    val teacherAttendanceMap: Map<String, String>
+    val teacherAttendanceMap: Map<String, String>,
+    val fallbackTeacherMap: Map<String, String>
 )
 
 @dagger.hilt.android.lifecycle.HiltViewModel
 class AttendanceHistoryViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val studentRepository: StudentRepository,
-    private val staffRepository: StaffRepository
+    private val staffRepository: StaffRepository,
+    private val auditLogRepository: com.soumit.technovision.data.repository.AuditLogRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AttendanceHistoryUiState())
@@ -50,55 +53,122 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
     }
 
     private fun observeData() {
+        val logsFlow = auditLogRepository?.getLogsStream() ?: kotlinx.coroutines.flow.flowOf(emptyList())
+
         viewModelScope.launch {
             combine(
                 attendanceRepository.getAttendanceRecordsStream(),
                 studentRepository.getStudentsStream(),
                 staffRepository.getUsersMapStream(),
-                attendanceRepository.getTeacherAttendanceRequestsStream(teacherId = null)
-            ) { records, students, users, teacherRequests ->
+                attendanceRepository.getTeacherAttendanceRequestsStream(teacherId = null),
+                logsFlow
+            ) { records, students, users, teacherRequests, logs ->
                 val sMap = students.associateBy { it.id }
 
-                // 1. Augment userMap with teacherId -> teacherName from verified teacher attendance requests
+                // 1. Augment userMap with teacherId -> teacherName from teacher attendance requests
                 val augmentedUserMap = users.toMutableMap()
                 teacherRequests
-                    .filter { it.status.equals("Verified", ignoreCase = true) && !AttendanceUtils.isPlaceholderName(it.teacherName) }
+                    .filter { !it.status.equals("Rejected", ignoreCase = true) }
                     .forEach { req ->
                         val tId = req.teacherId.trim()
                         val tName = req.teacherName.trim()
-                        if (tId.isNotBlank() && tName.isNotBlank()) {
+                        if (tId.isNotBlank() && tName.isNotBlank() && !AttendanceUtils.isPlaceholderName(tName)) {
                             augmentedUserMap.putIfAbsent(tId, tName)
                         }
                     }
 
-                // 2. Build teacherAttendanceMap for (date, slot) -> teacherName from verified requests
+                // 2. Build teacherAttendanceMap for (date, slot) -> teacherName from strictly verified requests
                 val teacherMap = mutableMapOf<String, String>()
                 val verifiedRequests = teacherRequests
                     .filter {
-                        it.teacherName.isNotBlank() &&
-                        it.status.equals("Verified", ignoreCase = true) &&
-                        !AttendanceUtils.isPlaceholderName(it.teacherName)
+                        it.status.equals("Verified", ignoreCase = true)
                     }
 
                 for (req in verifiedRequests) {
-                    val normKey = AttendanceUtils.normalizeSlotKey(req.date, req.timeSlot)
-                    val rawKey = "${req.date}_${req.timeSlot}"
-                    val cleanDate = req.date.trim().replace('/', '-')
-                    val cleanSlot = req.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
-                    val legacyKey = "${cleanDate}_${cleanSlot}"
+                    val resolvedTeacherName = req.teacherName.takeIf { name -> name.isNotBlank() && !AttendanceUtils.isPlaceholderName(name) }
+                        ?: augmentedUserMap[req.teacherId]
+                        ?: augmentedUserMap[req.teacherId.lowercase()]
+                        ?: ""
 
-                    teacherMap[normKey] = req.teacherName
-                    teacherMap[rawKey] = req.teacherName
-                    teacherMap[legacyKey] = req.teacherName
+                    if (resolvedTeacherName.isNotBlank()) {
+                        val normKey = AttendanceUtils.normalizeSlotKey(req.date, req.timeSlot)
+                        val rawKey = "${req.date}_${req.timeSlot}"
+                        val cleanDate = req.date.trim().replace('/', '-')
+                        val cleanSlot = req.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+                        val legacyKey = "${cleanDate}_${cleanSlot}"
 
-                    AttendanceUtils.parseRecordDate(req.date)?.let { parsed ->
-                        val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
-                        val canonicalKey = AttendanceUtils.normalizeSlotKey(canonicalDate, req.timeSlot)
-                        teacherMap[canonicalKey] = req.teacherName
+                        teacherMap[normKey] = resolvedTeacherName
+                        teacherMap[rawKey] = resolvedTeacherName
+                        teacherMap[legacyKey] = resolvedTeacherName
+
+                        AttendanceUtils.parseRecordDate(req.date)?.let { parsed ->
+                            val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                            val canonicalKey = AttendanceUtils.normalizeSlotKey(canonicalDate, req.timeSlot)
+                            teacherMap[canonicalKey] = resolvedTeacherName
+                        }
                     }
                 }
 
-                AttendanceData(records, sMap, augmentedUserMap, teacherMap)
+                // 3. Build fallbackTeacherMap for (date, slot) -> teacherName from:
+                // a) Audit logs in system_logs ("Batch Attendance Saved")
+                // b) Pending teacher attendance requests in teacher_attendance
+                val fallbackMap = mutableMapOf<String, String>()
+
+                // Audit logs from system_logs
+                logs.filter { it.action.contains("Attendance", ignoreCase = true) }.forEach { log ->
+                    val pair = AttendanceUtils.extractDateAndSlotFromLog(log.details)
+                    if (pair != null) {
+                        val (logDate, logSlot) = pair
+                        val performer = log.performedBy.trim()
+                        val name = augmentedUserMap[performer]
+                            ?: augmentedUserMap[performer.lowercase()]
+                            ?: (if (performer.contains("@")) AttendanceUtils.formatEmailPrefixToName(performer) else performer)
+
+                        if (name.isNotBlank() && !AttendanceUtils.isPlaceholderName(name)) {
+                            val normKey = AttendanceUtils.normalizeSlotKey(logDate, logSlot)
+                            val rawKey = "${logDate}_${logSlot}"
+                            fallbackMap[normKey] = name
+                            fallbackMap[rawKey] = name
+                            AttendanceUtils.parseRecordDate(logDate)?.let { parsed ->
+                                val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                                fallbackMap[AttendanceUtils.normalizeSlotKey(canonicalDate, logSlot)] = name
+                            }
+                        }
+                    }
+                }
+
+                // Pending requests take priority over system logs
+                teacherRequests
+                    .filter {
+                        !it.status.equals("Rejected", ignoreCase = true) &&
+                        !it.status.equals("Verified", ignoreCase = true)
+                    }
+                    .forEach { req ->
+                        val resolvedTeacherName = req.teacherName.takeIf { name -> name.isNotBlank() && !AttendanceUtils.isPlaceholderName(name) }
+                            ?: augmentedUserMap[req.teacherId]
+                            ?: augmentedUserMap[req.teacherId.lowercase()]
+                            ?: ""
+
+                        if (resolvedTeacherName.isNotBlank()) {
+                            val normKey = AttendanceUtils.normalizeSlotKey(req.date, req.timeSlot)
+                            val rawKey = "${req.date}_${req.timeSlot}"
+                            val cleanDate = req.date.trim().replace('/', '-')
+                            val cleanSlot = req.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+                            val legacyKey = "${cleanDate}_${cleanSlot}"
+
+                            fallbackMap[normKey] = resolvedTeacherName
+                            fallbackMap[rawKey] = resolvedTeacherName
+                            fallbackMap[legacyKey] = resolvedTeacherName
+
+                            AttendanceUtils.parseRecordDate(req.date)?.let { parsed ->
+                                val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                                val canonicalKey = AttendanceUtils.normalizeSlotKey(canonicalDate, req.timeSlot)
+                                fallbackMap[canonicalKey] = resolvedTeacherName
+                            }
+                        }
+                    }
+
+                AttendanceData(records, sMap, augmentedUserMap, teacherMap, fallbackMap)
             }.catch { e ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage) }
             }.collect { data ->
@@ -108,6 +178,7 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
                         studentsMap = data.studentsMap,
                         userMap = data.userMap,
                         teacherAttendanceMap = data.teacherAttendanceMap,
+                        fallbackTeacherMap = data.fallbackTeacherMap,
                         isLoading = false
                     )
                 }

@@ -66,7 +66,6 @@ class FirestoreStaffRepository(
 
     private val sharedUsersMapStream: Flow<Map<String, String>> = callbackFlow<Map<String, String>> {
         val subscription = firestore.collection("users")
-            .whereIn("role", STAFF_ROLES)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -105,12 +104,10 @@ class FirestoreStaffRepository(
         return try {
             val snapshot = try {
                 firestore.collection("users")
-                    .whereIn("role", STAFF_ROLES)
                     .get(com.google.firebase.firestore.Source.CACHE)
                     .await()
             } catch (_: Exception) {
                 firestore.collection("users")
-                    .whereIn("role", STAFF_ROLES)
                     .get()
                     .await()
             }

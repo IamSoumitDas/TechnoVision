@@ -204,12 +204,26 @@ object AttendanceUtils {
         return "${cleanDate}_${cleanSlot}"
     }
 
+    fun extractDateAndSlotFromLog(details: String): Pair<String, String>? {
+        if (details.isBlank()) return null
+        val m1 = Regex("""(?i)attendance for\s+([0-9\-/]+)\s*\[([^]]+)\]""").find(details)
+        if (m1 != null) {
+            return Pair(m1.groupValues[1].trim(), m1.groupValues[2].trim())
+        }
+        val m2 = Regex("""(?i)request for\s*\[([^]]+)\]\s+on\s+([0-9\-/]+)""").find(details)
+        if (m2 != null) {
+            return Pair(m2.groupValues[2].trim(), m2.groupValues[1].trim())
+        }
+        return null
+    }
+
     fun resolveTeacherName(
         record: AttendanceRecordModel,
         userMap: Map<String, String>,
-        teacherAttendanceMap: Map<String, String> = emptyMap()
+        teacherAttendanceMap: Map<String, String> = emptyMap(),
+        fallbackTeacherMap: Map<String, String> = emptyMap()
     ): String {
-        // 1. Direct match from teacher attendance collection (by date & time slot)
+        // 1. Direct match from teacher attendance collection (by date & time slot or document ID)
         if (teacherAttendanceMap.isNotEmpty()) {
             val normKey = normalizeSlotKey(record.date, record.timeSlot)
             val rawKey = "${record.date}_${record.timeSlot}"
@@ -220,6 +234,7 @@ object AttendanceUtils {
             val fromTeacherAttendance = teacherAttendanceMap[normKey]
                 ?: teacherAttendanceMap[legacyKey]
                 ?: teacherAttendanceMap[rawKey]
+                ?: (if (record.id.isNotBlank()) teacherAttendanceMap[record.id] else null)
 
             if (!fromTeacherAttendance.isNullOrBlank() && !isPlaceholderName(fromTeacherAttendance)) {
                 return fromTeacherAttendance
@@ -284,6 +299,38 @@ object AttendanceUtils {
         // 9. If submittedBy is not blank and not a generic placeholder
         if (submitted.isNotBlank() && !isPlaceholderName(submitted)) {
             return submitted
+        }
+
+        // 10. If submittedByUid or submitted is non-blank, check userMap by prefix/lowercase
+        if (uid.isNotBlank()) {
+            userMap[uid.lowercase()]?.takeIf { !isPlaceholderName(it) }?.let { return it }
+        }
+
+        // 11. Fallback match from pending teacher attendance requests or system audit logs
+        if (fallbackTeacherMap.isNotEmpty()) {
+            val normKey = normalizeSlotKey(record.date, record.timeSlot)
+            val rawKey = "${record.date}_${record.timeSlot}"
+            val rawCleanDate = record.date.trim().replace('/', '-')
+            val rawCleanSlot = record.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+            val legacyKey = "${rawCleanDate}_${rawCleanSlot}"
+
+            val fromFallback = fallbackTeacherMap[normKey]
+                ?: fallbackTeacherMap[legacyKey]
+                ?: fallbackTeacherMap[rawKey]
+                ?: (if (record.id.isNotBlank()) fallbackTeacherMap[record.id] else null)
+
+            if (!fromFallback.isNullOrBlank() && !isPlaceholderName(fromFallback)) {
+                return fromFallback
+            }
+
+            parseRecordDate(record.date)?.let { parsed ->
+                val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                val canonicalKey = normalizeSlotKey(canonicalDate, record.timeSlot)
+                val canonicalMatch = fallbackTeacherMap[canonicalKey]
+                if (!canonicalMatch.isNullOrBlank() && !isPlaceholderName(canonicalMatch)) {
+                    return canonicalMatch
+                }
+            }
         }
 
         return "Unknown Faculty"

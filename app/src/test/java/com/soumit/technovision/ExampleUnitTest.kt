@@ -149,6 +149,34 @@ class ExampleUnitTest {
         )
         val resolved9 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(record9, emptyMap(), emptyMap())
         assertEquals("Unknown Faculty", resolved9)
+
+        // Case 10: Historical record with no submittedBy and unverified teacherAttendanceMap falls back to fallbackTeacherMap
+        val record10 = com.soumit.technovision.data.model.AttendanceRecordModel(
+            id = "24-11-2026_5_00_PM___7_00_PM",
+            date = "24-11-2026",
+            timeSlot = "5:00 PM - 7:00 PM"
+        )
+        val fallbackMap = mapOf(
+            "24-11-2026_5:00 pm - 7:00 pm" to "Rinki Das"
+        )
+        val resolved10 = com.soumit.technovision.ui.screens.attendance.resolveTeacherName(
+            record = record10,
+            userMap = emptyMap(),
+            teacherAttendanceMap = emptyMap(),
+            fallbackTeacherMap = fallbackMap
+        )
+        assertEquals("Rinki Das", resolved10)
+    }
+
+    @Test
+    fun extractDateAndSlotFromLog_parsesCorrectly() {
+        val log1 = "Recorded attendance for 24-11-2026 [5:00 PM - 7:00 PM]. Present: 12, Absent: 14"
+        val parsed1 = com.soumit.technovision.util.AttendanceUtils.extractDateAndSlotFromLog(log1)
+        assertEquals(Pair("24-11-2026", "5:00 PM - 7:00 PM"), parsed1)
+
+        val log2 = "Submitted verification request for [9:00 AM - 11:00 AM] on 15/11/2026 (Teacher: Soumit Das)"
+        val parsed2 = com.soumit.technovision.util.AttendanceUtils.extractDateAndSlotFromLog(log2)
+        assertEquals(Pair("15/11/2026", "9:00 AM - 11:00 AM"), parsed2)
     }
 
     @Test

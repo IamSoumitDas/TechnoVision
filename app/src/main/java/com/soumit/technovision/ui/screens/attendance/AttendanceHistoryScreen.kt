@@ -38,8 +38,9 @@ private fun formatDateHeading(dateStr: String): String = AttendanceUtils.formatD
 internal fun resolveTeacherName(
     record: AttendanceRecordModel,
     userMap: Map<String, String>,
-    teacherAttendanceMap: Map<String, String> = emptyMap()
-): String = AttendanceUtils.resolveTeacherName(record, userMap, teacherAttendanceMap)
+    teacherAttendanceMap: Map<String, String> = emptyMap(),
+    fallbackTeacherMap: Map<String, String> = emptyMap()
+): String = AttendanceUtils.resolveTeacherName(record, userMap, teacherAttendanceMap, fallbackTeacherMap)
 
 @Composable
 fun AttendanceHistoryScreen(
@@ -66,7 +67,7 @@ fun AttendanceHistoryContent(
     onOpenDetail: (AttendanceRecordModel) -> Unit,
     onCloseDetail: () -> Unit
 ) {
-    val filteredRecords = remember(uiState.attendanceRecords, uiState.searchQuery, uiState.userMap, uiState.teacherAttendanceMap, uiState.studentsMap) {
+    val filteredRecords = remember(uiState.attendanceRecords, uiState.searchQuery, uiState.userMap, uiState.teacherAttendanceMap, uiState.fallbackTeacherMap, uiState.studentsMap) {
         if (uiState.searchQuery.isBlank()) {
             uiState.attendanceRecords
         } else {
@@ -74,7 +75,7 @@ fun AttendanceHistoryContent(
             uiState.attendanceRecords.filter { record ->
                 record.date.lowercase().contains(q) ||
                 record.timeSlot.lowercase().contains(q) ||
-                resolveTeacherName(record, uiState.userMap, uiState.teacherAttendanceMap).lowercase().contains(q) ||
+                resolveTeacherName(record, uiState.userMap, uiState.teacherAttendanceMap, uiState.fallbackTeacherMap).lowercase().contains(q) ||
                 record.presentStudentIds.any { id ->
                     uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
                 } ||
@@ -181,6 +182,7 @@ fun AttendanceHistoryContent(
                             records = dateRecords,
                             userMap = uiState.userMap,
                             teacherAttendanceMap = uiState.teacherAttendanceMap,
+                            fallbackTeacherMap = uiState.fallbackTeacherMap,
                             onRecordClick = onOpenDetail
                         )
                     }
@@ -197,8 +199,8 @@ fun AttendanceHistoryContent(
     if (uiState.selectedRecord != null) {
         val record = uiState.selectedRecord
         val formattedDate = remember(record.date) { formatDateHeading(record.date) }
-        val detailTeacherName = remember(record, uiState.userMap, uiState.teacherAttendanceMap) {
-            resolveTeacherName(record, uiState.userMap, uiState.teacherAttendanceMap)
+        val detailTeacherName = remember(record, uiState.userMap, uiState.teacherAttendanceMap, uiState.fallbackTeacherMap) {
+            resolveTeacherName(record, uiState.userMap, uiState.teacherAttendanceMap, uiState.fallbackTeacherMap)
         }
 
         val presentNames = remember(record, uiState.studentsMap) {
@@ -370,6 +372,7 @@ fun DateAttendanceGroupCard(
     records: List<AttendanceRecordModel>,
     userMap: Map<String, String>,
     teacherAttendanceMap: Map<String, String> = emptyMap(),
+    fallbackTeacherMap: Map<String, String> = emptyMap(),
     onRecordClick: (AttendanceRecordModel) -> Unit
 ) {
     val headingText = remember(dateStr) { formatDateHeading(dateStr) }
@@ -442,12 +445,15 @@ fun DateAttendanceGroupCard(
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 records.forEach { record ->
-                    BatchAttendanceItemCard(
-                        record = record,
-                        userMap = userMap,
-                        teacherAttendanceMap = teacherAttendanceMap,
-                        onClick = { onRecordClick(record) }
-                    )
+                    key(record.id.ifBlank { "${record.date}_${record.timeSlot}" }) {
+                        BatchAttendanceItemCard(
+                            record = record,
+                            userMap = userMap,
+                            teacherAttendanceMap = teacherAttendanceMap,
+                            fallbackTeacherMap = fallbackTeacherMap,
+                            onClick = { onRecordClick(record) }
+                        )
+                    }
                 }
             }
         }
@@ -459,10 +465,11 @@ fun BatchAttendanceItemCard(
     record: AttendanceRecordModel,
     userMap: Map<String, String>,
     teacherAttendanceMap: Map<String, String> = emptyMap(),
+    fallbackTeacherMap: Map<String, String> = emptyMap(),
     onClick: () -> Unit
 ) {
-    val teacherName = remember(record, userMap, teacherAttendanceMap) {
-        resolveTeacherName(record, userMap, teacherAttendanceMap)
+    val teacherName = remember(record, userMap, teacherAttendanceMap, fallbackTeacherMap) {
+        resolveTeacherName(record, userMap, teacherAttendanceMap, fallbackTeacherMap)
     }
 
     Surface(

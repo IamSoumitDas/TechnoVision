@@ -364,8 +364,16 @@ class FirestoreAttendanceRepository(
     private fun parseTeacherAttendance(doc: DocumentSnapshot): TeacherAttendanceRequestModel {
         return TeacherAttendanceRequestModel(
             id = doc.id,
-            teacherId = doc.getString("teacherId") ?: "",
-            teacherName = doc.getString("teacherName") ?: "",
+            teacherId = doc.getString("teacherId")
+                ?: doc.getString("facultyId")
+                ?: doc.getString("userId")
+                ?: doc.getString("uid")
+                ?: "",
+            teacherName = doc.getString("teacherName")
+                ?: doc.getString("facultyName")
+                ?: doc.getString("name")
+                ?: doc.getString("fullName")
+                ?: "",
             date = doc.getString("date") ?: "",
             timeSlot = doc.getString("timeSlot") ?: "",
             status = doc.getString("status") ?: "Pending",
