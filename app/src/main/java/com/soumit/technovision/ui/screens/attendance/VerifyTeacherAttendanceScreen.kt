@@ -182,7 +182,7 @@ fun VerifyTeacherAttendanceContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(filteredRequests, key = { it.id }) { request ->
+                    items(filteredRequests, key = { it.id }, contentType = { "verification_request" }) { request ->
                         AdminVerifyRequestCard(
                             request = request,
                             userMap = uiState.userMap,

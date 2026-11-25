@@ -31,6 +31,7 @@ interface FeeRepository {
     suspend fun recordPayment(payment: FeePaymentModel): Result<String>
     suspend fun deletePayment(paymentId: String): Result<Unit>
     suspend fun syncAllStudentsTotalPaid(): Result<Unit>
+    suspend fun prewarm(): Result<Unit> = Result.success(Unit)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -62,6 +63,18 @@ class FirestoreFeeRepository(
                 _isLoaded.value = true
             }
         }
+    }
+
+    override suspend fun prewarm(): Result<Unit> {
+        val database = db
+        if (database != null) {
+            val cached = database.getAllFeePayments()
+            if (cached.isNotEmpty()) {
+                _feePaymentsFlow.value = cached
+                _isLoaded.value = true
+            }
+        }
+        return Result.success(Unit)
     }
 
     override fun getFeePaymentsStream(): Flow<List<FeePaymentModel>> {

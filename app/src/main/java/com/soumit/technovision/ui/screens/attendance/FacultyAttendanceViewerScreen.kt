@@ -451,7 +451,7 @@ fun FacultyAttendanceViewerContent(
                     }
                 }
             } else {
-                items(filteredLogRecords, key = { it.id }) { record ->
+                items(filteredLogRecords, key = { it.id }, contentType = { "attendance_record" }) { record ->
                     AttendanceLogCard(record = record)
                 }
             }

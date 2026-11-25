@@ -34,6 +34,7 @@ interface AttendanceRepository {
     suspend fun submitTeacherAttendanceRequest(request: TeacherAttendanceRequestModel): Result<String>
     suspend fun verifyTeacherAttendance(requestId: String, verifiedBy: String): Result<Unit>
     suspend fun rejectTeacherAttendance(requestId: String, rejectedBy: String): Result<Unit>
+    suspend fun prewarm(): Result<Unit> = Result.success(Unit)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -73,6 +74,22 @@ class FirestoreAttendanceRepository(
                 _isLoaded.value = true
             }
         }
+    }
+
+    override suspend fun prewarm(): Result<Unit> {
+        val database = db
+        if (database != null) {
+            val cachedRecords = database.getAllAttendanceRecords()
+            if (cachedRecords.isNotEmpty()) {
+                _attendanceRecordsFlow.value = cachedRecords
+                _isLoaded.value = true
+            }
+            val cachedTeacher = database.getAllTeacherAttendance()
+            if (cachedTeacher.isNotEmpty()) {
+                _teacherAttendanceFlow.value = cachedTeacher
+            }
+        }
+        return Result.success(Unit)
     }
 
     override fun getAttendanceRecordsStream(): Flow<List<AttendanceRecordModel>> {

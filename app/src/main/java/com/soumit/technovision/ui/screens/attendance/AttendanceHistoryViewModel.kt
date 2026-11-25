@@ -22,6 +22,7 @@ data class AttendanceHistoryUiState(
     val userMap: Map<String, String> = emptyMap(),
     val teacherAttendanceMap: Map<String, String> = emptyMap(),
     val fallbackTeacherMap: Map<String, String> = emptyMap(),
+    val filteredGroupedRecords: List<Pair<String, List<AttendanceRecordModel>>> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = true,
     val selectedRecord: AttendanceRecordModel? = null,
@@ -172,6 +173,14 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
             }.catch { e ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage) }
             }.collect { data ->
+                val grouped = filterAndGroup(
+                    records = data.records,
+                    query = _uiState.value.searchQuery,
+                    studentsMap = data.studentsMap,
+                    userMap = data.userMap,
+                    teacherAttendanceMap = data.teacherAttendanceMap,
+                    fallbackTeacherMap = data.fallbackTeacherMap
+                )
                 _uiState.update {
                     it.copy(
                         attendanceRecords = data.records,
@@ -179,6 +188,7 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
                         userMap = data.userMap,
                         teacherAttendanceMap = data.teacherAttendanceMap,
                         fallbackTeacherMap = data.fallbackTeacherMap,
+                        filteredGroupedRecords = grouped,
                         isLoading = false
                     )
                 }
@@ -186,8 +196,60 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
         }
     }
 
+    private fun filterAndGroup(
+        records: List<AttendanceRecordModel>,
+        query: String,
+        studentsMap: Map<String, StudentModel>,
+        userMap: Map<String, String>,
+        teacherAttendanceMap: Map<String, String>,
+        fallbackTeacherMap: Map<String, String>
+    ): List<Pair<String, List<AttendanceRecordModel>>> {
+        val filtered = if (query.isBlank()) {
+            records
+        } else {
+            val q = query.trim().lowercase()
+            records.filter { record ->
+                record.date.lowercase().contains(q) ||
+                record.timeSlot.lowercase().contains(q) ||
+                AttendanceUtils.resolveTeacherName(record, userMap, teacherAttendanceMap, fallbackTeacherMap).lowercase().contains(q) ||
+                record.presentStudentIds.any { id ->
+                    studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
+                } ||
+                record.absentStudentIds.any { id ->
+                    studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
+                } ||
+                record.additionalStudentIds.any { id ->
+                    studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
+                }
+            }
+        }
+        return filtered.groupBy { it.date }
+            .toList()
+            .sortedByDescending { (dateStr, _) ->
+                AttendanceUtils.parseDateForSorting(dateStr)
+            }
+    }
+
+    private var searchJob: kotlinx.coroutines.Job? = null
+
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            if (query.isNotBlank()) {
+                kotlinx.coroutines.delay(120L)
+            }
+            val state = _uiState.value
+            val grouped = filterAndGroup(
+                records = state.attendanceRecords,
+                query = query,
+                studentsMap = state.studentsMap,
+                userMap = state.userMap,
+                teacherAttendanceMap = state.teacherAttendanceMap,
+                fallbackTeacherMap = state.fallbackTeacherMap
+            )
+            _uiState.update { it.copy(filteredGroupedRecords = grouped) }
+        }
     }
 
     fun openDetail(record: AttendanceRecordModel) {

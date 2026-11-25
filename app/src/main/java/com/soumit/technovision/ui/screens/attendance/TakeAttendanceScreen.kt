@@ -364,11 +364,15 @@ fun TakeAttendanceContent(
                 }
             }
 
-            if (uiState.isLoadingStudents || uiState.isCheckingExistingAttendance) {
+            if (uiState.isLoadingStudents && uiState.allStudents.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
             } else {
+                if (uiState.isCheckingExistingAttendance) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
@@ -385,7 +389,7 @@ fun TakeAttendanceContent(
                             )
                         }
 
-                        items(uiState.scheduledStudents, key = { it.id }) { student ->
+                        items(uiState.scheduledStudents, key = { it.id }, contentType = { "student_card" }) { student ->
                             val isPresent = uiState.attendanceStates[student.id] == true
 
                             AttendanceStudentCard(
@@ -439,7 +443,7 @@ fun TakeAttendanceContent(
                             )
                         }
 
-                        items(uiState.additionalStudents, key = { it.id }) { student ->
+                        items(uiState.additionalStudents, key = { it.id }, contentType = { "student_card" }) { student ->
                             val isPresent = uiState.attendanceStates[student.id] == true
                             val regularSchedule = student.weeklySchedule[uiState.todayName]?.let { "Today: $it" }
                                 ?: student.weeklySchedule.entries.firstOrNull()?.let { "${it.key}: ${it.value}" }

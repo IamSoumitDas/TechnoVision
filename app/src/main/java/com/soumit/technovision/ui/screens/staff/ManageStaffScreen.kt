@@ -152,7 +152,7 @@ fun ManageStaffContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(uiState.staffList, key = { it.id }) { staff ->
+                    items(uiState.staffList, key = { it.id }, contentType = { "staff_item" }) { staff ->
                         StaffCard(
                             staff = staff,
                             isOnline = uiState.isOnline,

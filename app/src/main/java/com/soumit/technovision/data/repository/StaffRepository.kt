@@ -94,7 +94,7 @@ class FirestoreStaffRepository(
         awaitClose { subscription.remove() }
     }.shareIn(
         scope = scope,
-        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000),
+        started = SharingStarted.Eagerly,
         replay = 1
     )
 

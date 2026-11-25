@@ -31,6 +31,7 @@ interface StudentRepository {
     suspend fun enrollStudent(student: StudentModel): Result<String>
     suspend fun updateStudent(student: StudentModel): Result<Unit>
     suspend fun deleteStudent(studentId: String, fullName: String): Result<Unit>
+    suspend fun prewarm(): Result<Unit> = Result.success(Unit)
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -59,6 +60,18 @@ class FirestoreStudentRepository(
                 _isLoaded.value = true
             }
         }
+    }
+
+    override suspend fun prewarm(): Result<Unit> {
+        val database = db
+        if (database != null) {
+            val cached = database.getAllStudents()
+            if (cached.isNotEmpty()) {
+                _studentsFlow.value = cached
+                _isLoaded.value = true
+            }
+        }
+        return Result.success(Unit)
     }
 
     override fun getStudentsStream(): Flow<List<StudentModel>> {

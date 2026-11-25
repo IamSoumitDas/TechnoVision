@@ -15,12 +15,18 @@ import javax.inject.Inject
 data class MainUiState(
     val startDestination: Any? = null,
     val isLoadingRole: Boolean = true,
+    val isLoadingData: Boolean = false,
+    val loadingMessage: String = "Loading...",
     val isOnline: Boolean = true
 )
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val studentRepository: com.soumit.technovision.data.repository.StudentRepository? = null,
+    private val attendanceRepository: com.soumit.technovision.data.repository.AttendanceRepository? = null,
+    private val feeRepository: com.soumit.technovision.data.repository.FeeRepository? = null,
+    private val deltaSyncManager: com.soumit.technovision.data.local.DeltaSyncManager? = null,
     private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
@@ -44,11 +50,14 @@ class MainViewModel @Inject constructor(
     private fun determineStartDestination() {
         val currentUser = authRepository.currentUser
         if (currentUser == null) {
-            _uiState.update { it.copy(startDestination = Screen.Auth, isLoadingRole = false) }
+            _uiState.update { it.copy(startDestination = Screen.Auth, isLoadingRole = false, isLoadingData = false) }
             return
         }
 
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingData = true, loadingMessage = "Setting up your workspace...") }
+
+            // 1. Determine user role
             val roleResult = authRepository.getUserRole(currentUser.uid)
             val destination: Any = if (roleResult.isSuccess) {
                 when (roleResult.getOrThrow().lowercase()) {
@@ -60,7 +69,37 @@ class MainViewModel @Inject constructor(
             } else {
                 Screen.Auth
             }
-            _uiState.update { it.copy(startDestination = destination, isLoadingRole = false) }
+
+            // 2. Pre-warm local database records into memory
+            _uiState.update { it.copy(loadingMessage = "Loading records into memory...") }
+            runCatching {
+                studentRepository?.prewarm()
+                attendanceRepository?.prewarm()
+                feeRepository?.prewarm()
+            }
+
+            // 3. Catch-up delta sync with Firestore bounded by timeout
+            _uiState.update { it.copy(loadingMessage = "Syncing latest updates...") }
+            kotlinx.coroutines.withTimeoutOrNull(2500L) {
+                runCatching {
+                    deltaSyncManager?.syncAll(force = false)
+                }
+            }
+
+            // 4. Re-prewarm to ensure newly fetched records are in RAM
+            runCatching {
+                studentRepository?.prewarm()
+                attendanceRepository?.prewarm()
+                feeRepository?.prewarm()
+            }
+
+            _uiState.update {
+                it.copy(
+                    startDestination = destination,
+                    isLoadingRole = false,
+                    isLoadingData = false
+                )
+            }
         }
     }
 }

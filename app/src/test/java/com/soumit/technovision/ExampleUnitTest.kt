@@ -318,4 +318,29 @@ class ExampleUnitTest {
         }
         assertFalse("Should allow resubmission when existing request was rejected (case-insensitive)", alreadyRequested)
     }
+
+    @Test
+    fun repositoryPrewarm_contractReturnsSuccess() = kotlinx.coroutines.test.runTest {
+        val fakeStudentRepo = object : com.soumit.technovision.data.repository.StudentRepository {
+            override fun getStudentsStream() = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.StudentModel>())
+            override suspend fun getStudentsOnce() = Result.success(emptyList<com.soumit.technovision.data.model.StudentModel>())
+            override fun getStudentStream(studentId: String) = kotlinx.coroutines.flow.flowOf(null)
+            override suspend fun getStudent(studentId: String) = Result.failure<com.soumit.technovision.data.model.StudentModel>(Exception())
+            override suspend fun enrollStudent(student: com.soumit.technovision.data.model.StudentModel) = Result.success("id")
+            override suspend fun updateStudent(student: com.soumit.technovision.data.model.StudentModel) = Result.success(Unit)
+            override suspend fun deleteStudent(studentId: String, fullName: String) = Result.success(Unit)
+        }
+        val fakeAttRepo = object : com.soumit.technovision.data.repository.AttendanceRepository {
+            override fun getAttendanceRecordsStream() = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.AttendanceRecordModel>())
+            override suspend fun getExistingAttendance(date: String, timeSlot: String) = Result.success(null)
+            override suspend fun saveBatchAttendance(record: com.soumit.technovision.data.model.AttendanceRecordModel) = Result.success(Unit)
+            override fun getTeacherAttendanceRequestsStream(teacherId: String?) = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.TeacherAttendanceRequestModel>())
+            override suspend fun submitTeacherAttendanceRequest(request: com.soumit.technovision.data.model.TeacherAttendanceRequestModel) = Result.success("id")
+            override suspend fun verifyTeacherAttendance(requestId: String, verifiedBy: String) = Result.success(Unit)
+            override suspend fun rejectTeacherAttendance(requestId: String, rejectedBy: String) = Result.success(Unit)
+        }
+
+        assertTrue(fakeStudentRepo.prewarm().isSuccess)
+        assertTrue(fakeAttRepo.prewarm().isSuccess)
+    }
 }

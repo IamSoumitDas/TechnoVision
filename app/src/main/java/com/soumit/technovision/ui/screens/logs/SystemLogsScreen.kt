@@ -430,12 +430,12 @@ fun SystemLogsContent(
                                     }
                                 }
                             }
-                            items(logsForDate, key = { it.id }) { log ->
+                            items(logsForDate, key = { it.id }, contentType = { "system_log_item" }) { log ->
                                 LogCard(log = log, userMap = uiState.userMap)
                             }
                         }
                     } else {
-                        items(filteredLogs, key = { it.id }) { log ->
+                        items(filteredLogs, key = { it.id }, contentType = { "system_log_item" }) { log ->
                             LogCard(log = log, userMap = uiState.userMap)
                         }
 

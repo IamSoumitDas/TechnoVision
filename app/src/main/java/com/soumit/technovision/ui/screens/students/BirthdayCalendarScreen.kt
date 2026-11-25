@@ -588,7 +588,7 @@ fun MonthCalendarTabView(
                 }
             }
         } else {
-            items(displayItems, key = { it.student.id }) { item ->
+            items(displayItems, key = { it.student.id }, contentType = { "birthday_card" }) { item ->
                 BirthdayStudentCard(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
@@ -693,7 +693,7 @@ fun UpcomingTimelineTabView(
             item {
                 TimelineSectionHeader(title = "Today", count = todayItems.size)
             }
-            items(todayItems, key = { it.student.id }) { item ->
+            items(todayItems, key = { it.student.id }, contentType = { "birthday_card" }) { item ->
                 BirthdayStudentCard(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
@@ -707,7 +707,7 @@ fun UpcomingTimelineTabView(
             item {
                 TimelineSectionHeader(title = "Tomorrow", count = tomorrowItems.size)
             }
-            items(tomorrowItems, key = { it.student.id }) { item ->
+            items(tomorrowItems, key = { it.student.id }, contentType = { "birthday_card" }) { item ->
                 BirthdayStudentCard(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
@@ -721,7 +721,7 @@ fun UpcomingTimelineTabView(
             item {
                 TimelineSectionHeader(title = "This Week (Next 7 Days)", count = thisWeekItems.size)
             }
-            items(thisWeekItems, key = { it.student.id }) { item ->
+            items(thisWeekItems, key = { it.student.id }, contentType = { "birthday_card" }) { item ->
                 BirthdayStudentCard(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
@@ -735,7 +735,7 @@ fun UpcomingTimelineTabView(
             item {
                 TimelineSectionHeader(title = "Upcoming This Month", count = thisMonthItems.size)
             }
-            items(thisMonthItems, key = { it.student.id }) { item ->
+            items(thisMonthItems, key = { it.student.id }, contentType = { "birthday_card" }) { item ->
                 BirthdayStudentCard(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
@@ -749,7 +749,7 @@ fun UpcomingTimelineTabView(
             item {
                 TimelineSectionHeader(title = "Later This Year", count = laterItems.size)
             }
-            items(laterItems, key = { it.student.id }) { item ->
+            items(laterItems, key = { it.student.id }, contentType = { "birthday_card" }) { item ->
                 BirthdayStudentCard(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },

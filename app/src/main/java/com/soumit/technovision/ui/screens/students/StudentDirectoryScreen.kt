@@ -191,7 +191,7 @@ fun StudentDirectoryContent(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(uiState.filteredStudents, key = { it.id }) { student ->
+                        items(uiState.filteredStudents, key = { it.id }, contentType = { "student_item" }) { student ->
                             val outstandingDue = uiState.outstandingBalances[student.id] ?: 0L
                             StudentCard(
                                 student = student,

@@ -6,9 +6,14 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.soumit.technovision.data.model.LogModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.shareIn
 
 interface AuditLogRepository {
     fun getLogsStream(): Flow<List<LogModel>>
@@ -20,7 +25,9 @@ class FirestoreAuditLogRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) : AuditLogRepository {
 
-    override fun getLogsStream(): Flow<List<LogModel>> = callbackFlow {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val sharedLogsStream: Flow<List<LogModel>> = callbackFlow {
         val subscription = firestore.collection("system_logs")
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .limit(150)
@@ -43,7 +50,13 @@ class FirestoreAuditLogRepository(
                 }
             }
         awaitClose { subscription.remove() }
-    }
+    }.shareIn(
+        scope = scope,
+        started = SharingStarted.Eagerly,
+        replay = 1
+    )
+
+    override fun getLogsStream(): Flow<List<LogModel>> = sharedLogsStream
 
     override fun log(action: String, details: String) {
         try {

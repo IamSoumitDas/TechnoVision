@@ -79,10 +79,20 @@ object AttendanceUtils {
         return sb.toString()
     }
 
+    private val DATE_SPLIT_REGEX = Regex("[/\\-]")
+    private val SLOT_DASH_REGEX = Regex("\\s*-\\s*")
+    private val SLOT_AMPM_REGEX = Regex("(?i)(\\d)(am|pm)")
+    private val SLOT_LEADING_ZERO_REGEX = Regex("(^|\\s)0(\\d:)")
+    private val MULTI_SPACE_REGEX = Regex("\\s+")
+    private val LOG_PATTERN_1 = Regex("""(?i)attendance for\s+([0-9\-/]+)\s*\[([^]]+)\]""")
+    private val LOG_PATTERN_2 = Regex("""(?i)request for\s*\[([^]]+)\]\s+on\s+([0-9\-/]+)""")
+    private val DATE_FORMATTER_DD_MM_YYYY = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+    private val DATE_FORMATTER_DD_MMM_YYYY = DateTimeFormatter.ofPattern("dd MMM yyyy")
+
     fun parseRecordDate(dateStr: String): Triple<Int, Int, Int>? {
         if (dateStr.isBlank()) return null
         val normalized = normalizeDigits(dateStr.trim())
-        val parts = normalized.split(Regex("[/\\-]"))
+        val parts = normalized.split(DATE_SPLIT_REGEX)
         if (parts.size == 3) {
             val d: Int?
             val m: Int?
@@ -113,7 +123,7 @@ object AttendanceUtils {
     fun parseDateForSorting(dateStr: String): LocalDate {
         return try {
             val normalized = normalizeDigits(dateStr.trim())
-            val parts = normalized.split(Regex("[/\\-]"))
+            val parts = normalized.split(DATE_SPLIT_REGEX)
             if (parts.size == 3) {
                 if (parts[0].length == 4) {
                     val y = parts[0].toInt().let { if (it in 0..99) it + 2000 else it }
@@ -123,7 +133,7 @@ object AttendanceUtils {
                     LocalDate.of(y, parts[1].toInt(), parts[0].toInt())
                 }
             } else {
-                LocalDate.parse(normalized, DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+                LocalDate.parse(normalized, DATE_FORMATTER_DD_MM_YYYY)
             }
         } catch (_: Exception) {
             LocalDate.MIN
@@ -133,7 +143,7 @@ object AttendanceUtils {
     fun formatDateHeading(dateStr: String): String {
         return try {
             val normalized = normalizeDigits(dateStr.trim())
-            val parts = normalized.split(Regex("[/\\-]"))
+            val parts = normalized.split(DATE_SPLIT_REGEX)
             val localDate = if (parts.size == 3) {
                 if (parts[0].length == 4) {
                     val y = parts[0].toInt().let { if (it in 0..99) it + 2000 else it }
@@ -143,7 +153,7 @@ object AttendanceUtils {
                     LocalDate.of(y, parts[1].toInt(), parts[0].toInt())
                 }
             } else {
-                LocalDate.parse(normalized, DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+                LocalDate.parse(normalized, DATE_FORMATTER_DD_MM_YYYY)
             }
             val today = LocalDate.now()
             val yesterday = today.minusDays(1)
@@ -153,7 +163,7 @@ object AttendanceUtils {
                 yesterday -> "Yesterday"
                 else -> localDate.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
             }
-            val formattedDate = localDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))
+            val formattedDate = localDate.format(DATE_FORMATTER_DD_MMM_YYYY)
             "$dayString, $formattedDate"
         } catch (_: Exception) {
             dateStr
@@ -192,10 +202,10 @@ object AttendanceUtils {
 
     fun normalizeTimeSlot(timeSlot: String): String {
         var slot = timeSlot.replace('–', '-').replace('—', '-')
-        slot = slot.replace(Regex("\\s*-\\s*"), " - ")
-        slot = slot.replace(Regex("(?i)(\\d)(am|pm)"), "$1 $2")
-        slot = slot.replace(Regex("(^|\\s)0(\\d:)"), "$1$2")
-        return slot.replace(Regex("\\s+"), " ").trim().lowercase()
+        slot = slot.replace(SLOT_DASH_REGEX, " - ")
+        slot = slot.replace(SLOT_AMPM_REGEX, "$1 $2")
+        slot = slot.replace(SLOT_LEADING_ZERO_REGEX, "$1$2")
+        return slot.replace(MULTI_SPACE_REGEX, " ").trim().lowercase()
     }
 
     fun normalizeSlotKey(date: String, timeSlot: String): String {
@@ -206,11 +216,11 @@ object AttendanceUtils {
 
     fun extractDateAndSlotFromLog(details: String): Pair<String, String>? {
         if (details.isBlank()) return null
-        val m1 = Regex("""(?i)attendance for\s+([0-9\-/]+)\s*\[([^]]+)\]""").find(details)
+        val m1 = LOG_PATTERN_1.find(details)
         if (m1 != null) {
             return Pair(m1.groupValues[1].trim(), m1.groupValues[2].trim())
         }
-        val m2 = Regex("""(?i)request for\s*\[([^]]+)\]\s+on\s+([0-9\-/]+)""").find(details)
+        val m2 = LOG_PATTERN_2.find(details)
         if (m2 != null) {
             return Pair(m2.groupValues[2].trim(), m2.groupValues[1].trim())
         }

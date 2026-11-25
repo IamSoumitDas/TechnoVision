@@ -67,34 +67,17 @@ fun AttendanceHistoryContent(
     onOpenDetail: (AttendanceRecordModel) -> Unit,
     onCloseDetail: () -> Unit
 ) {
-    val filteredRecords = remember(uiState.attendanceRecords, uiState.searchQuery, uiState.userMap, uiState.teacherAttendanceMap, uiState.fallbackTeacherMap, uiState.studentsMap) {
-        if (uiState.searchQuery.isBlank()) {
-            uiState.attendanceRecords
+    val groupedRecordsByDate = remember(uiState.filteredGroupedRecords, uiState.attendanceRecords, uiState.searchQuery) {
+        if (uiState.filteredGroupedRecords.isNotEmpty() || uiState.searchQuery.isNotBlank()) {
+            uiState.filteredGroupedRecords
         } else {
-            val q = uiState.searchQuery.trim().lowercase()
-            uiState.attendanceRecords.filter { record ->
-                record.date.lowercase().contains(q) ||
-                record.timeSlot.lowercase().contains(q) ||
-                resolveTeacherName(record, uiState.userMap, uiState.teacherAttendanceMap, uiState.fallbackTeacherMap).lowercase().contains(q) ||
-                record.presentStudentIds.any { id ->
-                    uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
-                } ||
-                record.absentStudentIds.any { id ->
-                    uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
-                } ||
-                record.additionalStudentIds.any { id ->
-                    uiState.studentsMap[id]?.fullName?.lowercase()?.contains(q) == true
-                }
-            }
+            uiState.attendanceRecords.groupBy { it.date }
+                .toList()
+                .sortedByDescending { parseDateForSorting(it.first) }
         }
     }
-
-    val groupedRecordsByDate = remember(filteredRecords) {
-        filteredRecords.groupBy { it.date }
-            .toList()
-            .sortedByDescending { (dateStr, _) ->
-                parseDateForSorting(dateStr)
-            }
+    val totalFilteredCount = remember(groupedRecordsByDate) {
+        groupedRecordsByDate.sumOf { it.second.size }
     }
 
     Scaffold(
@@ -150,20 +133,20 @@ fun AttendanceHistoryContent(
                     fontWeight = FontWeight.Bold
                 )
 
-                if (filteredRecords.isNotEmpty()) {
+                if (totalFilteredCount > 0) {
                     Text(
-                        text = "${filteredRecords.size} Sessions Logged",
+                        text = "$totalFilteredCount Sessions Logged",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
 
-            if (uiState.isLoading) {
+            if (uiState.isLoading && uiState.attendanceRecords.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
-            } else if (filteredRecords.isEmpty()) {
+            } else if (totalFilteredCount == 0) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (uiState.searchQuery.isNotBlank()) "No matching session logs found." else "No attendance history logged yet.",
@@ -176,7 +159,7 @@ fun AttendanceHistoryContent(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(groupedRecordsByDate, key = { (date, _) -> date }) { (dateStr, dateRecords) ->
+                    items(groupedRecordsByDate, key = { (date, _) -> date }, contentType = { "attendance_group" }) { (dateStr, dateRecords) ->
                         DateAttendanceGroupCard(
                             dateStr = dateStr,
                             records = dateRecords,

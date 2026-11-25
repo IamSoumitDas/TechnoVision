@@ -395,7 +395,11 @@ fun GlobalHistoryContent(
                             }
                         }
 
-                        items(dailyPayments, key = { it.id.ifBlank { "${it.studentId}_${it.timestamp?.seconds}" } }) { payment ->
+                        items(
+                            items = dailyPayments,
+                            key = { it.id.ifBlank { "${it.studentId}_${it.timestamp?.seconds}" } },
+                            contentType = { "fee_payment_item" }
+                        ) { payment ->
                             val student = uiState.studentsMap[payment.studentId]
                             val resolvedName = payment.studentName.ifBlank {
                                 student?.fullName ?: "Unknown Student"
