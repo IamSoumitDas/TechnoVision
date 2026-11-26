@@ -1,0 +1,91 @@
+# Baseline Profile rules for TechnoVision
+# Ahead-of-time (AOT) compiled on install by Android Runtime (ART)
+
+# Application startup and Dependency Injection
+HSPLcom/soumit/technovision/TechnoVisionApplication;->onCreate()V
+Lcom/soumit/technovision/TechnoVisionApplication;
+Lcom/soumit/technovision/di/DefaultAppContainer;
+Lcom/soumit/technovision/di/AppContainer;
+Lcom/soumit/technovision/MainActivity;
+HSPLcom/soumit/technovision/MainActivity;->onCreate(Landroid/os/Bundle;)V
+
+# Navigation and Theme
+Lcom/soumit/technovision/navigation/NavGraphKt;
+Lcom/soumit/technovision/navigation/Screen;
+Lcom/soumit/technovision/ui/theme/ThemeKt;
+Lcom/soumit/technovision/ui/theme/ColorKt;
+Lcom/soumit/technovision/ui/theme/TypeKt;
+
+# Local Database and Sync Engine
+Lcom/soumit/technovision/data/local/LocalDatabase;
+HSPLcom/soumit/technovision/data/local/LocalDatabase;->getAllStudents()Ljava/util/List;
+HSPLcom/soumit/technovision/data/local/LocalDatabase;->getStudent(Ljava/lang/String;)Lcom/soumit/technovision/data/model/StudentModel;
+HSPLcom/soumit/technovision/data/local/LocalDatabase;->upsertStudent(Lcom/soumit/technovision/data/model/StudentModel;JZ)Ljava/lang/Object;
+HSPLcom/soumit/technovision/data/local/LocalDatabase;->upsertStudentsBatch(Ljava/util/List;Z)Ljava/lang/Object;
+HSPLcom/soumit/technovision/data/local/LocalDatabase;->getExistingAttendance(Ljava/lang/String;Ljava/lang/String;)Lcom/soumit/technovision/data/model/AttendanceRecordModel;
+Lcom/soumit/technovision/data/local/DeltaSyncManager;
+HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->syncStudents(Z)Ljava/lang/Object;
+HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->syncFees(Z)Ljava/lang/Object;
+HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->syncAttendance(Z)Ljava/lang/Object;
+HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->startLiveDeltaSync(Lkotlinx/coroutines/CoroutineScope;)V
+HSPLcom/soumit/technovision/data/worker/DeltaSyncWorker;
+HSPLcom/soumit/technovision/data/worker/DeltaSyncWorker$Companion;->schedulePeriodicSync(Landroid/content/Context;)V
+
+# Room Database and Entities
+Lcom/soumit/technovision/data/local/room/AppDatabase;
+Lcom/soumit/technovision/data/local/room/StudentEntity;
+Lcom/soumit/technovision/data/local/room/FeePaymentEntity;
+Lcom/soumit/technovision/data/local/room/AttendanceEntity;
+Lcom/soumit/technovision/data/local/room/TeacherAttendanceEntity;
+Lcom/soumit/technovision/data/local/room/SyncQueueEntity;
+Lcom/soumit/technovision/data/local/room/SyncMetadataEntity;
+Lcom/soumit/technovision/data/local/room/StudentDao;
+Lcom/soumit/technovision/data/local/room/FeePaymentDao;
+Lcom/soumit/technovision/data/local/room/AttendanceDao;
+Lcom/soumit/technovision/data/local/room/TeacherAttendanceDao;
+
+# Models
+Lcom/soumit/technovision/data/model/StudentModel;
+Lcom/soumit/technovision/data/model/FeePaymentModel;
+Lcom/soumit/technovision/data/model/AttendanceRecordModel;
+Lcom/soumit/technovision/data/model/TeacherAttendanceRequestModel;
+
+# Repositories
+Lcom/soumit/technovision/data/repository/StudentRepository;
+Lcom/soumit/technovision/data/repository/StudentRepositoryImpl;
+Lcom/soumit/technovision/data/repository/FeeRepository;
+Lcom/soumit/technovision/data/repository/FeeRepositoryImpl;
+Lcom/soumit/technovision/data/repository/AttendanceRepository;
+Lcom/soumit/technovision/data/repository/AttendanceRepositoryImpl;
+Lcom/soumit/technovision/data/repository/AuthRepository;
+Lcom/soumit/technovision/data/repository/StaffRepository;
+
+# Domain Use Cases and Utilities
+Lcom/soumit/technovision/domain/usecase/CalculateBillingDuesUseCase;
+HSPLcom/soumit/technovision/domain/usecase/CalculateBillingDuesUseCase;->invoke(Ljava/lang/String;JJII)Lcom/soumit/technovision/domain/usecase/BillingDues;
+Lcom/soumit/technovision/util/BillingUtils;
+HSPLcom/soumit/technovision/util/BillingUtils;->calculateBillingMonths(Ljava/lang/String;JII)Lkotlin/Pair;
+HSPLcom/soumit/technovision/util/BillingUtils;->normalizeDigits(Ljava/lang/String;)Ljava/lang/String;
+Lcom/soumit/technovision/util/AttendanceUtils;
+HSPLcom/soumit/technovision/util/AttendanceUtils;->normalizeTimeSlot(Ljava/lang/String;)Ljava/lang/String;
+HSPLcom/soumit/technovision/util/AttendanceUtils;->normalizeDate(Ljava/lang/String;)Ljava/lang/String;
+HSPLcom/soumit/technovision/util/AttendanceUtils;->parseDateForSorting(Ljava/lang/String;)Ljava/time/LocalDate;
+
+# Critical UI Screens and ViewModels
+Lcom/soumit/technovision/ui/screens/students/StudentDirectoryViewModel;
+Lcom/soumit/technovision/ui/screens/students/StudentDirectoryScreenKt;
+Lcom/soumit/technovision/ui/screens/students/components/StudentCardKt;
+Lcom/soumit/technovision/ui/screens/students/StudentViewerViewModel;
+Lcom/soumit/technovision/ui/screens/students/StudentViewerScreenKt;
+Lcom/soumit/technovision/ui/screens/students/BirthdayCalendarViewModel;
+Lcom/soumit/technovision/ui/screens/students/BirthdayCalendarScreenKt;
+Lcom/soumit/technovision/ui/screens/fees/FeeCollectionViewModel;
+Lcom/soumit/technovision/ui/screens/fees/FeeCollectionScreenKt;
+Lcom/soumit/technovision/ui/screens/attendance/TakeAttendanceViewModel;
+Lcom/soumit/technovision/ui/screens/attendance/TakeAttendanceScreenKt;
+Lcom/soumit/technovision/ui/screens/attendance/AttendanceHistoryViewModel;
+Lcom/soumit/technovision/ui/screens/attendance/AttendanceHistoryScreenKt;
+Lcom/soumit/technovision/ui/screens/batches/BatchesViewModel;
+Lcom/soumit/technovision/ui/screens/batches/BatchesScreenKt;
+Lcom/soumit/technovision/ui/screens/auth/AuthViewModel;
+Lcom/soumit/technovision/ui/screens/auth/AuthScreenKt;

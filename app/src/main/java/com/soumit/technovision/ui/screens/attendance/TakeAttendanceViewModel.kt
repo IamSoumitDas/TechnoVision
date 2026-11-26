@@ -46,24 +46,14 @@ data class TakeAttendanceUiState(
     val userMap: Map<String, String> = emptyMap(),
     val currentUserName: String = "Faculty",
     val isOnline: Boolean = true,
-    val userMessage: String? = null
+    val userMessage: String? = null,
+    val scheduledStudents: List<StudentModel> = emptyList(),
+    val displayedStudents: List<StudentModel> = emptyList(),
+    val presentCount: Int = 0,
+    val absentCount: Int = 0
 ) {
     val isAttendanceLocked: Boolean
         get() = existingAttendanceInfo != null
-
-    val scheduledStudents: List<StudentModel>
-        get() = allStudents.filter { student ->
-            student.weeklySchedule[todayName] == selectedTimeSlot
-        }
-
-    val displayedStudents: List<StudentModel>
-        get() = scheduledStudents + additionalStudents
-
-    val presentCount: Int
-        get() = displayedStudents.count { attendanceStates[it.id] == true }
-
-    val absentCount: Int
-        get() = scheduledStudents.count { attendanceStates[it.id] != true }
 }
 
 @dagger.hilt.android.lifecycle.HiltViewModel
@@ -76,7 +66,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
     private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(TakeAttendanceUiState())
+    private val _uiState = MutableStateFlow(recomputeDerived(TakeAttendanceUiState()))
     val uiState: StateFlow<TakeAttendanceUiState> = _uiState.asStateFlow()
 
     init {
@@ -86,11 +76,32 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
         observeNetwork()
     }
 
+    private fun recomputeDerived(state: TakeAttendanceUiState): TakeAttendanceUiState {
+        val targetSlot = AttendanceUtils.normalizeTimeSlot(state.selectedTimeSlot)
+        val scheduled = state.allStudents.filter { student ->
+            val slot = student.weeklySchedule[state.todayName]
+            slot != null && AttendanceUtils.normalizeTimeSlot(slot) == targetSlot
+        }
+        val displayed = scheduled + state.additionalStudents
+        val present = displayed.count { state.attendanceStates[it.id] == true }
+        val absent = scheduled.count { state.attendanceStates[it.id] != true }
+        return state.copy(
+            scheduledStudents = scheduled,
+            displayedStudents = displayed,
+            presentCount = present,
+            absentCount = absent
+        )
+    }
+
+    private fun updateState(reducer: (TakeAttendanceUiState) -> TakeAttendanceUiState) {
+        _uiState.update { recomputeDerived(reducer(it)) }
+    }
+
     private fun observeNetwork() {
         if (networkMonitor == null) return
         viewModelScope.launch {
             networkMonitor.isOnline.collect { online ->
-                _uiState.update { it.copy(isOnline = online) }
+                updateState { it.copy(isOnline = online) }
             }
         }
     }
@@ -102,7 +113,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
             if (currentNameRes.isSuccess) {
                 val name = currentNameRes.getOrNull()
                 if (!name.isNullOrBlank() && !AttendanceUtils.isPlaceholderName(name)) {
-                    _uiState.update { it.copy(currentUserName = name) }
+                    updateState { it.copy(currentUserName = name) }
                 }
             }
 
@@ -115,7 +126,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                     ?: currentUser?.email?.let { AttendanceUtils.formatEmailPrefixToName(it) }?.takeIf { it.isNotBlank() }
                     ?: "Faculty"
 
-                _uiState.update {
+                updateState {
                     it.copy(
                         userMap = map,
                         currentUserName = resolvedName
@@ -129,7 +140,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
         viewModelScope.launch {
             studentRepository.getStudentsStream()
                 .catch { e ->
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             isLoadingStudents = false,
                             userMessage = "Error loading students: ${e.localizedMessage}"
@@ -137,7 +148,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                     }
                 }
                 .collect { students ->
-                    _uiState.update { state ->
+                    updateState { state ->
                         val scheduled = students.filter { it.weeklySchedule[state.todayName] == state.selectedTimeSlot }
                         val currentStates = state.attendanceStates.toMutableMap()
                         scheduled.forEach { s ->
@@ -161,7 +172,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
     }
 
     fun onSelectTimeSlot(slot: String) {
-        _uiState.update {
+        updateState {
             it.copy(
                 selectedTimeSlot = slot,
                 additionalStudents = emptyList(),
@@ -175,7 +186,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
     private fun checkExistingAttendance(slot: String) {
         val state = _uiState.value
-        _uiState.update { it.copy(isCheckingExistingAttendance = true) }
+        updateState { it.copy(isCheckingExistingAttendance = true) }
 
         viewModelScope.launch {
             val result = attendanceRepository.getExistingAttendance(state.currentDate, slot)
@@ -198,7 +209,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
                     val extras = state.allStudents.filter { it.id in record.additionalStudentIds }
 
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             existingAttendanceInfo = ExistingAttendanceInfo(
                                 id = record.id,
@@ -214,7 +225,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                         )
                     }
                 } else {
-                    _uiState.update { current ->
+                    updateState { current ->
                         val defaultStates = current.scheduledStudents.associate { it.id to false }
                         val mergedStates = defaultStates.toMutableMap()
                         current.attendanceStates.forEach { (k, v) -> mergedStates[k] = v }
@@ -226,7 +237,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                     }
                 }
             } else {
-                _uiState.update {
+                updateState {
                     it.copy(
                         isCheckingExistingAttendance = false,
                         existingAttendanceInfo = null
@@ -238,7 +249,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
     fun toggleStudentAttendance(studentId: String) {
         if (_uiState.value.isAttendanceLocked) return
-        _uiState.update { state ->
+        updateState { state ->
             val updated = state.attendanceStates.toMutableMap()
             updated[studentId] = !(updated[studentId] ?: false)
             state.copy(attendanceStates = updated)
@@ -247,7 +258,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
     fun setAllAttendance(present: Boolean) {
         if (_uiState.value.isAttendanceLocked) return
-        _uiState.update { state ->
+        updateState { state ->
             val updated = state.attendanceStates.toMutableMap()
             state.displayedStudents.forEach { s ->
                 updated[s.id] = present
@@ -258,7 +269,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
     fun addAdditionalStudent(student: StudentModel) {
         if (_uiState.value.isAttendanceLocked) return
-        _uiState.update { state ->
+        updateState { state ->
             if (state.displayedStudents.none { it.id == student.id }) {
                 val updatedExtras = state.additionalStudents + student
                 val updatedStates = state.attendanceStates.toMutableMap()
@@ -277,7 +288,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
 
     fun removeAdditionalStudent(studentId: String) {
         if (_uiState.value.isAttendanceLocked) return
-        _uiState.update { state ->
+        updateState { state ->
             val updatedExtras = state.additionalStudents.filter { it.id != studentId }
             val updatedStates = state.attendanceStates.toMutableMap().apply { remove(studentId) }
             state.copy(
@@ -288,26 +299,26 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
     }
 
     fun onSearchQueryChanged(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        updateState { it.copy(searchQuery = query) }
     }
 
     fun setSearchExpanded(expanded: Boolean) {
-        _uiState.update { it.copy(isSearchExpanded = expanded) }
+        updateState { it.copy(isSearchExpanded = expanded) }
     }
 
     fun clearUserMessage() {
-        _uiState.update { it.copy(userMessage = null) }
+        updateState { it.copy(userMessage = null) }
     }
 
     fun saveAttendance(onSuccess: () -> Unit) {
         val state = _uiState.value
         if (!state.isOnline) {
-            _uiState.update { it.copy(userMessage = "Taking student attendance requires an active internet connection.") }
+            updateState { it.copy(userMessage = "Taking student attendance requires an active internet connection.") }
             return
         }
         val displayed = state.displayedStudents
         if (displayed.isEmpty()) {
-            _uiState.update { it.copy(userMessage = "No students in this session to save.") }
+            updateState { it.copy(userMessage = "No students in this session to save.") }
             return
         }
 
@@ -341,7 +352,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
             timestamp = Timestamp.now()
         )
 
-        _uiState.update { it.copy(isSaving = true) }
+        updateState { it.copy(isSaving = true) }
 
         viewModelScope.launch {
             val result = attendanceRepository.saveBatchAttendance(record)
@@ -351,7 +362,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                     action = "Batch Attendance Saved",
                     details = "Recorded attendance for ${state.currentDate} [${state.selectedTimeSlot}]. Present: ${presentIds.size}, Absent: ${absentIds.size}$extraInfo (by $resolvedName)"
                 )
-                _uiState.update {
+                updateState {
                     it.copy(
                         isSaving = false,
                         userMessage = "Attendance saved successfully!"
@@ -359,7 +370,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                 }
                 onSuccess()
             } else {
-                _uiState.update {
+                updateState {
                     it.copy(
                         isSaving = false,
                         userMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to save attendance"

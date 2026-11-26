@@ -9,7 +9,6 @@ import com.soumit.technovision.data.repository.AuthRepository
 import com.soumit.technovision.data.repository.FeeRepository
 import com.soumit.technovision.data.repository.StudentRepository
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,26 +28,9 @@ data class GlobalHistoryUiState(
     val paymentToDelete: FeePaymentModel? = null,
     val isDeletingPayment: Boolean = false,
     val isOnline: Boolean = true,
-    val userMessage: String? = null
-) {
-    val filteredPayments: List<FeePaymentModel>
-        get() {
-            return paymentHistory.filter { payment ->
-                val matchesMethod = selectedMethodFilter == "All" || payment.paymentMethod.equals(selectedMethodFilter, ignoreCase = true)
-                val student = studentsMap[payment.studentId]
-                val matchesQuery = searchQuery.isBlank() ||
-                        payment.studentName.contains(searchQuery, ignoreCase = true) ||
-                        payment.remarks.contains(searchQuery, ignoreCase = true) ||
-                        payment.receivedBy.contains(searchQuery, ignoreCase = true) ||
-                        payment.paymentMethod.contains(searchQuery, ignoreCase = true) ||
-                        payment.amountPaid.toString().contains(searchQuery) ||
-                        (student?.fullName?.contains(searchQuery, ignoreCase = true) == true) ||
-                        (student?.studentClass?.contains(searchQuery, ignoreCase = true) == true) ||
-                        (student?.school?.contains(searchQuery, ignoreCase = true) == true)
-                matchesMethod && matchesQuery
-            }
-        }
-}
+    val userMessage: String? = null,
+    val filteredPayments: List<FeePaymentModel> = emptyList()
+)
 
 @dagger.hilt.android.lifecycle.HiltViewModel
 class GlobalHistoryViewModel @javax.inject.Inject constructor(
@@ -97,6 +79,36 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
         }
     }
 
+    private fun computeFilteredPayments(state: GlobalHistoryUiState): List<FeePaymentModel> {
+        val methodFilter = state.selectedMethodFilter
+        val q = state.searchQuery.trim()
+        val sMap = state.studentsMap
+        if (methodFilter == "All" && q.isBlank()) {
+            return state.paymentHistory
+        }
+        return state.paymentHistory.filter { payment ->
+            val matchesMethod = methodFilter == "All" || payment.paymentMethod.equals(methodFilter, ignoreCase = true)
+            val student = sMap[payment.studentId]
+            val matchesQuery = q.isBlank() ||
+                    payment.studentName.contains(q, ignoreCase = true) ||
+                    payment.remarks.contains(q, ignoreCase = true) ||
+                    payment.receivedBy.contains(q, ignoreCase = true) ||
+                    payment.paymentMethod.contains(q, ignoreCase = true) ||
+                    payment.amountPaid.toString().contains(q) ||
+                    (student?.fullName?.contains(q, ignoreCase = true) == true) ||
+                    (student?.studentClass?.contains(q, ignoreCase = true) == true) ||
+                    (student?.school?.contains(q, ignoreCase = true) == true)
+            matchesMethod && matchesQuery
+        }
+    }
+
+    private fun updateState(reducer: (GlobalHistoryUiState) -> GlobalHistoryUiState) {
+        _uiState.update { current ->
+            val updated = reducer(current)
+            updated.copy(filteredPayments = computeFilteredPayments(updated))
+        }
+    }
+
     private fun checkReady() {
         if (isDataLoaded && isRoleLoaded) {
             _uiState.update { it.copy(isLoading = false) }
@@ -122,7 +134,7 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
                 }
             }.collect { (payments, sMap) ->
                 isDataLoaded = true
-                _uiState.update {
+                updateState {
                     it.copy(
                         paymentHistory = payments,
                         studentsMap = sMap
@@ -134,11 +146,11 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
     }
 
     fun onSearchQueryChanged(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        updateState { it.copy(searchQuery = query) }
     }
 
     fun onMethodFilterChanged(method: String) {
-        _uiState.update { it.copy(selectedMethodFilter = method) }
+        updateState { it.copy(selectedMethodFilter = method) }
     }
 
     fun setPaymentToDelete(payment: FeePaymentModel?) {

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import com.soumit.technovision.util.AttendanceUtils
@@ -38,7 +39,7 @@ fun TakeAttendanceScreen(
     onNavigateToHistory: () -> Unit,
     viewModel: TakeAttendanceViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(uiState.userMessage) {
@@ -391,13 +392,16 @@ fun TakeAttendanceContent(
 
                         items(uiState.scheduledStudents, key = { it.id }, contentType = { "student_card" }) { student ->
                             val isPresent = uiState.attendanceStates[student.id] == true
+                            val onToggle = remember(student.id) {
+                                { _: Boolean -> onToggleAttendance(student.id) }
+                            }
 
                             AttendanceStudentCard(
                                 student = student,
                                 isPresent = isPresent,
                                 isOutOfSchedule = false,
                                 isReadOnly = uiState.isAttendanceLocked,
-                                onToggle = { onToggleAttendance(student.id) }
+                                onToggle = onToggle
                             )
                         }
                     } else {
@@ -445,9 +449,19 @@ fun TakeAttendanceContent(
 
                         items(uiState.additionalStudents, key = { it.id }, contentType = { "student_card" }) { student ->
                             val isPresent = uiState.attendanceStates[student.id] == true
-                            val regularSchedule = student.weeklySchedule[uiState.todayName]?.let { "Today: $it" }
-                                ?: student.weeklySchedule.entries.firstOrNull()?.let { "${it.key}: ${it.value}" }
-                                ?: "No regular schedule"
+                            val regularSchedule = remember(student.weeklySchedule, uiState.todayName) {
+                                student.weeklySchedule[uiState.todayName]?.let { "Today: $it" }
+                                    ?: student.weeklySchedule.entries.firstOrNull()?.let { "${it.key}: ${it.value}" }
+                                    ?: "No regular schedule"
+                            }
+                            val onToggle = remember(student.id) {
+                                { _: Boolean -> onToggleAttendance(student.id) }
+                            }
+                            val onRemove = remember(student.id, uiState.isAttendanceLocked) {
+                                if (!uiState.isAttendanceLocked) {
+                                    { onRemoveAdditionalStudent(student.id) }
+                                } else null
+                            }
 
                             AttendanceStudentCard(
                                 student = student,
@@ -455,10 +469,8 @@ fun TakeAttendanceContent(
                                 isOutOfSchedule = true,
                                 regularScheduleInfo = regularSchedule,
                                 isReadOnly = uiState.isAttendanceLocked,
-                                onToggle = { onToggleAttendance(student.id) },
-                                onRemove = if (!uiState.isAttendanceLocked) {
-                                    { onRemoveAdditionalStudent(student.id) }
-                                } else null
+                                onToggle = onToggle,
+                                onRemove = onRemove
                             )
                         }
                     }

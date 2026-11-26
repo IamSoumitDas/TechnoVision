@@ -30,12 +30,14 @@ data class StudentBirthdayItem(
 object BirthdayUtils {
     data class ParsedDate(val day: Int, val month: Int, val year: Int?)
 
+    private val dmyRegex = Regex("""^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$""")
+    private val ymdRegex = Regex("""^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$""")
+
     fun parseDob(dobStr: String): ParsedDate? {
         if (dobStr.isBlank()) return null
         val clean = BillingUtils.normalizeDigits(dobStr.trim())
 
         // 1. dd/MM/yyyy or dd-MM-yyyy or dd.MM.yyyy
-        val dmyRegex = Regex("""^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$""")
         val m1 = dmyRegex.matchEntire(clean)
         if (m1 != null) {
             val (dStr, mStr, yStr) = m1.destructured
@@ -49,7 +51,6 @@ object BirthdayUtils {
         }
 
         // 2. yyyy/MM/dd or yyyy-MM-dd
-        val ymdRegex = Regex("""^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$""")
         val m2 = ymdRegex.matchEntire(clean)
         if (m2 != null) {
             val (yStr, mStr, dStr) = m2.destructured
@@ -109,63 +110,84 @@ data class BirthdayCalendarUiState(
     val availableClasses: List<String> = emptyList(),
     val selectedTab: Int = 0, // 0: Month Calendar (Option A), 1: Upcoming Timeline (Option B)
     val isLoading: Boolean = true,
-    val errorMessage: String? = null
-) {
-    val todaysBirthdays: List<StudentBirthdayItem>
-        get() = allItems.filter { it.isToday }
-
-    val nextUpcomingCelebration: StudentBirthdayItem?
-        get() = allItems.filter { !it.isToday }.minByOrNull { it.daysUntilNextBirthday }
-
-    val filteredItems: List<StudentBirthdayItem>
-        get() = allItems.filter { item ->
-            val matchesQuery = searchQuery.isBlank() ||
-                    item.student.fullName.contains(searchQuery, ignoreCase = true) ||
-                    item.student.studentClass.contains(searchQuery, ignoreCase = true) ||
-                    item.student.school.contains(searchQuery, ignoreCase = true) ||
-                    item.student.phone.contains(searchQuery, ignoreCase = true)
-            val matchesClass = selectedClassFilter == "All" ||
-                    item.student.studentClass.equals(selectedClassFilter, ignoreCase = true)
-            matchesQuery && matchesClass
-        }
-
-    val birthdaysInCurrentMonth: List<StudentBirthdayItem>
-        get() = filteredItems.filter { it.birthMonth == currentYearMonth.monthValue }
-            .sortedBy { it.birthDay }
-
-    val birthdaysByDayInCurrentMonth: Map<Int, List<StudentBirthdayItem>>
-        get() = birthdaysInCurrentMonth.groupBy { it.birthDay }
-
-    val birthdaysOnSelectedDate: List<StudentBirthdayItem>
-        get() {
-            val date = selectedDate ?: return emptyList()
-            if (date.monthValue != currentYearMonth.monthValue || date.year != currentYearMonth.year) {
-                return emptyList()
-            }
-            return birthdaysByDayInCurrentMonth[date.dayOfMonth] ?: emptyList()
-        }
-
-    val timelineUpcomingItems: List<StudentBirthdayItem>
-        get() = filteredItems.sortedBy { it.daysUntilNextBirthday }
-}
+    val errorMessage: String? = null,
+    val todaysBirthdays: List<StudentBirthdayItem> = emptyList(),
+    val nextUpcomingCelebration: StudentBirthdayItem? = null,
+    val filteredItems: List<StudentBirthdayItem> = emptyList(),
+    val birthdaysInCurrentMonth: List<StudentBirthdayItem> = emptyList(),
+    val birthdaysByDayInCurrentMonth: Map<Int, List<StudentBirthdayItem>> = emptyMap(),
+    val birthdaysOnSelectedDate: List<StudentBirthdayItem> = emptyList(),
+    val timelineUpcomingItems: List<StudentBirthdayItem> = emptyList()
+)
 
 @dagger.hilt.android.lifecycle.HiltViewModel
 class BirthdayCalendarViewModel @javax.inject.Inject constructor(
     private val studentRepository: StudentRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(BirthdayCalendarUiState())
+    private val _uiState = MutableStateFlow(computeDerivedState(BirthdayCalendarUiState()))
     val uiState: StateFlow<BirthdayCalendarUiState> = _uiState.asStateFlow()
 
     init {
         observeStudents()
     }
 
+    private fun computeDerivedState(state: BirthdayCalendarUiState): BirthdayCalendarUiState {
+        val todays = state.allItems.filter { it.isToday }
+        val nextUpcoming = state.allItems.filter { !it.isToday }.minByOrNull { it.daysUntilNextBirthday }
+
+        val q = state.searchQuery.trim()
+        val cFilter = state.selectedClassFilter
+        val filtered = if (q.isBlank() && cFilter == "All") {
+            state.allItems
+        } else {
+            state.allItems.filter { item ->
+                val matchesQuery = q.isBlank() ||
+                        item.student.fullName.contains(q, ignoreCase = true) ||
+                        item.student.studentClass.contains(q, ignoreCase = true) ||
+                        item.student.school.contains(q, ignoreCase = true) ||
+                        item.student.phone.contains(q, ignoreCase = true)
+                val matchesClass = cFilter == "All" ||
+                        item.student.studentClass.equals(cFilter, ignoreCase = true)
+                matchesQuery && matchesClass
+            }
+        }
+
+        val inCurrentMonth = filtered.filter { it.birthMonth == state.currentYearMonth.monthValue }
+            .sortedBy { it.birthDay }
+
+        val byDay = inCurrentMonth.groupBy { it.birthDay }
+
+        val onSelected = state.selectedDate?.let { date ->
+            if (date.monthValue == state.currentYearMonth.monthValue && date.year == state.currentYearMonth.year) {
+                byDay[date.dayOfMonth] ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } ?: emptyList()
+
+        val timelineItems = filtered.sortedBy { it.daysUntilNextBirthday }
+
+        return state.copy(
+            todaysBirthdays = todays,
+            nextUpcomingCelebration = nextUpcoming,
+            filteredItems = filtered,
+            birthdaysInCurrentMonth = inCurrentMonth,
+            birthdaysByDayInCurrentMonth = byDay,
+            birthdaysOnSelectedDate = onSelected,
+            timelineUpcomingItems = timelineItems
+        )
+    }
+
+    private fun updateState(reducer: (BirthdayCalendarUiState) -> BirthdayCalendarUiState) {
+        _uiState.update { computeDerivedState(reducer(it)) }
+    }
+
     private fun observeStudents() {
         viewModelScope.launch {
             studentRepository.getStudentsStream()
                 .catch { e ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage) }
+                    updateState { it.copy(isLoading = false, errorMessage = e.localizedMessage) }
                 }
                 .collect { students ->
                     val today = LocalDate.now()
@@ -175,7 +197,7 @@ class BirthdayCalendarViewModel @javax.inject.Inject constructor(
                         .distinct()
                         .sorted()
 
-                    _uiState.update {
+                    updateState {
                         it.copy(
                             allItems = items,
                             availableClasses = classes,
@@ -187,14 +209,14 @@ class BirthdayCalendarViewModel @javax.inject.Inject constructor(
     }
 
     fun onPreviousMonth() {
-        _uiState.update {
+        updateState {
             val prev = it.currentYearMonth.minusMonths(1)
             it.copy(currentYearMonth = prev, selectedDate = null)
         }
     }
 
     fun onNextMonth() {
-        _uiState.update {
+        updateState {
             val next = it.currentYearMonth.plusMonths(1)
             it.copy(currentYearMonth = next, selectedDate = null)
         }
@@ -202,7 +224,7 @@ class BirthdayCalendarViewModel @javax.inject.Inject constructor(
 
     fun onJumpToToday() {
         val today = LocalDate.now()
-        _uiState.update {
+        updateState {
             it.copy(
                 currentYearMonth = YearMonth.of(today.year, today.month),
                 selectedDate = today
@@ -211,7 +233,7 @@ class BirthdayCalendarViewModel @javax.inject.Inject constructor(
     }
 
     fun onDateSelected(date: LocalDate) {
-        _uiState.update {
+        updateState {
             if (it.selectedDate == date) {
                 it.copy(selectedDate = null)
             } else {
@@ -221,14 +243,14 @@ class BirthdayCalendarViewModel @javax.inject.Inject constructor(
     }
 
     fun onSearchQueryChanged(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        updateState { it.copy(searchQuery = query) }
     }
 
     fun onClassFilterSelected(className: String) {
-        _uiState.update { it.copy(selectedClassFilter = className) }
+        updateState { it.copy(selectedClassFilter = className) }
     }
 
     fun onTabSelected(index: Int) {
-        _uiState.update { it.copy(selectedTab = index) }
+        updateState { it.copy(selectedTab = index) }
     }
 }

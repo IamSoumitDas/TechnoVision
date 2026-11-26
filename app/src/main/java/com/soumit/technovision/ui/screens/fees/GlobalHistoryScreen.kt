@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.FeePaymentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.text.SimpleDateFormat
@@ -28,7 +29,7 @@ fun GlobalHistoryScreen(
     onBack: () -> Unit,
     viewModel: GlobalHistoryViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(uiState.userMessage) {
@@ -60,8 +61,10 @@ fun GlobalHistoryContent(
 ) {
     val paymentMethods = listOf("All", "UPI", "Cash", "Bank Transfer", "Other")
 
+    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+
     val todayDateStr = remember {
-        SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
+        dateFormat.format(Date())
     }
 
     val currentMonthName = remember {
@@ -81,15 +84,13 @@ fun GlobalHistoryContent(
         }.sumOf { it.amountPaid }
     }
 
-    val todayCollected = remember(uiState.paymentHistory, todayDateStr) {
-        val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    val todayCollected = remember(uiState.paymentHistory, todayDateStr, dateFormat) {
         uiState.paymentHistory.filter { payment ->
             payment.timestamp != null && dateFormat.format(payment.timestamp.toDate()) == todayDateStr
         }.sumOf { it.amountPaid }
     }
 
-    val groupedHistory = remember(uiState.filteredPayments) {
-        val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    val groupedHistory = remember(uiState.filteredPayments, dateFormat) {
         uiState.filteredPayments
             .sortedByDescending { it.timestamp?.seconds ?: 0L }
             .groupBy { payment ->

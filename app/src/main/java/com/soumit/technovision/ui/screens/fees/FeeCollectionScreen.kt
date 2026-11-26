@@ -21,6 +21,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.FeePaymentModel
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
@@ -33,7 +34,7 @@ fun FeeCollectionScreen(
     onNavigateToGlobalHistory: () -> Unit = {},
     viewModel: FeeCollectionViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(uiState.userMessage) {

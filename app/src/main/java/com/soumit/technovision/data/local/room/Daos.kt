@@ -65,6 +65,9 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE (date = :date OR date = :altDate) AND time_slot = :timeSlot AND is_deleted = 0 LIMIT 1")
     suspend fun getExistingAttendance(date: String, altDate: String, timeSlot: String): AttendanceEntity?
 
+    @Query("SELECT * FROM attendance WHERE (date = :date OR date = :altDate OR date = :normDate) AND is_deleted = 0")
+    suspend fun getAttendanceByDateCandidates(date: String, altDate: String, normDate: String): List<AttendanceEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: AttendanceEntity)
 

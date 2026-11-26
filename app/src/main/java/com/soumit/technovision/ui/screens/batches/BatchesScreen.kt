@@ -93,9 +93,14 @@ fun BatchesContent(
                 }
             } else {
                 if (uiState.selectedView == "Today") {
-                    val activeTimeSlots = timeSlots.map { slot ->
-                        slot to uiState.studentList.filter { it.weeklySchedule[todayName] == slot }
-                    }.filter { (_, students) -> students.isNotEmpty() }
+                    val activeTimeSlots = remember(uiState.studentList, todayName) {
+                        timeSlots.map { slot ->
+                            val normSlot = AttendanceUtils.normalizeTimeSlot(slot)
+                            slot to uiState.studentList.filter { student ->
+                                student.weeklySchedule[todayName]?.let { AttendanceUtils.normalizeTimeSlot(it) == normSlot } == true
+                            }
+                        }.filter { (_, students) -> students.isNotEmpty() }
+                    }
 
                     if (activeTimeSlots.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -110,17 +115,26 @@ fun BatchesContent(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(activeTimeSlots) { (slot, students) ->
+                            items(
+                                items = activeTimeSlots,
+                                key = { (slot, _) -> slot },
+                                contentType = { "time_slot_batch" }
+                            ) { (slot, students) ->
                                 TimeSlotBatchCard(timeSlot = slot, students = students)
                             }
                         }
                     }
                 } else {
-                    val activeDays = weekDays.map { day ->
-                        day to timeSlots.map { slot ->
-                            slot to uiState.studentList.filter { it.weeklySchedule[day] == slot }
-                        }.filter { (_, students) -> students.isNotEmpty() }
-                    }.filter { (_, slotList) -> slotList.isNotEmpty() }
+                    val activeDays = remember(uiState.studentList) {
+                        weekDays.map { day ->
+                            day to timeSlots.map { slot ->
+                                val normSlot = AttendanceUtils.normalizeTimeSlot(slot)
+                                slot to uiState.studentList.filter { student ->
+                                    student.weeklySchedule[day]?.let { AttendanceUtils.normalizeTimeSlot(it) == normSlot } == true
+                                }
+                            }.filter { (_, students) -> students.isNotEmpty() }
+                        }.filter { (_, slotList) -> slotList.isNotEmpty() }
+                    }
 
                     if (activeDays.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -135,7 +149,11 @@ fun BatchesContent(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(activeDays) { (day, slotList) ->
+                            items(
+                                items = activeDays,
+                                key = { (day, _) -> day },
+                                contentType = { "day_batch" }
+                            ) { (day, slotList) ->
                                 DayScheduleCard(dayName = day, slotsWithStudents = slotList)
                             }
                         }

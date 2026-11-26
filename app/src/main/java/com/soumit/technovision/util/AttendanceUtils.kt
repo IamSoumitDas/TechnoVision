@@ -238,7 +238,7 @@ object AttendanceUtils {
             val normKey = normalizeSlotKey(record.date, record.timeSlot)
             val rawKey = "${record.date}_${record.timeSlot}"
             val rawCleanDate = record.date.trim().replace('/', '-')
-            val rawCleanSlot = record.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+            val rawCleanSlot = record.timeSlot.replace(MULTI_SPACE_REGEX, " ").trim().lowercase()
             val legacyKey = "${rawCleanDate}_${rawCleanSlot}"
 
             val fromTeacherAttendance = teacherAttendanceMap[normKey]
@@ -321,7 +321,7 @@ object AttendanceUtils {
             val normKey = normalizeSlotKey(record.date, record.timeSlot)
             val rawKey = "${record.date}_${record.timeSlot}"
             val rawCleanDate = record.date.trim().replace('/', '-')
-            val rawCleanSlot = record.timeSlot.replace(Regex("\\s+"), " ").trim().lowercase()
+            val rawCleanSlot = record.timeSlot.replace(MULTI_SPACE_REGEX, " ").trim().lowercase()
             val legacyKey = "${rawCleanDate}_${rawCleanSlot}"
 
             val fromFallback = fallbackTeacherMap[normKey]

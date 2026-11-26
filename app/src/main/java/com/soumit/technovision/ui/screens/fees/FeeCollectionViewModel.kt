@@ -41,21 +41,11 @@ data class FeeCollectionUiState(
     val showDatePicker: Boolean = false,
     val methodExpanded: Boolean = false,
     val isOnline: Boolean = true,
-    val userMessage: String? = null
+    val userMessage: String? = null,
+    val filteredStudents: List<StudentModel> = emptyList()
 ) {
     val balanceDue: Long
         get() = expectedTotalFees - totalPaid
-
-    val filteredStudents: List<StudentModel>
-        get() {
-            if (searchQuery.isBlank()) return studentList
-            return studentList.filter {
-                it.fullName.contains(searchQuery, ignoreCase = true) ||
-                        it.studentClass.contains(searchQuery, ignoreCase = true) ||
-                        it.school.contains(searchQuery, ignoreCase = true) ||
-                        it.phone.contains(searchQuery, ignoreCase = true)
-            }
-        }
 }
 
 @dagger.hilt.android.lifecycle.HiltViewModel
@@ -65,13 +55,15 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
     private val authRepository: AuthRepository,
     private val auditLogRepository: AuditLogRepository,
     private val staffRepository: StaffRepository,
-    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null,
+    private val defaultDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FeeCollectionUiState())
     val uiState: StateFlow<FeeCollectionUiState> = _uiState.asStateFlow()
 
     private var paymentsJob: Job? = null
+    private var searchJob: Job? = null
     private var isStudentsLoaded = false
     private var isRoleLoaded = false
 
@@ -137,11 +129,23 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
                         state.copy(
                             studentList = list,
                             selectedStudent = updatedSelected,
-                            expectedTotalFees = newExpected
+                            expectedTotalFees = newExpected,
+                            filteredStudents = filterStudentsList(list, state.searchQuery)
                         )
                     }
                     checkReady()
                 }
+        }
+    }
+
+    private fun filterStudentsList(list: List<StudentModel>, query: String): List<StudentModel> {
+        val q = query.trim()
+        if (q.isBlank()) return list
+        return list.filter {
+            it.fullName.contains(q, ignoreCase = true) ||
+                    it.studentClass.contains(q, ignoreCase = true) ||
+                    it.school.contains(q, ignoreCase = true) ||
+                    it.phone.contains(q, ignoreCase = true)
         }
     }
 
@@ -177,6 +181,14 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch(defaultDispatcher) {
+            if (query.isNotBlank()) {
+                kotlinx.coroutines.delay(150L)
+            }
+            val filtered = filterStudentsList(_uiState.value.studentList, query)
+            _uiState.update { it.copy(filteredStudents = filtered) }
+        }
     }
 
     fun onAmountChanged(amount: String) {

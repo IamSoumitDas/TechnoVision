@@ -54,4 +54,39 @@ class CalculateBillingDuesUseCaseTest {
         val expectedBalance = (result.expectedAmount - 500L).coerceAtLeast(0L)
         assertEquals(expectedBalance, result.outstandingBalance)
     }
+
+    @Test
+    fun invoke_acrossDifferentMonths_producesDistinctMemoizedResults() {
+        val resultJan = useCase(
+            admissionDate = "15/01/2024",
+            monthlyInstallment = 1000L,
+            totalPaid = 0L,
+            currentYear = 2024,
+            currentMonth = 3
+        )
+        val resultJun = useCase(
+            admissionDate = "15/01/2024",
+            monthlyInstallment = 1000L,
+            totalPaid = 0L,
+            currentYear = 2024,
+            currentMonth = 6
+        )
+
+        // March (month 3) has fewer billable months than June (month 6)
+        assertTrue(resultJun.billableMonths > resultJan.billableMonths)
+        assertTrue(resultJun.expectedAmount > resultJan.expectedAmount)
+    }
+
+    @Test
+    fun invoke_withDefaultArguments_resolvesValidCurrentMonthDues() {
+        val result = useCase(
+            admissionDate = "10/01/2020",
+            monthlyInstallment = 500L,
+            totalPaid = 1000L
+        )
+
+        assertTrue("Billable months must be greater than 0", result.billableMonths > 0)
+        assertTrue("Expected amount must be greater than 0", result.expectedAmount > 0L)
+        assertEquals(1000L, result.totalPaid)
+    }
 }

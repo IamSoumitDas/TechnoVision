@@ -1,6 +1,5 @@
 package com.soumit.technovision.ui.screens.students.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
@@ -11,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.remember
 import com.soumit.technovision.R
 import com.soumit.technovision.data.model.StudentModel
 
@@ -23,16 +23,17 @@ fun StudentCard(
     onEditSelected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val initials = student.fullName.split(" ")
-        .mapNotNull { it.firstOrNull()?.toString() }
-        .take(2)
-        .joinToString("")
-        .uppercase()
+    val initials = remember(student.fullName) {
+        student.fullName.split(" ")
+            .mapNotNull { it.firstOrNull()?.toString() }
+            .take(2)
+            .joinToString("")
+            .uppercase()
+    }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onCardClicked() },
+        onClick = onCardClicked,
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {

@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 
@@ -29,7 +30,7 @@ fun StudentViewerScreen(
     onBack: () -> Unit,
     viewModel: StudentViewerViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     StudentViewerContent(

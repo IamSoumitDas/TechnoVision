@@ -9,7 +9,8 @@ import com.soumit.technovision.data.repository.StudentRepository
 import com.soumit.technovision.domain.usecase.CalculateBillingDuesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,19 +29,9 @@ data class StudentDirectoryUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val userRole: String = "",
-    val errorMessage: String? = null
-) {
-    val filteredStudents: List<StudentModel>
-        get() {
-            if (searchQuery.isBlank()) return students
-            return students.filter {
-                it.fullName.contains(searchQuery, ignoreCase = true) ||
-                        it.school.contains(searchQuery, ignoreCase = true) ||
-                        it.studentClass.contains(searchQuery, ignoreCase = true) ||
-                        it.phone.contains(searchQuery, ignoreCase = true)
-            }
-        }
-}
+    val errorMessage: String? = null,
+    val filteredStudents: List<StudentModel> = emptyList()
+)
 
 @HiltViewModel
 class StudentDirectoryViewModel @Inject constructor(
@@ -56,6 +47,7 @@ class StudentDirectoryViewModel @Inject constructor(
 
     private var isStudentsLoaded = false
     private var isRoleLoaded = false
+    private var searchJob: Job? = null
 
     init {
         loadUserRole()
@@ -85,6 +77,17 @@ class StudentDirectoryViewModel @Inject constructor(
     private fun checkReady() {
         if (isStudentsLoaded && isRoleLoaded) {
             _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    private fun filterStudentsList(list: List<StudentModel>, query: String): List<StudentModel> {
+        val q = query.trim()
+        if (q.isBlank()) return list
+        return list.filter {
+            it.fullName.contains(q, ignoreCase = true) ||
+                    it.school.contains(q, ignoreCase = true) ||
+                    it.studentClass.contains(q, ignoreCase = true) ||
+                    it.phone.contains(q, ignoreCase = true)
         }
     }
 
@@ -122,7 +125,8 @@ class StudentDirectoryViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         students = students,
-                        outstandingBalances = balances
+                        outstandingBalances = balances,
+                        filteredStudents = filterStudentsList(students, it.searchQuery)
                     )
                 }
                 checkReady()
@@ -132,6 +136,14 @@ class StudentDirectoryViewModel @Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch(defaultDispatcher) {
+            if (query.isNotBlank()) {
+                delay(150L)
+            }
+            val filtered = filterStudentsList(_uiState.value.students, query)
+            _uiState.update { it.copy(filteredStudents = filtered) }
+        }
     }
 
     fun refresh() {

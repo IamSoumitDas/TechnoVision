@@ -190,7 +190,7 @@ class FirestoreFeeRepository(
             }
 
             val batch = firestore.batch()
-            batch.update(firestore.collection("fee_payments").document(paymentId), mapOf("isDeleted" to true, "updatedAt" to now))
+            batch.set(firestore.collection("fee_payments").document(paymentId), mapOf("isDeleted" to true, "updatedAt" to now), com.google.firebase.firestore.SetOptions.merge())
 
             if (studentId.isNotBlank() && amountPaid > 0L) {
                 val studentDocRef = firestore.collection("students").document(studentId)
@@ -206,7 +206,11 @@ class FirestoreFeeRepository(
 
             val student = db?.getStudent(studentId)
             if (student != null) {
-                db?.upsertStudent(student.copy(totalPaid = (student.totalPaid - amountPaid).coerceAtLeast(0L)), now.toDate().time)
+                db?.upsertStudent(
+                    student.copy(totalPaid = (student.totalPaid - amountPaid).coerceAtLeast(0L)),
+                    now.toDate().time,
+                    forceTotalPaid = true
+                )
             }
 
             Result.success(Unit)
@@ -269,7 +273,7 @@ class FirestoreFeeRepository(
                     // Also immediately update local Room database
                     val studentInLocal = db?.getStudent(doc.id)
                     if (studentInLocal != null) {
-                        db?.upsertStudent(studentInLocal.copy(totalPaid = correctTotal), now.toDate().time)
+                        db?.upsertStudent(studentInLocal.copy(totalPaid = correctTotal), now.toDate().time, forceTotalPaid = true)
                     }
                 }
             }

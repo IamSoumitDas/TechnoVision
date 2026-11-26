@@ -8,13 +8,16 @@ import com.soumit.technovision.data.repository.AttendanceRepository
 import com.soumit.technovision.data.repository.StaffRepository
 import com.soumit.technovision.data.repository.StudentRepository
 import com.soumit.technovision.util.AttendanceUtils
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class AttendanceHistoryUiState(
     val attendanceRecords: List<AttendanceRecordModel> = emptyList(),
@@ -43,7 +46,8 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val studentRepository: StudentRepository,
     private val staffRepository: StaffRepository,
-    private val auditLogRepository: com.soumit.technovision.data.repository.AuditLogRepository? = null
+    private val auditLogRepository: com.soumit.technovision.data.repository.AuditLogRepository? = null,
+    private val defaultDispatcher: CoroutineDispatcher? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AttendanceHistoryUiState())
@@ -170,17 +174,32 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
                     }
 
                 AttendanceData(records, sMap, augmentedUserMap, teacherMap, fallbackMap)
+            }.let { flow ->
+                if (defaultDispatcher != null) flow.flowOn(defaultDispatcher) else flow
             }.catch { e ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.localizedMessage) }
             }.collect { data ->
-                val grouped = filterAndGroup(
-                    records = data.records,
-                    query = _uiState.value.searchQuery,
-                    studentsMap = data.studentsMap,
-                    userMap = data.userMap,
-                    teacherAttendanceMap = data.teacherAttendanceMap,
-                    fallbackTeacherMap = data.fallbackTeacherMap
-                )
+                val grouped = if (defaultDispatcher != null) {
+                    withContext(defaultDispatcher) {
+                        filterAndGroup(
+                            records = data.records,
+                            query = _uiState.value.searchQuery,
+                            studentsMap = data.studentsMap,
+                            userMap = data.userMap,
+                            teacherAttendanceMap = data.teacherAttendanceMap,
+                            fallbackTeacherMap = data.fallbackTeacherMap
+                        )
+                    }
+                } else {
+                    filterAndGroup(
+                        records = data.records,
+                        query = _uiState.value.searchQuery,
+                        studentsMap = data.studentsMap,
+                        userMap = data.userMap,
+                        teacherAttendanceMap = data.teacherAttendanceMap,
+                        fallbackTeacherMap = data.fallbackTeacherMap
+                    )
+                }
                 _uiState.update {
                     it.copy(
                         attendanceRecords = data.records,

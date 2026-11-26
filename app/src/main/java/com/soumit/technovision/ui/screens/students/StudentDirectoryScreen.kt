@@ -33,10 +33,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun StudentDirectoryScreen(
@@ -45,7 +47,7 @@ fun StudentDirectoryScreen(
     onNavigateToViewer: (String) -> Unit,
     viewModel: StudentDirectoryViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     StudentDirectoryContent(
         uiState = uiState,
@@ -58,30 +60,7 @@ fun StudentDirectoryScreen(
 }
 
 @Composable
-private fun ShimmerStudentCard() {
-    val transition = rememberInfiniteTransition(label = "ShimmerTransition")
-    val translateAnim = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ShimmerTranslate"
-    )
-
-    val shimmerColors = listOf(
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-    )
-
-    val brush = Brush.linearGradient(
-        colors = shimmerColors,
-        start = Offset.Zero,
-        end = Offset(x = translateAnim.value, y = translateAnim.value)
-    )
-
+private fun ShimmerStudentCard(brushProvider: () -> Brush) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -97,7 +76,7 @@ private fun ShimmerStudentCard() {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(brush)
+                    .drawBehind { drawRect(brushProvider()) }
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -106,7 +85,7 @@ private fun ShimmerStudentCard() {
                         .fillMaxWidth(0.6f)
                         .height(18.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(brush)
+                        .drawBehind { drawRect(brushProvider()) }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Box(
@@ -114,7 +93,7 @@ private fun ShimmerStudentCard() {
                         .fillMaxWidth(0.4f)
                         .height(14.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(brush)
+                        .drawBehind { drawRect(brushProvider()) }
                 )
             }
         }
@@ -170,12 +149,37 @@ fun StudentDirectoryContent(
                 )
 
                 if (uiState.isLoading) {
+                    val transition = rememberInfiniteTransition(label = "ShimmerTransition")
+                    val translateAnim = transition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 1000f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 1200),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "ShimmerTranslate"
+                    )
+                    val baseVariant = MaterialTheme.colorScheme.surfaceVariant
+                    val shimmerColors = remember(baseVariant) {
+                        listOf(
+                            baseVariant.copy(alpha = 0.6f),
+                            baseVariant.copy(alpha = 0.2f),
+                            baseVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                    val brushProvider = {
+                        Brush.linearGradient(
+                            colors = shimmerColors,
+                            start = Offset.Zero,
+                            end = Offset(x = translateAnim.value, y = translateAnim.value)
+                        )
+                    }
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         repeat(5) {
-                            ShimmerStudentCard()
+                            ShimmerStudentCard(brushProvider = brushProvider)
                         }
                     }
                 } else if (uiState.filteredStudents.isEmpty()) {

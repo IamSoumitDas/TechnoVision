@@ -256,7 +256,11 @@ class FirestoreStudentRepository(
         return try {
             val now = Timestamp.now()
             val batch = firestore.batch()
-            batch.update(firestore.collection("students").document(studentId), mapOf("isDeleted" to true, "updatedAt" to now))
+            batch.set(
+                firestore.collection("students").document(studentId),
+                mapOf("isDeleted" to true, "updatedAt" to now),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
             batch.delete(firestore.collection("users").document(studentId))
             batch.commit().await()
 

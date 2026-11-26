@@ -714,7 +714,29 @@ class CrashFuzzingAndEdgeCasesTest {
             kotlinx.coroutines.Dispatchers.resetMain()
         }
     }
+
+    // ==========================================
+    // 7. TimeSlot Normalization & Schedule Matching
+    // ==========================================
+
+    @Test
+    fun attendanceUtils_normalizeTimeSlot_matchesDifferentDashAndSpaceVariations() {
+        val standard = "9:00 AM - 11:00 AM"
+        val enDash = "9:00 AM – 11:00 AM"
+        val emDash = "9:00 AM — 11:00 AM"
+        val noSpaces = "9:00AM-11:00AM"
+        val extraSpaces = "  9:00 AM   -   11:00 AM  "
+        val leadingZero = "09:00 AM - 11:00 AM"
+
+        val normStandard = AttendanceUtils.normalizeTimeSlot(standard)
+        assertEquals(normStandard, AttendanceUtils.normalizeTimeSlot(enDash))
+        assertEquals(normStandard, AttendanceUtils.normalizeTimeSlot(emDash))
+        assertEquals(normStandard, AttendanceUtils.normalizeTimeSlot(noSpaces))
+        assertEquals(normStandard, AttendanceUtils.normalizeTimeSlot(extraSpaces))
+        assertEquals(normStandard, AttendanceUtils.normalizeTimeSlot(leadingZero))
+    }
 }
+
 
 
 

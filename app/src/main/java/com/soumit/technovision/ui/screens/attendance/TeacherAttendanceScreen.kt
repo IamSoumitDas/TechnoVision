@@ -27,6 +27,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import java.text.SimpleDateFormat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.*
 
 @Composable
@@ -35,7 +36,7 @@ fun TeacherAttendanceScreen(
     onNavigateToViewer: (() -> Unit)? = null,
     viewModel: TeacherAttendanceViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(uiState.userMessage) {
@@ -288,7 +289,11 @@ fun TeacherAttendanceContent(
                     }
                 }
             } else {
-                items(requestsForSelectedDate) { req ->
+                items(
+                    items = requestsForSelectedDate,
+                    key = { it.id },
+                    contentType = { "teacher_request" }
+                ) { req ->
                     TeacherRequestCard(request = req)
                 }
             }

@@ -678,11 +678,23 @@ fun UpcomingTimelineTabView(
         return
     }
 
-    val todayItems = items.filter { it.isToday }
-    val tomorrowItems = items.filter { !it.isToday && it.daysUntilNextBirthday == 1L }
-    val thisWeekItems = items.filter { !it.isToday && it.daysUntilNextBirthday in 2L..7L }
-    val thisMonthItems = items.filter { !it.isToday && it.daysUntilNextBirthday in 8L..30L }
-    val laterItems = items.filter { !it.isToday && it.daysUntilNextBirthday > 30L }
+    val (todayItems, tomorrowItems, thisWeekItems, thisMonthItems, laterItems) = remember(items) {
+        val today = mutableListOf<StudentBirthdayItem>()
+        val tomorrow = mutableListOf<StudentBirthdayItem>()
+        val thisWeek = mutableListOf<StudentBirthdayItem>()
+        val thisMonth = mutableListOf<StudentBirthdayItem>()
+        val later = mutableListOf<StudentBirthdayItem>()
+        for (item in items) {
+            when {
+                item.isToday -> today.add(item)
+                item.daysUntilNextBirthday == 1L -> tomorrow.add(item)
+                item.daysUntilNextBirthday in 2L..7L -> thisWeek.add(item)
+                item.daysUntilNextBirthday in 8L..30L -> thisMonth.add(item)
+                else -> later.add(item)
+            }
+        }
+        listOf(today, tomorrow, thisWeek, thisMonth, later)
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),

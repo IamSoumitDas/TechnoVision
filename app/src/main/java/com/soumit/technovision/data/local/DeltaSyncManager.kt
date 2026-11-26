@@ -83,7 +83,7 @@ class DeltaSyncManager(
             }
 
             if (batchUpserts.isNotEmpty()) {
-                localDb.upsertStudentsBatch(batchUpserts)
+                localDb.upsertStudentsBatch(batchUpserts, forceTotalPaid = true)
             }
 
             localDb.setLastSyncTime("students", maxServerTime)
@@ -289,162 +289,169 @@ class DeltaSyncManager(
             liveSyncScope = scope
         }
 
-        // 1. Initial catch-up delta sync
+        // 1. Initial catch-up delta sync and queue flush (completed before attaching live stream)
         scope.launch {
             try {
+                flushOfflineSyncQueue()
                 syncAll(force = false)
             } catch (e: Exception) {
                 Log.w(TAG, "Initial delta catch-up failed: ${e.localizedMessage}")
             }
+
+            // 2. Attach live delta stream listeners with timestamp starting after catch-up
+            val startTs = Timestamp(Date((System.currentTimeMillis() - CLOCK_SKEW_BUFFER_MS).coerceAtLeast(0L)))
+
+            synchronized(listenerLock) {
+                if (liveSyncScope == null) return@launch
+
+                for (l in activeListeners) {
+                    try { l.remove() } catch (_: Exception) {}
+                }
+                activeListeners.clear()
+
+                // Students live listener
+                val studentsReg = firestore.collection("students")
+                    .whereGreaterThan("updatedAt", startTs)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            Log.w(TAG, "Live students stream error: ${error.localizedMessage}")
+                            return@addSnapshotListener
+                        }
+                        if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
+                        scope.launch {
+                            try {
+                                var maxServerTime = 0L
+                                val batchUpserts = mutableListOf<Pair<StudentModel, Long>>()
+                                for (doc in snapshot.documents) {
+                                    val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
+                                    if (updatedAt > maxServerTime) maxServerTime = updatedAt
+                                    if (doc.getBoolean("isDeleted") == true) {
+                                        localDb.markStudentDeleted(doc.id, updatedAt)
+                                    } else {
+                                        batchUpserts.add(Pair(parseStudent(doc), updatedAt))
+                                    }
+                                }
+                                if (batchUpserts.isNotEmpty()) {
+                                    localDb.upsertStudentsBatch(batchUpserts, forceTotalPaid = true)
+                                }
+                                if (maxServerTime > 0L) {
+                                    localDb.setLastSyncTime("students", maxServerTime)
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed processing live student updates: ${e.localizedMessage}")
+                            }
+                        }
+                    }
+
+                // Fee payments live listener
+                val feesReg = firestore.collection("fee_payments")
+                    .whereGreaterThan("updatedAt", startTs)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            Log.w(TAG, "Live fee stream error: ${error.localizedMessage}")
+                            return@addSnapshotListener
+                        }
+                        if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
+                        scope.launch {
+                            try {
+                                var maxServerTime = 0L
+                                val batchUpserts = mutableListOf<Pair<FeePaymentModel, Long>>()
+                                for (doc in snapshot.documents) {
+                                    val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
+                                    if (updatedAt > maxServerTime) maxServerTime = updatedAt
+                                    if (doc.getBoolean("isDeleted") == true) {
+                                        localDb.markFeePaymentDeleted(doc.id, updatedAt)
+                                    } else {
+                                        batchUpserts.add(Pair(parseFeePayment(doc), updatedAt))
+                                    }
+                                }
+                                if (batchUpserts.isNotEmpty()) {
+                                    localDb.upsertFeePaymentsBatch(batchUpserts)
+                                }
+                                if (maxServerTime > 0L) {
+                                    localDb.setLastSyncTime("fee_payments", maxServerTime)
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed processing live fee updates: ${e.localizedMessage}")
+                            }
+                        }
+                    }
+
+                // Attendance live listener
+                val attendanceReg = firestore.collection("attendance")
+                    .whereGreaterThan("updatedAt", startTs)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            Log.w(TAG, "Live attendance stream error: ${error.localizedMessage}")
+                            return@addSnapshotListener
+                        }
+                        if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
+                        scope.launch {
+                            try {
+                                var maxServerTime = 0L
+                                val batchUpserts = mutableListOf<Pair<AttendanceRecordModel, Long>>()
+                                for (doc in snapshot.documents) {
+                                    val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
+                                    if (updatedAt > maxServerTime) maxServerTime = updatedAt
+                                    if (doc.getBoolean("isDeleted") == true) {
+                                        localDb.markAttendanceDeleted(doc.id, updatedAt)
+                                    } else {
+                                        batchUpserts.add(Pair(parseAttendance(doc), updatedAt))
+                                    }
+                                }
+                                if (batchUpserts.isNotEmpty()) {
+                                    localDb.upsertAttendanceBatch(batchUpserts)
+                                }
+                                if (maxServerTime > 0L) {
+                                    localDb.setLastSyncTime("attendance", maxServerTime)
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed processing live attendance updates: ${e.localizedMessage}")
+                            }
+                        }
+                    }
+
+                // Teacher attendance live listener
+                val teacherAttendanceReg = firestore.collection("teacher_attendance")
+                    .whereGreaterThan("updatedAt", startTs)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            Log.w(TAG, "Live teacher attendance stream error: ${error.localizedMessage}")
+                            return@addSnapshotListener
+                        }
+                        if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
+                        scope.launch {
+                            try {
+                                var maxServerTime = 0L
+                                val batchUpserts = mutableListOf<Pair<TeacherAttendanceRequestModel, Long>>()
+                                for (doc in snapshot.documents) {
+                                    val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
+                                    if (updatedAt > maxServerTime) maxServerTime = updatedAt
+                                    if (doc.getBoolean("isDeleted") == true) {
+                                        localDb.markTeacherAttendanceDeleted(doc.id, updatedAt)
+                                    } else {
+                                        batchUpserts.add(Pair(parseTeacherAttendance(doc), updatedAt))
+                                    }
+                                }
+                                if (batchUpserts.isNotEmpty()) {
+                                    localDb.upsertTeacherAttendanceBatch(batchUpserts)
+                                }
+                                if (maxServerTime > 0L) {
+                                    localDb.setLastSyncTime("teacher_attendance", maxServerTime)
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed processing live teacher attendance updates: ${e.localizedMessage}")
+                            }
+                        }
+                    }
+
+                activeListeners.add(studentsReg)
+                activeListeners.add(feesReg)
+                activeListeners.add(attendanceReg)
+                activeListeners.add(teacherAttendanceReg)
+            }
+            Log.d(TAG, "Started live delta sync listeners after catch-up.")
         }
-
-        // 2. Attach live delta stream listeners
-        val startTs = Timestamp(Date((System.currentTimeMillis() - CLOCK_SKEW_BUFFER_MS).coerceAtLeast(0L)))
-
-        // Students live listener
-        val studentsReg = firestore.collection("students")
-            .whereGreaterThan("updatedAt", startTs)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.w(TAG, "Live students stream error: ${error.localizedMessage}")
-                    return@addSnapshotListener
-                }
-                if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
-                scope.launch {
-                    try {
-                        var maxServerTime = 0L
-                        val batchUpserts = mutableListOf<Pair<StudentModel, Long>>()
-                        for (doc in snapshot.documents) {
-                            val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
-                            if (updatedAt > maxServerTime) maxServerTime = updatedAt
-                            if (doc.getBoolean("isDeleted") == true) {
-                                localDb.markStudentDeleted(doc.id, updatedAt)
-                            } else {
-                                batchUpserts.add(Pair(parseStudent(doc), updatedAt))
-                            }
-                        }
-                        if (batchUpserts.isNotEmpty()) {
-                            localDb.upsertStudentsBatch(batchUpserts)
-                        }
-                        if (maxServerTime > 0L) {
-                            localDb.setLastSyncTime("students", maxServerTime)
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed processing live student updates: ${e.localizedMessage}")
-                    }
-                }
-            }
-
-        // Fee payments live listener
-        val feesReg = firestore.collection("fee_payments")
-            .whereGreaterThan("updatedAt", startTs)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.w(TAG, "Live fee stream error: ${error.localizedMessage}")
-                    return@addSnapshotListener
-                }
-                if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
-                scope.launch {
-                    try {
-                        var maxServerTime = 0L
-                        val batchUpserts = mutableListOf<Pair<FeePaymentModel, Long>>()
-                        for (doc in snapshot.documents) {
-                            val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
-                            if (updatedAt > maxServerTime) maxServerTime = updatedAt
-                            if (doc.getBoolean("isDeleted") == true) {
-                                localDb.markFeePaymentDeleted(doc.id, updatedAt)
-                            } else {
-                                batchUpserts.add(Pair(parseFeePayment(doc), updatedAt))
-                            }
-                        }
-                        if (batchUpserts.isNotEmpty()) {
-                            localDb.upsertFeePaymentsBatch(batchUpserts)
-                        }
-                        if (maxServerTime > 0L) {
-                            localDb.setLastSyncTime("fee_payments", maxServerTime)
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed processing live fee updates: ${e.localizedMessage}")
-                    }
-                }
-            }
-
-        // Attendance live listener
-        val attendanceReg = firestore.collection("attendance")
-            .whereGreaterThan("updatedAt", startTs)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.w(TAG, "Live attendance stream error: ${error.localizedMessage}")
-                    return@addSnapshotListener
-                }
-                if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
-                scope.launch {
-                    try {
-                        var maxServerTime = 0L
-                        val batchUpserts = mutableListOf<Pair<AttendanceRecordModel, Long>>()
-                        for (doc in snapshot.documents) {
-                            val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
-                            if (updatedAt > maxServerTime) maxServerTime = updatedAt
-                            if (doc.getBoolean("isDeleted") == true) {
-                                localDb.markAttendanceDeleted(doc.id, updatedAt)
-                            } else {
-                                batchUpserts.add(Pair(parseAttendance(doc), updatedAt))
-                            }
-                        }
-                        if (batchUpserts.isNotEmpty()) {
-                            localDb.upsertAttendanceBatch(batchUpserts)
-                        }
-                        if (maxServerTime > 0L) {
-                            localDb.setLastSyncTime("attendance", maxServerTime)
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed processing live attendance updates: ${e.localizedMessage}")
-                    }
-                }
-            }
-
-        // Teacher attendance live listener
-        val teacherAttendanceReg = firestore.collection("teacher_attendance")
-            .whereGreaterThan("updatedAt", startTs)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.w(TAG, "Live teacher attendance stream error: ${error.localizedMessage}")
-                    return@addSnapshotListener
-                }
-                if (snapshot == null || snapshot.isEmpty) return@addSnapshotListener
-                scope.launch {
-                    try {
-                        var maxServerTime = 0L
-                        val batchUpserts = mutableListOf<Pair<TeacherAttendanceRequestModel, Long>>()
-                        for (doc in snapshot.documents) {
-                            val updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis()
-                            if (updatedAt > maxServerTime) maxServerTime = updatedAt
-                            if (doc.getBoolean("isDeleted") == true) {
-                                localDb.markTeacherAttendanceDeleted(doc.id, updatedAt)
-                            } else {
-                                batchUpserts.add(Pair(parseTeacherAttendance(doc), updatedAt))
-                            }
-                        }
-                        if (batchUpserts.isNotEmpty()) {
-                            localDb.upsertTeacherAttendanceBatch(batchUpserts)
-                        }
-                        if (maxServerTime > 0L) {
-                            localDb.setLastSyncTime("teacher_attendance", maxServerTime)
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed processing live teacher attendance updates: ${e.localizedMessage}")
-                    }
-                }
-            }
-
-        synchronized(listenerLock) {
-            activeListeners.add(studentsReg)
-            activeListeners.add(feesReg)
-            activeListeners.add(attendanceReg)
-            activeListeners.add(teacherAttendanceReg)
-        }
-        Log.d(TAG, "Started live delta sync listeners.")
-        scope.launch { flushOfflineSyncQueue() }
     }
 
     private val flushMutex = Mutex()

@@ -3,6 +3,8 @@ package com.soumit.technovision.util
 import java.util.Calendar
 
 object BillingUtils {
+    private val DATE_SEPARATOR_REGEX = Regex("[/\\-]")
+
     /**
      * Normalizes non-ASCII numerals (e.g. Eastern Arabic, Devanagari, Bengali) to standard ASCII 0-9 digits.
      */
@@ -37,7 +39,7 @@ object BillingUtils {
 
         try {
             val normalized = normalizeDigits(admissionDateStr.trim())
-            val parts = normalized.split(Regex("[/\\-]"))
+            val parts = normalized.split(DATE_SEPARATOR_REGEX)
             if (parts.size == 3) {
                 val day: Int
                 val admissionMonth: Int

@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.TeacherAttendanceRequestModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
 import com.soumit.technovision.util.AttendanceUtils
@@ -33,7 +34,7 @@ fun VerifyTeacherAttendanceScreen(
     onNavigateToViewer: (() -> Unit)? = null,
     viewModel: VerifyTeacherAttendanceViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(uiState.userMessage) {

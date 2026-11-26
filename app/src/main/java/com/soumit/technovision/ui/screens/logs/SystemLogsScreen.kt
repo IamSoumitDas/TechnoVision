@@ -108,8 +108,17 @@ fun SystemLogsContent(
         }
     }
 
+    val logDates = remember(uiState.logs) {
+        val format = SimpleDateFormat("dd-MM-yyyy", Locale.US)
+        uiState.logs.associate { log ->
+            val dateStr = if (log.timestamp != null) format.format(log.timestamp.toDate()) else ""
+            log.id to dateStr
+        }
+    }
+
     val filteredLogs = remember(
         uiState.logs,
+        logDates,
         uiState.showAllHistory,
         uiState.selectedCustomDate,
         uiState.selectedTimeSlot,
@@ -117,11 +126,7 @@ fun SystemLogsContent(
         todayDateStr
     ) {
         uiState.logs.filter { log ->
-            val logDate = if (log.timestamp != null) {
-                SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
-            } else {
-                ""
-            }
+            val logDate = logDates[log.id].orEmpty()
 
             val matchesDate = when {
                 uiState.selectedCustomDate != null -> logDate == uiState.selectedCustomDate
@@ -145,32 +150,25 @@ fun SystemLogsContent(
         }
     }
 
-    val olderLogsCount = remember(uiState.logs, todayDateStr) {
+    val olderLogsCount = remember(uiState.logs, logDates, todayDateStr) {
         uiState.logs.count { log ->
-            val logDate = if (log.timestamp != null) {
-                SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
-            } else ""
+            val logDate = logDates[log.id].orEmpty()
             logDate.isNotBlank() && logDate != todayDateStr
         }
     }
 
-    val todayLogsCount = remember(uiState.logs, todayDateStr) {
+    val todayLogsCount = remember(uiState.logs, logDates, todayDateStr) {
         uiState.logs.count { log ->
-            val logDate = if (log.timestamp != null) {
-                SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
-            } else ""
+            val logDate = logDates[log.id].orEmpty()
             logDate == todayDateStr
         }
     }
 
-    val groupedLogs = remember(filteredLogs, uiState.showAllHistory, uiState.selectedCustomDate) {
+    val groupedLogs = remember(filteredLogs, logDates, uiState.showAllHistory, uiState.selectedCustomDate) {
         if (uiState.showAllHistory && uiState.selectedCustomDate == null) {
             filteredLogs.groupBy { log ->
-                if (log.timestamp != null) {
-                    SimpleDateFormat("dd-MM-yyyy", Locale.US).format(log.timestamp.toDate())
-                } else {
-                    "Other"
-                }
+                val dateStr = logDates[log.id].orEmpty()
+                dateStr.ifEmpty { "Other" }
             }
         } else {
             emptyMap()
