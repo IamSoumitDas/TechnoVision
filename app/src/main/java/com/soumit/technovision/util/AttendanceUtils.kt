@@ -334,7 +334,7 @@ object AttendanceUtils {
             }
 
             parseRecordDate(record.date)?.let { parsed ->
-                val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                val canonicalDate = String.format(Locale.US, "%02d-%02d-%04d", parsed.third, parsed.second + 1, parsed.first)
                 val canonicalKey = normalizeSlotKey(canonicalDate, record.timeSlot)
                 val canonicalMatch = fallbackTeacherMap[canonicalKey]
                 if (!canonicalMatch.isNullOrBlank() && !isPlaceholderName(canonicalMatch)) {

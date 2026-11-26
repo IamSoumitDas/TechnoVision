@@ -58,7 +58,8 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
     }
 
     private fun observeData() {
-        val logsFlow = auditLogRepository?.getLogsStream() ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        val logsFlow = auditLogRepository?.getLogsStream()?.catch { emit(emptyList()) }
+            ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
         viewModelScope.launch {
             combine(
@@ -107,7 +108,7 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
                         teacherMap[legacyKey] = resolvedTeacherName
 
                         AttendanceUtils.parseRecordDate(req.date)?.let { parsed ->
-                            val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                            val canonicalDate = String.format(java.util.Locale.US, "%02d-%02d-%04d", parsed.third, parsed.second + 1, parsed.first)
                             val canonicalKey = AttendanceUtils.normalizeSlotKey(canonicalDate, req.timeSlot)
                             teacherMap[canonicalKey] = resolvedTeacherName
                         }
@@ -135,7 +136,7 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
                             fallbackMap[normKey] = name
                             fallbackMap[rawKey] = name
                             AttendanceUtils.parseRecordDate(logDate)?.let { parsed ->
-                                val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                                val canonicalDate = String.format(java.util.Locale.US, "%02d-%02d-%04d", parsed.third, parsed.second + 1, parsed.first)
                                 fallbackMap[AttendanceUtils.normalizeSlotKey(canonicalDate, logSlot)] = name
                             }
                         }
@@ -166,7 +167,7 @@ class AttendanceHistoryViewModel @javax.inject.Inject constructor(
                             fallbackMap[legacyKey] = resolvedTeacherName
 
                             AttendanceUtils.parseRecordDate(req.date)?.let { parsed ->
-                                val canonicalDate = "%02d-%02d-%04d".format(parsed.third, parsed.second + 1, parsed.first)
+                                val canonicalDate = String.format(java.util.Locale.US, "%02d-%02d-%04d", parsed.third, parsed.second + 1, parsed.first)
                                 val canonicalKey = AttendanceUtils.normalizeSlotKey(canonicalDate, req.timeSlot)
                                 fallbackMap[canonicalKey] = resolvedTeacherName
                             }

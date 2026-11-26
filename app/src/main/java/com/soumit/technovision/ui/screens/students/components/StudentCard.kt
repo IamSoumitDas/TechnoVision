@@ -100,7 +100,7 @@ fun StudentCard(
                     }
                 }
 
-                if (userRole.equals("owner", ignoreCase = true) || userRole.equals("receptionist", ignoreCase = true)) {
+                if (userRole.equals("owner", ignoreCase = true) || userRole.equals("admin", ignoreCase = true) || userRole.equals("receptionist", ignoreCase = true)) {
                     IconButton(onClick = onEditSelected, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Edit,

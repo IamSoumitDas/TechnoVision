@@ -16,7 +16,11 @@ data class BillingDues(
  * Google-recommended Domain Layer UseCase encapsulating the billing dues calculation.
  */
 class CalculateBillingDuesUseCase {
-    private val memoCache = java.util.concurrent.ConcurrentHashMap<String, BillingDues>()
+    private val memoCache = object : java.util.LinkedHashMap<String, BillingDues>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BillingDues>?): Boolean {
+            return size > 256
+        }
+    }
 
     operator fun invoke(
         admissionDate: String,
@@ -31,11 +35,14 @@ class CalculateBillingDuesUseCase {
             val calendar = java.util.Calendar.getInstance()
             Pair(calendar.get(java.util.Calendar.YEAR), calendar.get(java.util.Calendar.MONTH) + 1)
         }
-        val cacheKey = "$admissionDate|$monthlyInstallment|$totalPaid|$resolvedYear|$resolvedMonth"
-        memoCache[cacheKey]?.let { return it }
+        val cleanAdmissionDate = admissionDate.trim().replace('/', '-')
+        val cacheKey = "$cleanAdmissionDate|$monthlyInstallment|$totalPaid|$resolvedYear|$resolvedMonth"
+        synchronized(memoCache) {
+            memoCache[cacheKey]?.let { return it }
+        }
 
         val (months, expected) = BillingUtils.calculateBillingMonths(
-            admissionDateStr = admissionDate,
+            admissionDateStr = cleanAdmissionDate,
             installment = monthlyInstallment,
             currentYear = resolvedYear,
             currentMonth = resolvedMonth
@@ -47,7 +54,9 @@ class CalculateBillingDuesUseCase {
             totalPaid = totalPaid,
             outstandingBalance = balance
         )
-        memoCache[cacheKey] = result
+        synchronized(memoCache) {
+            memoCache[cacheKey] = result
+        }
         return result
     }
 }

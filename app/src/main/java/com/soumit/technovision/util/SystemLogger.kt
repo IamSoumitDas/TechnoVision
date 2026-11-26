@@ -4,8 +4,8 @@ import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-
 import com.soumit.technovision.TechnoVisionApplication
+import java.util.Date
 
 object SystemLogger {
     fun log(action: String, details: String) {
@@ -21,12 +21,15 @@ object SystemLogger {
             val db = FirebaseFirestore.getInstance()
             val currentUser = FirebaseAuth.getInstance().currentUser
             val performedBy = currentUser?.email ?: currentUser?.uid ?: "System"
+            val now = Timestamp.now()
+            val expireAt = Timestamp(Date(System.currentTimeMillis() + 90L * 24 * 60 * 60 * 1000)) // 90 days TTL
 
             val logData = hashMapOf(
                 "action" to action,
                 "details" to details,
                 "performedBy" to performedBy,
-                "timestamp" to Timestamp.now()
+                "timestamp" to now,
+                "expireAt" to expireAt
             )
 
             db.collection("system_logs").add(logData)

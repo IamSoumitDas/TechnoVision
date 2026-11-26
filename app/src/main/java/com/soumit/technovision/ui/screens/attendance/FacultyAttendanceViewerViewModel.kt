@@ -44,6 +44,9 @@ data class FacultyAttendanceViewerUiState(
                     val parsed = AttendanceUtils.parseRecordDate(req.date)
                     if (parsed != null) {
                         parsed.first == selectedYear && parsed.second == selectedMonth
+                    } else if (req.timestamp != null) {
+                        val c = Calendar.getInstance().apply { time = req.timestamp.toDate() }
+                        c.get(Calendar.YEAR) == selectedYear && c.get(Calendar.MONTH) == selectedMonth
                     } else false
                 }
                 val monthHours = monthList.sumOf { AttendanceUtils.parseSlotDurationHours(it.timeSlot) }

@@ -30,6 +30,9 @@ class DeltaSyncWorker(
             val attendanceResult = syncManager.syncAttendance(force = true)
             val teacherAttendanceResult = syncManager.syncTeacherAttendance(force = true)
 
+            // Auto-clean expired logs (>90d) and tombstones (>30d) throttled to once every 24 hours
+            syncManager.purgeExpiredRecords()
+
             val anyFailed = studentsResult.isFailure ||
                     feesResult.isFailure ||
                     attendanceResult.isFailure ||

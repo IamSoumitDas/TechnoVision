@@ -63,8 +63,10 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
             val user = authRepository.currentUser
             if (user != null) {
                 val userMap = staffRepository.getUsersMap().getOrDefault(emptyMap())
+                val emailLower = user.email?.lowercase()
                 val resolved = userMap[user.uid]
                     ?: userMap[user.email]
+                    ?: emailLower?.let { userMap[it] }
                     ?: user.displayName?.takeIf { it.isNotBlank() }
                     ?: user.email?.substringBefore("@")
                     ?: "Admin"
@@ -86,7 +88,8 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
                 val user = authRepository.currentUser
                 val currentAdmin = _uiState.value.currentAdminName
                 val resolvedAdmin = if (currentAdmin == "Admin" && user != null) {
-                    users[user.uid] ?: users[user.email] ?: currentAdmin
+                    val emailLower = user.email?.lowercase()
+                    users[user.uid] ?: users[user.email] ?: emailLower?.let { users[it] } ?: currentAdmin
                 } else currentAdmin
                 _uiState.update {
                     it.copy(

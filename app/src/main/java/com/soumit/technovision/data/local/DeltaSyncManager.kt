@@ -272,11 +272,86 @@ class DeltaSyncManager(
         }
     }
 
+    suspend fun purgeExpiredRecords(): Result<Int> {
+        val now = System.currentTimeMillis()
+        val lastPurge = localDb.getLastSyncTime("purge_cleanup")
+        // Run at most once every 24 hours per device
+        if (now - lastPurge < 24L * 60 * 60 * 1000) {
+            return Result.success(0)
+        }
+        // Record attempt timestamp so failures (e.g. permission denied) do not retry repeatedly on every sync
+        localDb.setLastSyncTime("purge_cleanup", now)
+
+        return try {
+            var totalPurged = 0
+            val currentTs = Timestamp.now()
+
+            // 1. Purge system logs older than 90 days
+            val ninetyDaysAgo = Timestamp(Date(now - 90L * 24 * 60 * 60 * 1000))
+            val oldLogs = firestore.collection("system_logs")
+                .whereLessThan("timestamp", ninetyDaysAgo)
+                .limit(50)
+                .get()
+                .await()
+
+            if (!oldLogs.isEmpty) {
+                val batch = firestore.batch()
+                for (doc in oldLogs.documents) {
+                    batch.delete(doc.reference)
+                    totalPurged++
+                }
+                batch.commit().await()
+            }
+
+            // 2. Purge expired student tombstones (older than 30 days)
+            val expiredStudents = firestore.collection("students")
+                .whereLessThan("purgeAt", currentTs)
+                .limit(50)
+                .get()
+                .await()
+
+            if (!expiredStudents.isEmpty) {
+                val batch = firestore.batch()
+                for (doc in expiredStudents.documents) {
+                    batch.delete(doc.reference)
+                    totalPurged++
+                }
+                batch.commit().await()
+            }
+
+            // 3. Purge expired fee tombstones (older than 30 days)
+            val expiredFees = firestore.collection("fee_payments")
+                .whereLessThan("purgeAt", currentTs)
+                .limit(50)
+                .get()
+                .await()
+
+            if (!expiredFees.isEmpty) {
+                val batch = firestore.batch()
+                for (doc in expiredFees.documents) {
+                    batch.delete(doc.reference)
+                    totalPurged++
+                }
+                batch.commit().await()
+            }
+
+            localDb.setLastSyncTime("purge_cleanup", now)
+            if (totalPurged > 0) {
+                Log.d(TAG, "Purged $totalPurged expired cloud records (logs/tombstones).")
+            }
+            Result.success(totalPurged)
+        } catch (e: Exception) {
+            Log.w(TAG, "Purge expired records encountered an issue: ${e.localizedMessage}")
+            Result.failure(e)
+        }
+    }
+
     suspend fun syncAll(force: Boolean = false): Result<Unit> {
         syncStudents(force)
         syncFees(force)
         syncAttendance(force)
         syncTeacherAttendance(force)
+        purgeExpiredRecords()
         return Result.success(Unit)
     }
 

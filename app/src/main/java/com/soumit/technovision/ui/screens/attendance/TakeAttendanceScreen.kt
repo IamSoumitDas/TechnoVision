@@ -447,7 +447,7 @@ fun TakeAttendanceContent(
                             )
                         }
 
-                        items(uiState.additionalStudents, key = { it.id }, contentType = { "student_card" }) { student ->
+                        items(uiState.additionalStudents, key = { "extra_${it.id}" }, contentType = { "student_card" }) { student ->
                             val isPresent = uiState.attendanceStates[student.id] == true
                             val regularSchedule = remember(student.weeklySchedule, uiState.todayName) {
                                 student.weeklySchedule[uiState.todayName]?.let { "Today: $it" }

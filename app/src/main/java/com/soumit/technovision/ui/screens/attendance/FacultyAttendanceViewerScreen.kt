@@ -105,11 +105,24 @@ fun FacultyAttendanceViewerContent(
         monthRecords.filter { record ->
             val matchesDay = selectedDayInMonth?.let { day ->
                 val parsed = AttendanceUtils.parseRecordDate(record.date)
-                val dayStr = String.format(Locale.US, "%02d-%02d-%04d", day, uiState.selectedMonth + 1, uiState.selectedYear)
-                record.date == dayStr || (parsed != null && parsed.third == day)
+                if (parsed != null) {
+                    parsed.first == uiState.selectedYear &&
+                            parsed.second == uiState.selectedMonth &&
+                            parsed.third == day
+                } else if (record.timestamp != null) {
+                    val c = Calendar.getInstance().apply { time = record.timestamp.toDate() }
+                    c.get(Calendar.YEAR) == uiState.selectedYear &&
+                            c.get(Calendar.MONTH) == uiState.selectedMonth &&
+                            c.get(Calendar.DAY_OF_MONTH) == day
+                } else false
             } ?: true
 
+            val resolvedTeacher = uiState.userMap[record.teacherId]
+                ?: uiState.userMap[record.teacherName]
+                ?: record.teacherName.ifBlank { "Faculty Member" }
+
             val matchesTeacher = selectedTeacherFilter == null ||
+                    resolvedTeacher.equals(selectedTeacherFilter, ignoreCase = true) ||
                     record.teacherName.equals(selectedTeacherFilter, ignoreCase = true)
 
             val matchesStatus = when (selectedStatusFilter) {
@@ -452,7 +465,14 @@ fun FacultyAttendanceViewerContent(
                 }
             } else {
                 items(filteredLogRecords, key = { it.id }, contentType = { "attendance_record" }) { record ->
-                    AttendanceLogCard(record = record)
+                    val resolvedName = uiState.userMap[record.teacherId]
+                        ?: uiState.userMap[record.teacherName]
+                        ?: record.teacherName.ifBlank { "Faculty Member" }
+                    AttendanceLogCard(
+                        record = record,
+                        resolvedTeacherName = resolvedName,
+                        onDaySelected = { selectedDayInMonth = it }
+                    )
                 }
             }
         }
@@ -527,7 +547,9 @@ fun MonthNavigatorCard(
 
 @Composable
 fun AttendanceLogCard(
-    record: TeacherAttendanceRequestModel
+    record: TeacherAttendanceRequestModel,
+    resolvedTeacherName: String = record.teacherName.ifBlank { "Faculty Member" },
+    onDaySelected: ((Int) -> Unit)? = null
 ) {
     val isVerified = record.status.equals("Verified", ignoreCase = true)
     val isRejected = record.status.equals("Rejected", ignoreCase = true)
@@ -572,7 +594,7 @@ fun AttendanceLogCard(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = record.teacherName.ifBlank { "Faculty Member" },
+                        text = resolvedTeacherName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -643,20 +665,34 @@ fun AttendanceLogCard(
                     )
                 }
 
+                val dayNumber = remember(record.date, record.timestamp) {
+                    AttendanceUtils.parseRecordDate(record.date)?.third
+                        ?: record.timestamp?.let {
+                            Calendar.getInstance().apply { time = it.toDate() }.get(Calendar.DAY_OF_MONTH)
+                        }
+                }
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = if (dayNumber != null && onDaySelected != null) {
+                        Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onDaySelected(dayNumber) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    } else Modifier
                 ) {
                     Icon(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline,
+                        tint = if (dayNumber != null && onDaySelected != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = record.date,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = if (dayNumber != null && onDaySelected != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        fontWeight = if (dayNumber != null && onDaySelected != null) FontWeight.SemiBold else FontWeight.Normal
                     )
                 }
             }

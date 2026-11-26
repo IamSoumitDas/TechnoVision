@@ -735,6 +735,106 @@ class CrashFuzzingAndEdgeCasesTest {
         assertEquals(normStandard, AttendanceUtils.normalizeTimeSlot(extraSpaces))
         assertEquals(normStandard, AttendanceUtils.normalizeTimeSlot(leadingZero))
     }
+
+    @Test
+    fun calculateBillingDuesUseCase_boundedCache_doesNotCrashWithExcessiveCalls() {
+        val useCase = CalculateBillingDuesUseCase()
+        for (i in 1..350) {
+            val dues = useCase(
+                admissionDate = "01/01/202$i",
+                monthlyInstallment = 500L,
+                totalPaid = 1000L,
+                currentYear = 2026,
+                currentMonth = 11
+            )
+            assertNotNull(dues)
+        }
+    }
+
+    @Test
+    fun attendanceHistoryViewModel_handlesAuditLogStreamFailureGracefully() = kotlinx.coroutines.test.runTest {
+        kotlinx.coroutines.Dispatchers.setMain(kotlinx.coroutines.test.StandardTestDispatcher(testScheduler))
+        try {
+            val failingLogRepo = object : com.soumit.technovision.data.repository.AuditLogRepository {
+                override fun getLogsStream(): kotlinx.coroutines.flow.Flow<List<com.soumit.technovision.data.model.LogModel>> {
+                    return kotlinx.coroutines.flow.flow {
+                        throw IllegalStateException("Firestore permission denied on system_logs")
+                    }
+                }
+                override fun log(action: String, details: String) {}
+            }
+
+            val attendanceRepo = object : com.soumit.technovision.data.repository.AttendanceRepository {
+                override fun getAttendanceRecordsStream() = kotlinx.coroutines.flow.flowOf(emptyList<AttendanceRecordModel>())
+                override suspend fun getExistingAttendance(date: String, timeSlot: String) = Result.success(null)
+                override suspend fun saveBatchAttendance(record: AttendanceRecordModel) = Result.success(Unit)
+                override fun getTeacherAttendanceRequestsStream(teacherId: String?) = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.TeacherAttendanceRequestModel>())
+                override suspend fun submitTeacherAttendanceRequest(request: com.soumit.technovision.data.model.TeacherAttendanceRequestModel) = Result.success("id")
+                override suspend fun verifyTeacherAttendance(requestId: String, verifiedBy: String) = Result.success(Unit)
+                override suspend fun rejectTeacherAttendance(requestId: String, rejectedBy: String) = Result.success(Unit)
+            }
+
+            val studentRepo = object : com.soumit.technovision.data.repository.StudentRepository {
+                override fun getStudentsStream() = kotlinx.coroutines.flow.flowOf(emptyList<StudentModel>())
+                override suspend fun getStudentsOnce() = Result.success(emptyList<StudentModel>())
+                override fun getStudentStream(studentId: String) = kotlinx.coroutines.flow.flowOf(null)
+                override suspend fun getStudent(studentId: String) = Result.failure<StudentModel>(NoSuchElementException())
+                override suspend fun enrollStudent(student: StudentModel) = Result.success("newId")
+                override suspend fun updateStudent(student: StudentModel) = Result.success(Unit)
+                override suspend fun deleteStudent(studentId: String, fullName: String) = Result.success(Unit)
+            }
+
+            val staffRepo = object : com.soumit.technovision.data.repository.StaffRepository {
+                override fun getStaffStream() = kotlinx.coroutines.flow.flowOf(emptyList<com.soumit.technovision.data.model.StaffModel>())
+                override fun getUsersMapStream() = kotlinx.coroutines.flow.flowOf(emptyMap<String, String>())
+                override suspend fun getUsersMap() = Result.success(emptyMap<String, String>())
+                override suspend fun createStaff(fullName: String, email: String, password: String, phone: String, role: String) = Result.success("uid")
+                override suspend fun updateStaff(id: String, fullName: String, phone: String, role: String) = Result.success(Unit)
+                override suspend fun deleteStaff(id: String) = Result.success(Unit)
+            }
+
+            val vm = com.soumit.technovision.ui.screens.attendance.AttendanceHistoryViewModel(
+                attendanceRepository = attendanceRepo,
+                studentRepository = studentRepo,
+                staffRepository = staffRepo,
+                auditLogRepository = failingLogRepo
+            )
+            testScheduler.advanceUntilIdle()
+
+            // Attendance history should still load and not be blocked by failing audit log flow
+            assertFalse(vm.uiState.value.isLoading)
+            assertNull(vm.uiState.value.errorMessage)
+        } finally {
+            kotlinx.coroutines.Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun attendanceUtils_canonicalDate_localeIndependent_usesAsciiDigits() {
+        val originalLocale = java.util.Locale.getDefault()
+        try {
+            // Set locale to Arabic which formats %02d using Eastern Arabic numerals by default
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("ar"))
+            val parsed = AttendanceUtils.parseRecordDate("15-05-2026")
+            assertNotNull(parsed)
+            val canonicalDate = String.format(java.util.Locale.US, "%02d-%02d-%04d", parsed!!.third, parsed.second + 1, parsed.first)
+            assertEquals("15-05-2026", canonicalDate)
+            val normKey = AttendanceUtils.normalizeSlotKey(canonicalDate, "9:00 AM - 11:00 AM")
+            assertTrue(normKey.startsWith("15-05-2026"))
+        } finally {
+            java.util.Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test
+    fun billingDues_cacheHitWithNormalizedDateSeparators() {
+        val useCase = CalculateBillingDuesUseCase()
+        val resSlash = useCase("15/01/2026", 500L, 500L, 2026, 5)
+        val resDash = useCase("15-01-2026", 500L, 500L, 2026, 5)
+        assertEquals(resSlash.billableMonths, resDash.billableMonths)
+        assertEquals(resSlash.expectedAmount, resDash.expectedAmount)
+        assertEquals(resSlash.outstandingBalance, resDash.outstandingBalance)
+    }
 }
 
 

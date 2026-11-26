@@ -4,6 +4,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import java.util.Date
 import com.soumit.technovision.TechnoVisionApplication
 import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
@@ -173,7 +174,7 @@ class FirestoreStudentRepository(
 
     override suspend fun enrollStudent(student: StudentModel): Result<String> {
         return try {
-            val newUserId = firestore.collection("users").document().id
+            val newStudentId = firestore.collection("students").document().id
             val now = Timestamp.now()
             val data = hashMapOf(
                 "fullName" to student.fullName.trim(),
@@ -190,23 +191,19 @@ class FirestoreStudentRepository(
                 "email" to student.email.trim(),
                 "batchTimeSlot" to student.batchTimeSlot.trim(),
                 "weeklySchedule" to student.weeklySchedule,
-                "role" to "student",
                 "totalPaid" to 0L,
                 "isDeleted" to false,
                 "updatedAt" to now,
                 "createdAt" to now
             )
-            val batch = firestore.batch()
-            batch.set(firestore.collection("users").document(newUserId), data)
-            batch.set(firestore.collection("students").document(newUserId), data)
-            batch.commit().await()
+            firestore.collection("students").document(newStudentId).set(data).await()
 
-            val enrolled = student.copy(id = newUserId, totalPaid = 0L)
+            val enrolled = student.copy(id = newStudentId, totalPaid = 0L)
             db?.upsertStudent(enrolled, now.toDate().time)
-            _studentsFlow.value = (listOf(enrolled) + _studentsFlow.value.filter { it.id != newUserId })
+            _studentsFlow.value = (listOf(enrolled) + _studentsFlow.value.filter { it.id != newStudentId })
                 .sortedBy { it.fullName.lowercase() }
 
-            Result.success(newUserId)
+            Result.success(newStudentId)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -233,10 +230,9 @@ class FirestoreStudentRepository(
                 "isDeleted" to false,
                 "updatedAt" to now
             )
-            val batch = firestore.batch()
-            batch.set(firestore.collection("students").document(student.id), data, com.google.firebase.firestore.SetOptions.merge())
-            batch.set(firestore.collection("users").document(student.id), mapOf("fullName" to student.fullName.trim(), "phone" to student.phone.trim()), com.google.firebase.firestore.SetOptions.merge())
-            batch.commit().await()
+            firestore.collection("students").document(student.id)
+                .set(data, com.google.firebase.firestore.SetOptions.merge())
+                .await()
 
             val currentTotalPaid = db?.getStudent(student.id)?.totalPaid ?: 0L
             val actualTotalPaid = maxOf(student.totalPaid, currentTotalPaid)
@@ -255,14 +251,15 @@ class FirestoreStudentRepository(
     override suspend fun deleteStudent(studentId: String, fullName: String): Result<Unit> {
         return try {
             val now = Timestamp.now()
-            val batch = firestore.batch()
-            batch.set(
-                firestore.collection("students").document(studentId),
-                mapOf("isDeleted" to true, "updatedAt" to now),
-                com.google.firebase.firestore.SetOptions.merge()
+            val purgeAt = Timestamp(Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)) // 30 days tombstone
+            val updates = mapOf(
+                "isDeleted" to true,
+                "updatedAt" to now,
+                "purgeAt" to purgeAt
             )
-            batch.delete(firestore.collection("users").document(studentId))
-            batch.commit().await()
+            firestore.collection("students").document(studentId)
+                .set(updates, com.google.firebase.firestore.SetOptions.merge())
+                .await()
 
             db?.markStudentDeleted(studentId, now.toDate().time)
             _studentsFlow.value = _studentsFlow.value.filter { it.id != studentId }

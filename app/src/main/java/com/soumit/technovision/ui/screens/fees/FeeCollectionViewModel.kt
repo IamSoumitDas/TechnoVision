@@ -151,10 +151,11 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
 
     fun onSelectStudent(student: StudentModel) {
         val (_, expected) = BillingUtils.calculateBillingMonths(student.admissionDate, student.monthlyInstallment)
+        val initialAmount = if (expected <= 0L) "0" else student.monthlyInstallment.toString()
         _uiState.update {
             it.copy(
                 selectedStudent = student,
-                amountPaid = student.monthlyInstallment.toString(),
+                amountPaid = initialAmount,
                 expectedTotalFees = expected,
                 paymentHistory = emptyList(),
                 totalPaid = 0L

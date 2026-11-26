@@ -82,11 +82,14 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
             val slot = student.weeklySchedule[state.todayName]
             slot != null && AttendanceUtils.normalizeTimeSlot(slot) == targetSlot
         }
-        val displayed = scheduled + state.additionalStudents
+        val scheduledIds = scheduled.map { it.id }.toSet()
+        val sanitizedExtras = state.additionalStudents.filter { it.id !in scheduledIds }
+        val displayed = scheduled + sanitizedExtras
         val present = displayed.count { state.attendanceStates[it.id] == true }
         val absent = scheduled.count { state.attendanceStates[it.id] != true }
         return state.copy(
             scheduledStudents = scheduled,
+            additionalStudents = sanitizedExtras,
             displayedStudents = displayed,
             presentCount = present,
             absentCount = absent
@@ -149,7 +152,11 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                 }
                 .collect { students ->
                     updateState { state ->
-                        val scheduled = students.filter { it.weeklySchedule[state.todayName] == state.selectedTimeSlot }
+                        val targetSlot = AttendanceUtils.normalizeTimeSlot(state.selectedTimeSlot)
+                        val scheduled = students.filter { s ->
+                            val slot = s.weeklySchedule[state.todayName]
+                            slot != null && AttendanceUtils.normalizeTimeSlot(slot) == targetSlot
+                        }
                         val currentStates = state.attendanceStates.toMutableMap()
                         scheduled.forEach { s ->
                             if (!currentStates.containsKey(s.id)) {

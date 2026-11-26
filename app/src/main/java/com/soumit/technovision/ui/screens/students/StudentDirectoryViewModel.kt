@@ -39,7 +39,8 @@ class StudentDirectoryViewModel @Inject constructor(
     private val feeRepository: FeeRepository,
     private val authRepository: AuthRepository,
     private val calculateBillingDuesUseCase: CalculateBillingDuesUseCase,
-    private val defaultDispatcher: CoroutineDispatcher
+    private val defaultDispatcher: CoroutineDispatcher,
+    private val deltaSyncManager: com.soumit.technovision.data.local.DeltaSyncManager? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentDirectoryUiState())
@@ -150,6 +151,8 @@ class StudentDirectoryViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }
             runCatching {
+                deltaSyncManager?.syncStudents(force = true)
+                deltaSyncManager?.syncFees(force = true)
                 feeRepository.syncAllStudentsTotalPaid()
             }
             _uiState.update { it.copy(isRefreshing = false) }

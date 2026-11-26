@@ -5,6 +5,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import java.util.Date
 import com.soumit.technovision.TechnoVisionApplication
 import com.soumit.technovision.data.local.DeltaSyncManager
 import com.soumit.technovision.data.local.LocalDatabase
@@ -189,8 +190,13 @@ class FirestoreFeeRepository(
                 amountPaid = paymentDoc.getLong("amountPaid") ?: 0L
             }
 
+            val purgeAt = Timestamp(Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)) // 30 days tombstone
             val batch = firestore.batch()
-            batch.set(firestore.collection("fee_payments").document(paymentId), mapOf("isDeleted" to true, "updatedAt" to now), com.google.firebase.firestore.SetOptions.merge())
+            batch.set(
+                firestore.collection("fee_payments").document(paymentId),
+                mapOf("isDeleted" to true, "updatedAt" to now, "purgeAt" to purgeAt),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
 
             if (studentId.isNotBlank() && amountPaid > 0L) {
                 val studentDocRef = firestore.collection("students").document(studentId)

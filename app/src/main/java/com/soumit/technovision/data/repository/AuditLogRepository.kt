@@ -5,6 +5,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import java.util.Date
 import com.soumit.technovision.data.model.LogModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,12 +63,15 @@ class FirestoreAuditLogRepository(
         try {
             val currentUser = auth.currentUser
             val performedBy = currentUser?.email ?: currentUser?.uid ?: "System"
+            val now = Timestamp.now()
+            val expireAt = Timestamp(Date(System.currentTimeMillis() + 90L * 24 * 60 * 60 * 1000)) // 90 days TTL
 
             val logData = hashMapOf(
                 "action" to action,
                 "details" to details,
                 "performedBy" to performedBy,
-                "timestamp" to Timestamp.now()
+                "timestamp" to now,
+                "expireAt" to expireAt
             )
 
             firestore.collection("system_logs").add(logData)

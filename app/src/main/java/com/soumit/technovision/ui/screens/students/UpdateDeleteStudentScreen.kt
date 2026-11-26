@@ -319,39 +319,53 @@ fun UpdateDeleteStudentContent(
                             }
                         }
 
-                        OutlinedTextField(
-                            value = uiState.dob,
-                            onValueChange = {},
-                            readOnly = true,
-                            singleLine = true,
-                            label = { Text("Date of Birth") },
-                            leadingIcon = { Icon(Icons.Default.Cake, contentDescription = null) },
-                            trailingIcon = {
-                                IconButton(onClick = { showDatePicker(onDobChanged) }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = "Select DOB")
-                                }
-                            },
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { showDatePicker(onDobChanged) }
-                        )
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.dob,
+                                onValueChange = {},
+                                readOnly = true,
+                                singleLine = true,
+                                label = { Text("Date of Birth") },
+                                leadingIcon = { Icon(Icons.Default.Cake, contentDescription = null) },
+                                trailingIcon = {
+                                    Icon(Icons.Default.DateRange, contentDescription = "Select DOB")
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showDatePicker(onDobChanged) }
+                            )
+                        }
 
-                        OutlinedTextField(
-                            value = uiState.admissionDate,
-                            onValueChange = {},
-                            readOnly = true,
-                            singleLine = true,
-                            label = { Text("Admission Date") },
-                            leadingIcon = { Icon(Icons.Default.EventAvailable, contentDescription = null) },
-                            trailingIcon = {
-                                IconButton(onClick = { showDatePicker(onAdmissionDateChanged) }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = "Select Admission Date")
-                                }
-                            },
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { showDatePicker(onAdmissionDateChanged) }
-                        )
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.admissionDate,
+                                onValueChange = {},
+                                readOnly = true,
+                                singleLine = true,
+                                label = { Text("Admission Date") },
+                                leadingIcon = { Icon(Icons.Default.EventAvailable, contentDescription = null) },
+                                trailingIcon = {
+                                    Icon(Icons.Default.DateRange, contentDescription = "Select Admission Date")
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showDatePicker(onAdmissionDateChanged) }
+                            )
+                        }
                     }
                 }
 

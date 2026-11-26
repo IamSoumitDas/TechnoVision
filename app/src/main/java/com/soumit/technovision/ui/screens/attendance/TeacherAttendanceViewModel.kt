@@ -8,6 +8,7 @@ import com.soumit.technovision.data.repository.AttendanceRepository
 import com.soumit.technovision.data.repository.AuditLogRepository
 import com.soumit.technovision.data.repository.AuthRepository
 import com.soumit.technovision.data.repository.StaffRepository
+import com.soumit.technovision.util.AttendanceUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -130,9 +131,11 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
 
     fun submitRequest(onSuccess: () -> Unit) {
         val state = _uiState.value
+        val targetDate = AttendanceUtils.normalizeDate(state.selectedDateStr)
+        val targetSlot = AttendanceUtils.normalizeTimeSlot(state.selectedTimeSlot)
         val alreadyRequested = state.requests.any {
-            it.date == state.selectedDateStr &&
-                    it.timeSlot == state.selectedTimeSlot &&
+            AttendanceUtils.normalizeDate(it.date) == targetDate &&
+                    AttendanceUtils.normalizeTimeSlot(it.timeSlot) == targetSlot &&
                     !it.status.equals("Rejected", ignoreCase = true)
         }
 

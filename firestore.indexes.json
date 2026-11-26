@@ -1,0 +1,55 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "students",
+      "fieldPath": "weeklySchedule",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "students",
+      "fieldPath": "fatherName",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "students",
+      "fieldPath": "motherName",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "students",
+      "fieldPath": "altPhone",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "students",
+      "fieldPath": "email",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "fee_payments",
+      "fieldPath": "remarks",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "attendance",
+      "fieldPath": "presentStudentIds",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "attendance",
+      "fieldPath": "absentStudentIds",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "attendance",
+      "fieldPath": "additionalStudentIds",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "system_logs",
+      "fieldPath": "details",
+      "indexes": []
+    }
+  ]
+}
