@@ -62,6 +62,17 @@ class MainActivity : ComponentActivity() {
                             startDestination = uiState.startDestination ?: Screen.Auth
                         )
                     }
+
+                    if (uiState.showUpdateDialog && uiState.updateInfo != null) {
+                        com.soumit.technovision.ui.common.UpdatePromptDialog(
+                            versionName = uiState.updateInfo!!.versionName,
+                            onViewUpdate = {
+                                viewModel.dismissUpdateDialog()
+                                navController.navigate(Screen.AppUpdate)
+                            },
+                            onDismiss = viewModel::dismissUpdateDialog
+                        )
+                    }
                 }
             }
         }

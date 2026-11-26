@@ -35,6 +35,7 @@ import com.soumit.technovision.ui.screens.students.EnrollStudentScreen
 import com.soumit.technovision.ui.screens.students.StudentDirectoryScreen
 import com.soumit.technovision.ui.screens.students.StudentViewerScreen
 import com.soumit.technovision.ui.screens.students.UpdateDeleteStudentScreen
+import com.soumit.technovision.ui.screens.update.AppUpdateScreen
 
 @Composable
 fun AppNavHost(
@@ -130,7 +131,8 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
+                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) },
+                            PortalAction("Software Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
                         )
                     )
                 )
@@ -163,7 +165,8 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
+                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) },
+                            PortalAction("Software Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
                         )
                     )
                 )
@@ -198,7 +201,8 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
+                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) },
+                            PortalAction("Software Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
                         )
                     )
                 )
@@ -306,6 +310,12 @@ fun AppNavHost(
                 onStudentClick = { studentId ->
                     navController.navigate(Screen.StudentViewer(studentId))
                 }
+            )
+        }
+
+        composable<Screen.AppUpdate> {
+            AppUpdateScreen(
+                onBack = { navController.popBackStack() }
             )
         }
     }

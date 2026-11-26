@@ -17,7 +17,10 @@ data class MainUiState(
     val isLoadingRole: Boolean = true,
     val isLoadingData: Boolean = false,
     val loadingMessage: String = "Loading...",
-    val isOnline: Boolean = true
+    val isOnline: Boolean = true,
+    val updateInfo: com.soumit.technovision.data.model.AppUpdateInfo? = null,
+    val downloadStatus: com.soumit.technovision.data.model.DownloadStatus = com.soumit.technovision.data.model.DownloadStatus.Idle,
+    val showUpdateDialog: Boolean = false
 )
 
 @HiltViewModel
@@ -27,7 +30,8 @@ class MainViewModel @Inject constructor(
     private val attendanceRepository: com.soumit.technovision.data.repository.AttendanceRepository? = null,
     private val feeRepository: com.soumit.technovision.data.repository.FeeRepository? = null,
     private val deltaSyncManager: com.soumit.technovision.data.local.DeltaSyncManager? = null,
-    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null
+    private val networkMonitor: com.soumit.technovision.util.NetworkMonitor? = null,
+    private val appUpdateRepository: com.soumit.technovision.data.repository.AppUpdateRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -36,6 +40,36 @@ class MainViewModel @Inject constructor(
     init {
         determineStartDestination()
         observeNetwork()
+        checkForAppUpdate()
+    }
+
+    private fun checkForAppUpdate() {
+        if (appUpdateRepository == null) return
+        viewModelScope.launch {
+            val result = appUpdateRepository.checkForUpdate()
+            result.getOrNull()?.let { updateInfo ->
+                _uiState.update {
+                    it.copy(
+                        updateInfo = updateInfo,
+                        showUpdateDialog = true
+                    )
+                }
+            }
+        }
+    }
+
+    fun startUpdateDownload() {
+        val info = _uiState.value.updateInfo ?: return
+        val repo = appUpdateRepository ?: return
+        viewModelScope.launch {
+            repo.downloadApk(info.downloadUrl, info.apkName).collect { status ->
+                _uiState.update { it.copy(downloadStatus = status) }
+            }
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _uiState.update { it.copy(showUpdateDialog = false) }
     }
 
     private fun observeNetwork() {

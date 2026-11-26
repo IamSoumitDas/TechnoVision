@@ -62,6 +62,9 @@ sealed interface Screen {
 
     @Serializable
     data object BirthdayCalendar : Screen
+
+    @Serializable
+    data object AppUpdate : Screen
 }
 
 object Routes {

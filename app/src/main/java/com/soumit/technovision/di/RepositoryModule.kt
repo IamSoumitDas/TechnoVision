@@ -69,4 +69,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideCalculateBillingDuesUseCase(): CalculateBillingDuesUseCase = CalculateBillingDuesUseCase()
+
+    @Provides
+    @Singleton
+    fun provideAppUpdateRepository(
+        @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context
+    ): AppUpdateRepository = GitHubAppUpdateRepository(context)
 }
