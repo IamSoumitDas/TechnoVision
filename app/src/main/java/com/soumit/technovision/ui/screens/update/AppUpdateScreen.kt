@@ -28,12 +28,30 @@ import com.soumit.technovision.data.model.DownloadStatus
 import com.soumit.technovision.util.ApkInstaller
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppUpdateScreen(
     onBack: () -> Unit,
     viewModel: AppUpdateViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    AppUpdateContent(
+        uiState = uiState,
+        onBack = onBack,
+        onCheckForUpdates = { viewModel.checkForUpdates(silent = false) },
+        onStartDownload = viewModel::startDownload
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppUpdateContent(
+    uiState: AppUpdateUiState,
+    onBack: () -> Unit,
+    onCheckForUpdates: () -> Unit,
+    onStartDownload: () -> Unit
+) {
     val context = LocalContext.current
     var permissionDeniedNotice by remember { mutableStateOf(false) }
 
@@ -51,7 +69,7 @@ fun AppUpdateScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.checkForUpdates(silent = false) },
+                        onClick = onCheckForUpdates,
                         enabled = !uiState.isChecking
                     ) {
                         Icon(
@@ -74,133 +92,100 @@ fun AppUpdateScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Hero / App Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                )
+            // App Header (Standard flat layout without Card)
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SystemUpdate,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
+                Icon(
+                    imageVector = Icons.Default.SystemUpdate,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
 
-                    Column {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "TechnoVision",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Installed Version: v${uiState.currentVersionName} (${uiState.currentVersionCode})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Dynamic State Area
+            when {
+                uiState.isChecking -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(36.dp))
                         Text(
-                            text = "TechnoVision",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Installed: v${uiState.currentVersionName} (${uiState.currentVersionCode})",
+                            text = "Checking GitHub for updates...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
 
-            // Status Section
-            if (uiState.isChecking) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                        Text(
-                            text = "Checking GitHub for updates...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            } else if (uiState.errorMessage != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
+                uiState.errorMessage != null -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp),
+                            .padding(vertical = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.ErrorOutline,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(36.dp)
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(44.dp)
                         )
                         Text(
-                            text = uiState.errorMessage ?: "Unknown error",
+                            text = uiState.errorMessage,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            color = MaterialTheme.colorScheme.error
                         )
-                        Button(
-                            onClick = { viewModel.checkForUpdates(silent = false) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            )
+                        OutlinedButton(
+                            onClick = onCheckForUpdates,
+                            shape = RoundedCornerShape(12.dp)
                         ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text("Retry")
                         }
                     }
                 }
-            } else if (uiState.updateInfo != null) {
-                val update = uiState.updateInfo!!
 
-                // New Update Available Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-                ) {
+                uiState.updateInfo != null -> {
+                    val update = uiState.updateInfo
+
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Row(
@@ -211,13 +196,13 @@ fun AppUpdateScreen(
                             Column {
                                 Text(
                                     text = "Update Available",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 Text(
-                                    text = "Version v${update.versionName}",
-                                    style = MaterialTheme.typography.titleLarge,
+                                    text = "v${update.versionName}",
+                                    style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -226,7 +211,7 @@ fun AppUpdateScreen(
                             if (update.sizeBytes > 0) {
                                 Surface(
                                     color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
                                         text = formatSizeMb(update.sizeBytes),
@@ -239,12 +224,9 @@ fun AppUpdateScreen(
                             }
                         }
 
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                        // Changelog
                         Text(
                             text = "Release Notes",
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -258,15 +240,15 @@ fun AppUpdateScreen(
                                 text = update.changelog,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(14.dp)
+                                modifier = Modifier.padding(16.dp)
                             )
                         }
 
-                        // Download & Install Action Area
+                        // Download & Install Actions
                         when (val status = uiState.downloadStatus) {
                             DownloadStatus.Idle -> {
                                 Button(
-                                    onClick = { viewModel.startDownload() },
+                                    onClick = onStartDownload,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
@@ -401,8 +383,9 @@ fun AppUpdateScreen(
                                         color = MaterialTheme.colorScheme.error
                                     )
                                     Button(
-                                        onClick = { viewModel.startDownload() },
-                                        modifier = Modifier.fillMaxWidth()
+                                        onClick = onStartDownload,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp)
                                     ) {
                                         Text("Retry Download")
                                     }
@@ -411,20 +394,12 @@ fun AppUpdateScreen(
                         }
                     }
                 }
-            } else if (uiState.isUpToDate) {
-                // Up to date card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
+
+                uiState.isUpToDate -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(vertical = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -432,7 +407,7 @@ fun AppUpdateScreen(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(52.dp)
                         )
                         Text(
                             text = "You're on the latest version",
@@ -447,7 +422,7 @@ fun AppUpdateScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         OutlinedButton(
-                            onClick = { viewModel.checkForUpdates(silent = false) },
+                            onClick = onCheckForUpdates,
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
