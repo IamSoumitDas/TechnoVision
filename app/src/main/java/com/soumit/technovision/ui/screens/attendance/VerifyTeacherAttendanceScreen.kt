@@ -79,7 +79,7 @@ fun VerifyTeacherAttendanceContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Verify Teacher Attendance") },
+                title = { Text("Verify Faculty Attendance") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -90,7 +90,7 @@ fun VerifyTeacherAttendanceContent(
                         IconButton(onClick = onNavigateToViewer) {
                             Icon(
                                 imageVector = Icons.Default.EventAvailable,
-                                contentDescription = "View Verified Records"
+                                contentDescription = "Attendance Records"
                             )
                         }
                     }
@@ -111,7 +111,7 @@ fun VerifyTeacherAttendanceContent(
         ) {
             if (!uiState.isOnline) {
                 com.soumit.technovision.ui.common.OfflineWarningBanner(
-                    message = "Approving or rejecting faculty attendance requests requires an active internet connection."
+                    message = "Connect to the internet to review requests."
                 )
             }
             Card(
@@ -173,7 +173,7 @@ fun VerifyTeacherAttendanceContent(
             } else if (filteredRequests.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (selectedFilter == "All") "No teacher attendance requests logged." else "No $selectedFilter requests found.",
+                        text = if (selectedFilter == "All") "No attendance requests logged" else "No $selectedFilter requests",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -218,10 +218,10 @@ fun AdminVerifyRequestCard(
             title = { Text("Reject Attendance Request?") },
             text = {
                 Text(
-                    "Are you sure you want to reject attendance request for " +
+                    "Reject attendance request for " +
                             "${request.teacherName.ifBlank { "this faculty member" }} for slot " +
                             "${request.timeSlot} on ${request.date}?\n\n" +
-                            "This will release the time slot so any faculty member can request it again."
+                            "This releases the time slot so it can be requested again."
                 )
             },
             confirmButton = {

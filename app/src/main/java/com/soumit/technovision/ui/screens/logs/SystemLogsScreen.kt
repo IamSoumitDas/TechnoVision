@@ -71,7 +71,7 @@ fun SystemLogsContent(
         "7:00 PM - 9:00 PM"
     )
 
-    val categories = listOf("All", "Attendance", "Students", "Fees", "Staff")
+    val categories = listOf("All", "Attendance", "Students", "Payments", "Staff")
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -141,7 +141,7 @@ fun SystemLogsContent(
             val matchesCategory = when (uiState.selectedCategory) {
                 "Attendance" -> log.action.contains("Attendance", ignoreCase = true)
                 "Students" -> log.action.contains("Student", ignoreCase = true)
-                "Fees" -> log.action.contains("Payment", ignoreCase = true) || log.action.contains("Fee", ignoreCase = true)
+                "Payments" -> log.action.contains("Payment", ignoreCase = true) || log.action.contains("Fee", ignoreCase = true)
                 "Staff" -> log.action.contains("Staff", ignoreCase = true)
                 else -> true
             }
@@ -178,7 +178,7 @@ fun SystemLogsContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Activity History") },
+                title = { Text("Activity Logs") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

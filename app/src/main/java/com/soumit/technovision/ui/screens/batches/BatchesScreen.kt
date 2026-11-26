@@ -50,7 +50,7 @@ fun BatchesContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Batch-wise Student Rosters") },
+                title = { Text("Batch Schedules") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -105,7 +105,7 @@ fun BatchesContent(
                     if (activeTimeSlots.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
-                                text = "No classes scheduled for today.",
+                                text = "No classes scheduled today",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -139,7 +139,7 @@ fun BatchesContent(
                     if (activeDays.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
-                                text = "No weekly schedule found.",
+                                text = "No weekly schedules",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.outline
                             )

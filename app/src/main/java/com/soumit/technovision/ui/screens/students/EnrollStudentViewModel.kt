@@ -92,7 +92,7 @@ class EnrollStudentViewModel @Inject constructor(
     fun enrollStudent(onSuccess: (String) -> Unit) {
         val s = _uiState.value
         if (!s.isOnline) {
-            _uiState.update { it.copy(errorMessage = "Student enrollment requires an active internet connection.") }
+            _uiState.update { it.copy(errorMessage = "Connect to the internet to enroll students") }
             return
         }
         _uiState.update { it.copy(attemptedSubmit = true) }
@@ -101,18 +101,18 @@ class EnrollStudentViewModel @Inject constructor(
             s.selectedGender.isBlank() || s.dob.isBlank() || s.admissionDate.isBlank() ||
             s.fatherName.isBlank() || s.motherName.isBlank() || s.monthlyInstallment.isBlank() || s.phone.isBlank()
         ) {
-            _uiState.update { it.copy(errorMessage = "Please fill in all required (*) fields highlighted in red.") }
+            _uiState.update { it.copy(errorMessage = "Fill in all required fields") }
             return
         }
 
         if (s.activeBatchDaysCount < 2) {
-            _uiState.update { it.copy(errorMessage = "Student must have at least 2 batch days scheduled.") }
+            _uiState.update { it.copy(errorMessage = "Assign at least 2 class days") }
             return
         }
 
         val installmentValue = s.monthlyInstallment.trim().toLongOrNull()
         if (installmentValue == null || installmentValue <= 0L) {
-            _uiState.update { it.copy(errorMessage = "Monthly installment must be a valid positive amount.") }
+            _uiState.update { it.copy(errorMessage = "Enter a valid monthly payment") }
             return
         }
 

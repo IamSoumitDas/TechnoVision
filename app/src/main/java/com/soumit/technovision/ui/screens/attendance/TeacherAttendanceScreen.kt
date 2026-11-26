@@ -92,7 +92,7 @@ fun TeacherAttendanceContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Batch Attendance Request") },
+                title = { Text("Faculty Attendance") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -103,7 +103,7 @@ fun TeacherAttendanceContent(
                         IconButton(onClick = onNavigateToViewer) {
                             Icon(
                                 imageVector = Icons.Default.EventAvailable,
-                                contentDescription = "View Attendance Records"
+                                contentDescription = "Attendance Records"
                             )
                         }
                     }
@@ -210,10 +210,10 @@ fun TeacherAttendanceContent(
                             ) {
                                 if (!uiState.isOnline) {
                                     Icon(Icons.Default.CloudQueue, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                    Text("Request Attendance (Offline)")
+                                    Text("Submit Request (Offline)")
                                 } else {
                                     Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                    Text("Request Attendance for Slot")
+                                    Text("Submit Attendance Request")
                                 }
                             }
                         }
@@ -281,7 +281,7 @@ fun TeacherAttendanceContent(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "No attendance requests found for this date.",
+                                text = "No attendance requests for this date",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.outline
                             )

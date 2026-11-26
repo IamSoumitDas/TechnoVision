@@ -139,7 +139,7 @@ fun FacultyAttendanceViewerContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Faculty Attendance",
+                        text = "Faculty Attendance Records",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge
                     )
@@ -228,7 +228,7 @@ fun FacultyAttendanceViewerContent(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Classes taken by each teacher in $selectedMonthDisplayName",
+                                    text = "Classes taken by each faculty member in $selectedMonthDisplayName",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -395,7 +395,7 @@ fun FacultyAttendanceViewerContent(
                             SuggestionChip(
                                 onClick = { selectedTeacherFilter = null },
                                 label = {
-                                    Text("Teacher: $selectedTeacherFilter ✕")
+                                    Text("Faculty: $selectedTeacherFilter ✕")
                                 }
                             )
                         }

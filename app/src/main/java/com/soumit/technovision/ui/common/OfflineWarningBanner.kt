@@ -13,7 +13,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun OfflineWarningBanner(
     modifier: Modifier = Modifier,
-    message: String = "Offline Mode: This action requires an active internet connection to prevent session conflicts."
+    title: String = "You're offline",
+    message: String = "Connect to the internet to perform this action."
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -32,13 +33,13 @@ fun OfflineWarningBanner(
         ) {
             Icon(
                 imageVector = Icons.Default.WifiOff,
-                contentDescription = "Offline Warning",
+                contentDescription = "Offline",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Requires Internet",
+                    text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer

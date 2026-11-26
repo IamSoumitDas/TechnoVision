@@ -25,23 +25,23 @@ object PortalRoleSections {
                 PortalSectionModel(
                     title = "Student Management",
                     actions = listOf(
-                        PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { onActionClick("Take Attendance") },
-                        PortalAction("Attendance History", "Students attendance history", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
-                        PortalAction("All Students", "List of all the students", Icons.Default.People) { onActionClick("All Students") },
-                        PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") },
-                        PortalAction("Birthday Calendar", "View birthdays & wishes", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
+                        PortalAction("Take Attendance", "Mark session attendance", Icons.Default.CheckCircle) { onActionClick("Take Attendance") },
+                        PortalAction("Attendance History", "Past attendance sessions", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
+                        PortalAction("All Students", "Directory and profiles", Icons.Default.People) { onActionClick("All Students") },
+                        PortalAction("Batch Schedules", "Timings and day assignments", Icons.Default.School) { onActionClick("Class Timings") },
+                        PortalAction("Birthday Calendar", "Upcoming student birthdays", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
                     )
                 ),
                 PortalSectionModel(
-                    title = "Teacher Management",
+                    title = "Faculty Management",
                     actions = listOf(
-                        PortalAction("Faculty Attendance", "Request attendance", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Faculty Attendance") }
+                        PortalAction("Faculty Attendance", "Submit attendance request", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Faculty Attendance") }
                     )
                 ),
                 PortalSectionModel(
                     title = "System",
                     actions = listOf(
-                        PortalAction("Activity History", "View center logs & events", Icons.Default.History) { onActionClick("Activity History") }
+                        PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { onActionClick("Activity History") }
                     )
                 )
             )
@@ -50,24 +50,24 @@ object PortalRoleSections {
                     title = "Student Management",
                     actions = listOf(
                         PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { onActionClick("Add Student") },
-                        PortalAction("All Students", "List of all the students", Icons.Default.People) { onActionClick("All Students") },
-                        PortalAction("Attendance History", "Students attendance history", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
-                        PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") },
-                        PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") },
-                        PortalAction("Payment History", "View all payment records", Icons.Default.History) { onActionClick("Global History") },
-                        PortalAction("Birthday Calendar", "View birthdays & wishes", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
+                        PortalAction("All Students", "Directory and profiles", Icons.Default.People) { onActionClick("All Students") },
+                        PortalAction("Attendance History", "Past attendance sessions", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
+                        PortalAction("Batch Schedules", "Timings and day assignments", Icons.Default.School) { onActionClick("Class Timings") },
+                        PortalAction("Collect Payment", "Record payments & dues", Icons.Default.Payment) { onActionClick("Payments") },
+                        PortalAction("Payment History", "View payment receipts", Icons.Default.History) { onActionClick("Global History") },
+                        PortalAction("Birthday Calendar", "Upcoming student birthdays", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
                     )
                 ),
                 PortalSectionModel(
                     title = "Staff Management",
                     actions = listOf(
-                        PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { onActionClick("Verify Attendance") }
+                        PortalAction("Verify Attendance", "Review faculty requests", Icons.AutoMirrored.Filled.FactCheck) { onActionClick("Verify Attendance") }
                     )
                 ),
                 PortalSectionModel(
                     title = "System",
                     actions = listOf(
-                        PortalAction("Activity History", "View center logs & events", Icons.Default.History) { onActionClick("Activity History") }
+                        PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { onActionClick("Activity History") }
                     )
                 )
             )
@@ -76,26 +76,26 @@ object PortalRoleSections {
                     title = "Student Management",
                     actions = listOf(
                         PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { onActionClick("Add Student") },
-                        PortalAction("All Students", "List of all the students", Icons.Default.People) { onActionClick("All Students") },
-                        PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { onActionClick("Take Attendance") },
-                        PortalAction("Attendance History", "Students attendance history", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
-                        PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { onActionClick("Class Timings") },
-                        PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { onActionClick("Payments") },
-                        PortalAction("Payment History", "View all payment records", Icons.Default.History) { onActionClick("Global History") },
-                        PortalAction("Birthday Calendar", "View birthdays & wishes", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
+                        PortalAction("All Students", "Directory and profiles", Icons.Default.People) { onActionClick("All Students") },
+                        PortalAction("Take Attendance", "Mark session attendance", Icons.Default.CheckCircle) { onActionClick("Take Attendance") },
+                        PortalAction("Attendance History", "Past attendance sessions", Icons.AutoMirrored.Filled.Assignment) { onActionClick("Attendance History") },
+                        PortalAction("Batch Schedules", "Timings and day assignments", Icons.Default.School) { onActionClick("Class Timings") },
+                        PortalAction("Collect Payment", "Record payments & dues", Icons.Default.Payment) { onActionClick("Payments") },
+                        PortalAction("Payment History", "View payment receipts", Icons.Default.History) { onActionClick("Global History") },
+                        PortalAction("Birthday Calendar", "Upcoming student birthdays", Icons.Default.Cake) { onActionClick("Birthday Calendar") }
                     )
                 ),
                 PortalSectionModel(
                     title = "Staff Management",
                     actions = listOf(
-                        PortalAction("Manage Staff", "Add, edit & remove staffs", Icons.Default.Badge) { onActionClick("Manage Staff") },
-                        PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { onActionClick("Verify Attendance") }
+                        PortalAction("Manage Staff", "Staff accounts & permissions", Icons.Default.Badge) { onActionClick("Manage Staff") },
+                        PortalAction("Verify Attendance", "Review faculty requests", Icons.AutoMirrored.Filled.FactCheck) { onActionClick("Verify Attendance") }
                     )
                 ),
                 PortalSectionModel(
                     title = "System",
                     actions = listOf(
-                        PortalAction("Activity History", "View center logs & events", Icons.Default.History) { onActionClick("Activity History") }
+                        PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { onActionClick("Activity History") }
                     )
                 )
             )

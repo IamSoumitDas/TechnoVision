@@ -164,7 +164,7 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
     fun deletePayment(onSuccess: () -> Unit) {
         val state = _uiState.value
         if (!state.isOnline) {
-            _uiState.update { it.copy(userMessage = "Deleting payment records requires an active internet connection.") }
+            _uiState.update { it.copy(userMessage = "Connect to the internet to delete payment receipts") }
             return
         }
         val target = state.paymentToDelete ?: return
@@ -176,14 +176,14 @@ class GlobalHistoryViewModel @javax.inject.Inject constructor(
             val result = feeRepository.deletePayment(target.id)
             if (result.isSuccess) {
                 auditLogRepository.log(
-                    action = "Fee Payment Deleted",
+                    action = "Payment Receipt Deleted",
                     details = "Deleted payment of ₹${target.amountPaid} (${target.paymentMethod}) for student: $studentName"
                 )
                 _uiState.update {
                     it.copy(
                         isDeletingPayment = false,
                         paymentToDelete = null,
-                        userMessage = "Payment record deleted."
+                        userMessage = "Payment receipt deleted"
                     )
                 }
                 onSuccess()

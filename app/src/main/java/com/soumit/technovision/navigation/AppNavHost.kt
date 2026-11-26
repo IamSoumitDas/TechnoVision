@@ -110,27 +110,27 @@ fun AppNavHost(
                         title = "Student Management",
                         actions = listOf(
                             PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate(Screen.EnrollStudent) },
-                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
-                            PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate(Screen.Attendance) },
-                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
-                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Screen.Batches) },
-                            PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Screen.FeeCollection) },
-                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Screen.GlobalHistory) },
-                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
+                            PortalAction("All Students", "Directory and profiles", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
+                            PortalAction("Take Attendance", "Mark session attendance", Icons.Default.CheckCircle) { navController.navigate(Screen.Attendance) },
+                            PortalAction("Attendance History", "Past attendance sessions", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
+                            PortalAction("Batch Schedules", "Timings and day assignments", Icons.Default.School) { navController.navigate(Screen.Batches) },
+                            PortalAction("Collect Payment", "Record payments & dues", Icons.Default.Payment) { navController.navigate(Screen.FeeCollection) },
+                            PortalAction("Payment History", "View payment receipts", Icons.Default.History) { navController.navigate(Screen.GlobalHistory) },
+                            PortalAction("Birthday Calendar", "Upcoming student birthdays", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
                         )
                     ),
                     PortalSectionModel(
                         title = "Staff Management",
                         actions = listOf(
-                            PortalAction("Manage Staff", "Add, edit & remove staffs", Icons.Default.Badge) { navController.navigate(Screen.ManageStaff) },
-                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Screen.VerifyTeacherAttendance) },
-                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
+                            PortalAction("Manage Staff", "Staff accounts & permissions", Icons.Default.Badge) { navController.navigate(Screen.ManageStaff) },
+                            PortalAction("Verify Attendance", "Review faculty requests", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Screen.VerifyTeacherAttendance) },
+                            PortalAction("Faculty Records", "Approved faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
                         )
                     ),
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
+                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
                         )
                     )
                 )
@@ -146,24 +146,24 @@ fun AppNavHost(
                     PortalSectionModel(
                         title = "Student Management",
                         actions = listOf(
-                            PortalAction("Take Attendance", "Mark daily student presence", Icons.Default.CheckCircle) { navController.navigate(Screen.Attendance) },
-                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
-                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
-                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Screen.Batches) },
-                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
+                            PortalAction("Take Attendance", "Mark session attendance", Icons.Default.CheckCircle) { navController.navigate(Screen.Attendance) },
+                            PortalAction("Attendance History", "Past attendance sessions", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
+                            PortalAction("All Students", "Directory and profiles", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
+                            PortalAction("Batch Schedules", "Timings and day assignments", Icons.Default.School) { navController.navigate(Screen.Batches) },
+                            PortalAction("Birthday Calendar", "Upcoming student birthdays", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
                         )
                     ),
                     PortalSectionModel(
-                        title = "Teacher Management",
+                        title = "Faculty Management",
                         actions = listOf(
-                            PortalAction("Faculty Attendance", "Request attendance", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.TeacherAttendance) },
-                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
+                            PortalAction("Faculty Attendance", "Submit attendance request", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.TeacherAttendance) },
+                            PortalAction("Faculty Records", "Approved faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
                         )
                     ),
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
+                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
                         )
                     )
                 )
@@ -180,25 +180,25 @@ fun AppNavHost(
                         title = "Student Management",
                         actions = listOf(
                             PortalAction("Add Student", "Register a new student", Icons.Default.AppRegistration) { navController.navigate(Screen.EnrollStudent) },
-                            PortalAction("All Students", "List of all the students", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
-                            PortalAction("Attendance History", "View past session records", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
-                            PortalAction("Class Timings", "Set batches & schedules", Icons.Default.School) { navController.navigate(Screen.Batches) },
-                            PortalAction("Collect Payment", "Collect fees & view ledger", Icons.Default.Payment) { navController.navigate(Screen.FeeCollection) },
-                            PortalAction("Payment History", "View all payment records", Icons.Default.History) { navController.navigate(Screen.GlobalHistory) },
-                            PortalAction("Birthday Calendar", "View student birthdays & wishes", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
+                            PortalAction("All Students", "Directory and profiles", Icons.Default.People) { navController.navigate(Screen.StudentDirectory) },
+                            PortalAction("Attendance History", "Past attendance sessions", Icons.AutoMirrored.Filled.Assignment) { navController.navigate(Screen.AttendanceHistory) },
+                            PortalAction("Batch Schedules", "Timings and day assignments", Icons.Default.School) { navController.navigate(Screen.Batches) },
+                            PortalAction("Collect Payment", "Record payments & dues", Icons.Default.Payment) { navController.navigate(Screen.FeeCollection) },
+                            PortalAction("Payment History", "View payment receipts", Icons.Default.History) { navController.navigate(Screen.GlobalHistory) },
+                            PortalAction("Birthday Calendar", "Upcoming student birthdays", Icons.Default.Cake) { navController.navigate(Screen.BirthdayCalendar) }
                         )
                     ),
                     PortalSectionModel(
                         title = "Staff Management",
                         actions = listOf(
-                            PortalAction("Verify Attendance", "Approve teacher attendance", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Screen.VerifyTeacherAttendance) },
-                            PortalAction("Attendance Records", "View verified faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
+                            PortalAction("Verify Attendance", "Review faculty requests", Icons.AutoMirrored.Filled.FactCheck) { navController.navigate(Screen.VerifyTeacherAttendance) },
+                            PortalAction("Faculty Records", "Approved faculty logs", Icons.Default.EventAvailable) { navController.navigate(Screen.FacultyAttendanceViewer) }
                         )
                     ),
                     PortalSectionModel(
                         title = "System",
                         actions = listOf(
-                            PortalAction("Activity History", "View center logs & events", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
+                            PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) }
                         )
                     )
                 )

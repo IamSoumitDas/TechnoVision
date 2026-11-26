@@ -226,14 +226,14 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
     fun submitPayment(onSuccess: () -> Unit) {
         val state = _uiState.value
         if (!state.isOnline) {
-            _uiState.update { it.copy(userMessage = "Fee collection requires an active internet connection.") }
+            _uiState.update { it.copy(userMessage = "Connect to the internet to record payments") }
             return
         }
         val student = state.selectedStudent ?: return
         val amount = state.amountPaid.toLongOrNull() ?: 0L
 
         if (amount <= 0) {
-            _uiState.update { it.copy(userMessage = "Please enter a valid payment amount.") }
+            _uiState.update { it.copy(userMessage = "Enter a valid payment amount") }
             return
         }
 
@@ -291,15 +291,15 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
             val result = feeRepository.recordPayment(payment)
             if (result.isSuccess) {
                 auditLogRepository.log(
-                    action = "Fee Collected",
-                    details = "Collected ₹$amount (${state.selectedMethod}) for student: ${student.fullName}"
+                    action = "Payment Recorded",
+                    details = "Recorded payment of ₹$amount (${state.selectedMethod}) for student: ${student.fullName}"
                 )
                 _uiState.update {
                     it.copy(
                         isSaving = false,
                         remarks = "",
                         amountPaid = student.monthlyInstallment.toString(),
-                        userMessage = "Payment of ₹$amount recorded successfully!"
+                        userMessage = "Payment of ₹$amount recorded"
                     )
                 }
                 onSuccess()
@@ -307,7 +307,7 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        userMessage = "Failed to record payment: ${result.exceptionOrNull()?.localizedMessage}"
+                        userMessage = "Couldn't record payment: ${result.exceptionOrNull()?.localizedMessage}"
                     )
                 }
             }
@@ -317,7 +317,7 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
     fun deletePayment(onSuccess: () -> Unit) {
         val state = _uiState.value
         if (!state.isOnline) {
-            _uiState.update { it.copy(userMessage = "Deleting payment requires an active internet connection.") }
+            _uiState.update { it.copy(userMessage = "Connect to the internet to delete payment receipts") }
             return
         }
         val target = state.paymentToDelete ?: return
@@ -329,14 +329,14 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
             val result = feeRepository.deletePayment(target.id)
             if (result.isSuccess) {
                 auditLogRepository.log(
-                    action = "Fee Payment Deleted",
+                    action = "Payment Receipt Deleted",
                     details = "Deleted payment of ₹${target.amountPaid} (${target.paymentMethod}) for student: $studentName"
                 )
                 _uiState.update {
                     it.copy(
                         isDeletingPayment = false,
                         paymentToDelete = null,
-                        userMessage = "Payment record deleted."
+                        userMessage = "Payment receipt deleted"
                     )
                 }
                 onSuccess()
@@ -344,7 +344,7 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
                 _uiState.update {
                     it.copy(
                         isDeletingPayment = false,
-                        userMessage = "Failed to delete: ${result.exceptionOrNull()?.localizedMessage}"
+                        userMessage = "Couldn't delete receipt: ${result.exceptionOrNull()?.localizedMessage}"
                     )
                 }
             }

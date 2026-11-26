@@ -174,7 +174,7 @@ fun TakeAttendanceContent(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
-                                    text = "Locked: Attendance already recorded for this slot.",
+                                    text = "Attendance already recorded for this slot",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -195,9 +195,9 @@ fun TakeAttendanceContent(
                         ) {
                             if (!uiState.isOnline) {
                                 Icon(Icons.Default.WifiOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                Text("Requires Internet (Offline)")
+                                Text("Connect to Internet")
                             } else {
-                                Text("Save Batch Attendance")
+                                Text("Submit Attendance")
                             }
                         }
                     }
@@ -213,7 +213,7 @@ fun TakeAttendanceContent(
         ) {
             if (!uiState.isOnline) {
                 OfflineWarningBanner(
-                    message = "Recording student attendance requires an active internet connection to prevent session overwrites.",
+                    message = "Connect to the internet to submit attendance.",
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
@@ -489,7 +489,7 @@ fun TakeAttendanceContent(
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Add Student Out of Scheduled Time")
+                                    Text("Add Extra Student")
                                 }
                             } else {
                                 Card(
@@ -582,7 +582,7 @@ fun TakeAttendanceContent(
                                                         todayName = uiState.todayName,
                                                         onAddStudent = {
                                                             onAddAdditionalStudent(candidate)
-                                                            Toast.makeText(context, "Added ${candidate.fullName} out of scheduled time", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "Added ${candidate.fullName}", Toast.LENGTH_SHORT).show()
                                                         }
                                                     )
                                                 }

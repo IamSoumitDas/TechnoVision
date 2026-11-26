@@ -80,7 +80,7 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
             val currentEmail = currentUser?.email ?: ""
             val defaultName = currentUser?.displayName?.takeIf { it.isNotBlank() }
                 ?: currentEmail.substringBefore("@").takeIf { it.isNotBlank() }
-                ?: "Teacher"
+                ?: "Faculty"
 
             kotlinx.coroutines.flow.combine(
                 attendanceRepository.getTeacherAttendanceRequestsStream(teacherId = currentUid.ifBlank { null }),
@@ -138,7 +138,7 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
 
         if (alreadyRequested) {
             _uiState.update {
-                it.copy(userMessage = "You already have a request submitted for this time slot.")
+                it.copy(userMessage = "You already submitted a request for this time slot")
             }
             return
         }
@@ -151,7 +151,7 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
             val teacherName = state.teacherName.ifBlank {
                 currentUser?.displayName?.takeIf { it.isNotBlank() }
                     ?: currentUser?.email?.substringBefore("@")
-                    ?: "Teacher"
+                    ?: "Faculty"
             }
 
             val req = TeacherAttendanceRequestModel(
@@ -166,14 +166,14 @@ class TeacherAttendanceViewModel @javax.inject.Inject constructor(
             val result = attendanceRepository.submitTeacherAttendanceRequest(req)
             if (result.isSuccess) {
                 auditLogRepository.log(
-                    action = "Teacher Attendance Requested",
-                    details = "Submitted verification request for [${state.selectedTimeSlot}] on ${state.selectedDateStr} (Teacher: $teacherName)"
+                    action = "Faculty Attendance Requested",
+                    details = "Submitted verification request for [${state.selectedTimeSlot}] on ${state.selectedDateStr} (Faculty: $teacherName)"
                 )
                 val isOffline = !state.isOnline || result.getOrNull()?.startsWith("offline_") == true
                 val msg = if (isOffline) {
-                    "Saved offline! Your request will sync automatically when connected."
+                    "Saved offline. Will sync when connected."
                 } else {
-                    "Attendance verification requested successfully!"
+                    "Attendance request submitted"
                 }
                 _uiState.update {
                     it.copy(

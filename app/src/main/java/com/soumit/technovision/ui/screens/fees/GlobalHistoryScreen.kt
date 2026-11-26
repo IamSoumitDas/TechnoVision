@@ -119,10 +119,10 @@ fun GlobalHistoryContent(
         AlertDialog(
             onDismissRequest = { if (!uiState.isDeletingPayment) onSetPaymentToDelete(null) },
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Delete Received Payment?") },
+            title = { Text("Delete Payment Receipt?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Are you sure you want to permanently delete this payment entry?")
+                    Text("Delete this payment receipt permanently?")
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = MaterialTheme.shapes.small,
@@ -138,7 +138,7 @@ fun GlobalHistoryContent(
                         }
                     }
                     Text(
-                        "⚠️ This will revert the payment record, adjust the student's ledger dues, and log this deletion in Activity History.",
+                        "This permanently removes the receipt and adds ₹${target.amountPaid} back to the student's due balance.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -153,7 +153,7 @@ fun GlobalHistoryContent(
                     if (uiState.isDeletingPayment) {
                         CircularWavyProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onError)
                     } else {
-                        Text("Delete Payment")
+                        Text("Delete Receipt")
                     }
                 }
             },
@@ -193,7 +193,7 @@ fun GlobalHistoryContent(
         ) {
             if (!uiState.isOnline) {
                 com.soumit.technovision.ui.common.OfflineWarningBanner(
-                    message = "Viewing payment records is available offline. Voiding or deleting payment receipts requires an active internet connection."
+                    message = "Payment history is available offline. Deleting a receipt requires internet."
                 )
             }
 
@@ -330,9 +330,9 @@ fun GlobalHistoryContent(
                         )
                         Text(
                             text = if (uiState.searchQuery.isNotBlank() || uiState.selectedMethodFilter != "All") {
-                                "No payment records match your filters."
+                                "No payment records match filters"
                             } else {
-                                "No payments recorded yet."
+                                "No payments recorded yet"
                             },
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.outline

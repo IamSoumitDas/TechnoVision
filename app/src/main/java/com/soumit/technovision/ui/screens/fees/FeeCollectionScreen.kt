@@ -135,10 +135,10 @@ fun FeeCollectionContent(
         AlertDialog(
             onDismissRequest = { if (!uiState.isDeletingPayment) onSetPaymentToDelete(null) },
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Delete Received Payment?") },
+            title = { Text("Delete Payment Receipt?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Are you sure you want to delete this payment record?")
+                    Text("Delete this payment receipt permanently?")
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = MaterialTheme.shapes.small,
@@ -151,7 +151,7 @@ fun FeeCollectionContent(
                         }
                     }
                     Text(
-                        "⚠️ This will revert the student's dues by ₹${target.amountPaid} and log the deletion in Activity History.",
+                        "This permanently removes the receipt and adds ₹${target.amountPaid} back to the student's due balance.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -166,7 +166,7 @@ fun FeeCollectionContent(
                     if (uiState.isDeletingPayment) {
                         CircularWavyProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onError)
                     } else {
-                        Text("Delete Record")
+                        Text("Delete Receipt")
                     }
                 }
             },
@@ -192,7 +192,7 @@ fun FeeCollectionContent(
                 },
                 actions = {
                     IconButton(onClick = onNavigateToGlobalHistory) {
-                        Icon(Icons.Default.History, contentDescription = "Global Payment History")
+                        Icon(Icons.Default.History, contentDescription = "Payment History")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -222,12 +222,12 @@ fun FeeCollectionContent(
             ) {
                 if (!uiState.isOnline) {
                     com.soumit.technovision.ui.common.OfflineWarningBanner(
-                        message = "Collecting fees and recording ledger payments requires an active internet connection to prevent billing inconsistencies."
+                        message = "Connect to the internet to record payments."
                     )
                 }
 
                 Text(
-                    text = "Receive Monthly Installment",
+                    text = "Record Payment",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
@@ -260,8 +260,8 @@ fun FeeCollectionContent(
                             ) {
                                 Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = if (uiState.searchQuery.isBlank()) "No students registered in the system."
-                                        else "No students found matching \"${uiState.searchQuery}\".",
+                                        text = if (uiState.searchQuery.isBlank()) "No students registered yet"
+                                        else "No students match \"${uiState.searchQuery}\"",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.outline
                                     )
@@ -397,7 +397,7 @@ fun FeeCollectionContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Standard Monthly Installment",
+                                    text = "Monthly Payment",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -421,9 +421,9 @@ fun FeeCollectionContent(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = when {
-                                    balanceDue > 0 -> "Outstanding Balance: ₹$balanceDue (Pending)"
-                                    balanceDue < 0 -> "Advance Credit: ₹${-balanceDue} (Overpaid)"
-                                    else -> "Balance: Fully Paid Up ✓"
+                                    balanceDue > 0 -> "Due Balance: ₹$balanceDue"
+                                    balanceDue < 0 -> "Advance: ₹${-balanceDue}"
+                                    else -> "Balance: Paid"
                                 },
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -441,7 +441,7 @@ fun FeeCollectionContent(
                         OutlinedTextField(
                             value = uiState.amountPaid,
                             onValueChange = onAmountChange,
-                            label = { Text("Amount Received (₹)") },
+                            label = { Text("Payment Amount (₹)") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
@@ -541,10 +541,10 @@ fun FeeCollectionContent(
                         ) {
                             if (!uiState.isOnline) {
                                 Icon(Icons.Default.WifiOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                Text("Requires Internet (Offline)")
+                                Text("Connect to Internet")
                             } else {
                                 Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                Text("Record & Save Payment")
+                                Text("Record Payment")
                             }
                         }
                     }
@@ -561,7 +561,7 @@ fun FeeCollectionContent(
 
                     if (uiState.paymentHistory.isEmpty()) {
                         Text(
-                            text = "No payment records found for this student.",
+                            text = "No payment records yet",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.outline
                         )

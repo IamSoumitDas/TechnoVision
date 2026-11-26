@@ -17,11 +17,11 @@
 
     <!-- Auth -->
     <string name="auth_app_title">TechnoVision</string>
-    <string name="auth_sign_in_prompt">Sign in to access your portal</string>
-    <string name="auth_email_label">Email Address</string>
+    <string name="auth_sign_in_prompt">Sign in to your account</string>
+    <string name="auth_email_label">Email</string>
     <string name="auth_password_label">Password</string>
-    <string name="auth_forgot_password">Forgot Password?</string>
-    <string name="auth_login_button">Log In</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_login_button">Sign in</string>
     <string name="auth_show_password">Show password</string>
     <string name="auth_hide_password">Hide password</string>
     <string name="auth_logo_desc">Logo</string>
@@ -34,60 +34,60 @@
     <!-- Portal Sections -->
     <string name="section_student_management">Student Management</string>
     <string name="section_staff_management">Staff Management</string>
-    <string name="section_teacher_management">Teacher Management</string>
+    <string name="section_teacher_management">Faculty Management</string>
     <string name="section_system">System</string>
 
     <!-- Portal Actions -->
     <string name="action_add_student">Add Student</string>
     <string name="action_add_student_desc">Register a new student</string>
     <string name="action_all_students">All Students</string>
-    <string name="action_all_students_desc">List of all the students</string>
+    <string name="action_all_students_desc">Directory and profiles</string>
     <string name="action_take_attendance">Take Attendance</string>
-    <string name="action_take_attendance_desc">Mark daily student presence</string>
+    <string name="action_take_attendance_desc">Mark session attendance</string>
     <string name="action_attendance_history">Attendance History</string>
-    <string name="action_attendance_history_desc">View past session records</string>
-    <string name="action_class_timings">Class Timings</string>
-    <string name="action_class_timings_desc">Set batches &amp; schedules</string>
+    <string name="action_attendance_history_desc">View past attendance sessions</string>
+    <string name="action_class_timings">Batch Schedules</string>
+    <string name="action_class_timings_desc">Timings and day assignments</string>
     <string name="action_collect_payment">Collect Payment</string>
-    <string name="action_collect_payment_desc">Collect fees &amp; view ledger</string>
+    <string name="action_collect_payment_desc">Record payments &amp; dues</string>
     <string name="action_payment_history">Payment History</string>
-    <string name="action_payment_history_desc">View all payment records</string>
+    <string name="action_payment_history_desc">View payment receipts</string>
     <string name="action_birthday_calendar">Birthday Calendar</string>
-    <string name="action_birthday_calendar_desc">View student birthdays &amp; wishes</string>
+    <string name="action_birthday_calendar_desc">Upcoming student birthdays</string>
     <string name="action_manage_staff">Manage Staff</string>
-    <string name="action_manage_staff_desc">Add, edit &amp; remove staffs</string>
+    <string name="action_manage_staff_desc">Staff accounts &amp; permissions</string>
     <string name="action_verify_attendance">Verify Attendance</string>
-    <string name="action_verify_attendance_desc">Approve teacher attendance</string>
+    <string name="action_verify_attendance_desc">Review faculty requests</string>
     <string name="action_attendance_records">Attendance Records</string>
-    <string name="action_attendance_records_desc">View verified faculty logs</string>
+    <string name="action_attendance_records_desc">Approved faculty logs</string>
     <string name="action_faculty_attendance">Faculty Attendance</string>
-    <string name="action_faculty_attendance_desc">Request attendance</string>
-    <string name="action_activity_history">Activity History</string>
-    <string name="action_activity_history_desc">View center logs &amp; events</string>
+    <string name="action_faculty_attendance_desc">Submit attendance request</string>
+    <string name="action_activity_history">Activity Logs</string>
+    <string name="action_activity_history_desc">Center activity &amp; audit trail</string>
 
     <!-- Screen Titles -->
     <string name="title_student_directory">Student Directory</string>
-    <string name="title_enroll_student">Enroll New Student</string>
-    <string name="title_student_viewer">Student Information &amp; Ledger</string>
-    <string name="title_update_student">Update / Delete Student</string>
-    <string name="title_take_attendance">Student Attendance</string>
-    <string name="title_attendance_history">Attendance Records</string>
-    <string name="title_batches">Batch Timings &amp; Schedules</string>
-    <string name="title_system_logs">System Activity Logs</string>
-    <string name="title_fee_collection">Fee Collection &amp; Ledger</string>
-    <string name="title_global_history">Fee Payment Ledger History</string>
+    <string name="title_enroll_student">Enroll Student</string>
+    <string name="title_student_viewer">Student Profile &amp; Payments</string>
+    <string name="title_update_student">Edit Student</string>
+    <string name="title_take_attendance">Take Attendance</string>
+    <string name="title_attendance_history">Attendance History</string>
+    <string name="title_batches">Batch Schedules</string>
+    <string name="title_system_logs">Activity Logs</string>
+    <string name="title_fee_collection">Collect Payment</string>
+    <string name="title_global_history">Payment History</string>
     <string name="title_manage_staff">Staff Management</string>
-    <string name="title_teacher_attendance">Faculty Attendance Clock-In</string>
+    <string name="title_teacher_attendance">Faculty Attendance</string>
     <string name="title_verify_teacher_attendance">Verify Faculty Attendance</string>
-    <string name="title_faculty_attendance_viewer">Faculty Verified Timesheets</string>
-    <string name="title_birthday_calendar">Student Birthday Calendar</string>
+    <string name="title_faculty_attendance_viewer">Faculty Attendance Records</string>
+    <string name="title_birthday_calendar">Birthday Calendar</string>
 
     <!-- Student Directory -->
     <string name="student_search_hint">Search by name, school, class, phone…</string>
-    <string name="student_empty_list">No students found.</string>
+    <string name="student_empty_list">No students found</string>
 
-    <!-- Ledger & Fees -->
-    <string name="fee_outstanding_dues">Outstanding Dues</string>
+    <!-- Ledger & Payments -->
+    <string name="fee_outstanding_dues">Due Balance</string>
     <string name="fee_total_paid">Total Paid</string>
-    <string name="fee_monthly_installment">Monthly Fee</string>
+    <string name="fee_monthly_installment">Monthly Payment</string>
 </resources>

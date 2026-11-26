@@ -92,7 +92,7 @@ fun ManageStaffContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manage Staff & Faculty") },
+                title = { Text("Faculty Management") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -123,13 +123,13 @@ fun ManageStaffContent(
         ) {
             if (!uiState.isOnline) {
                 com.soumit.technovision.ui.common.OfflineWarningBanner(
-                    message = "Creating, modifying, or deleting staff login accounts requires an active internet connection to communicate with Firebase Authentication.",
+                    message = "Connect to the internet to manage staff accounts.",
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
 
             Text(
-                text = "Center Staff Directory",
+                text = "Staff Directory",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -142,7 +142,7 @@ fun ManageStaffContent(
             } else if (uiState.staffList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "No staff accounts created yet. Tap '+' to add staff.",
+                        text = "No staff accounts yet",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -178,7 +178,7 @@ fun ManageStaffContent(
             onDismissRequest = { staffToDelete = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Delete Staff Member?") },
-            text = { Text("Are you sure you want to delete staff account for \"${target.fullName}\" (${target.email})?") },
+            text = { Text("Delete account for \"${target.fullName}\" (${target.email})?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -202,7 +202,7 @@ fun ManageStaffContent(
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("Add New Staff Member") },
+            title = { Text("Add Staff") },
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -219,7 +219,7 @@ fun ManageStaffContent(
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = { Text("Email (Login ID)") },
+                        label = { Text("Email") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         modifier = Modifier.fillMaxWidth()
@@ -228,7 +228,7 @@ fun ManageStaffContent(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Password (min 6 chars)") },
+                        label = { Text("Password") },
                         singleLine = true,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -259,7 +259,7 @@ fun ManageStaffContent(
                             value = selectedRole,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Staff Role") },
+                            label = { Text("Role") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
                             modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
                         )
@@ -295,7 +295,7 @@ fun ManageStaffContent(
                             }
                         }
                     ) {
-                        Text("Create Account")
+                        Text("Add")
                     }
                 }
             },
@@ -311,7 +311,7 @@ fun ManageStaffContent(
         selectedStaffForEdit?.let { staffEditTarget ->
             AlertDialog(
                 onDismissRequest = { showEditDialog = false },
-            title = { Text("Edit Staff Member") },
+            title = { Text("Edit Staff") },
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -329,7 +329,7 @@ fun ManageStaffContent(
                         value = staffEditTarget.email,
                         onValueChange = {},
                         enabled = false,
-                        label = { Text("Email (Unmodifiable)") },
+                        label = { Text("Email") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -352,7 +352,7 @@ fun ManageStaffContent(
                             value = editRole,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Staff Role") },
+                            label = { Text("Role") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = editRoleExpanded) },
                             modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
                         )
@@ -384,7 +384,7 @@ fun ManageStaffContent(
                             }
                         }
                     ) {
-                        Text("Save Changes")
+                        Text("Save")
                     }
                 }
             },

@@ -245,8 +245,8 @@ fun AuthScreenPreviewDark() {
     TechnoVisionTheme(darkTheme = true) {
         AuthContent(
             uiState = AuthUiState(
-                email = "teacher@technovision.com",
-                statusMessage = "Welcome! Logged in successfully."
+                email = "faculty@technovision.com",
+                statusMessage = "Signed in"
             ),
             onEmailChange = {},
             onPasswordChange = {},

@@ -106,7 +106,7 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
 
     fun verifyRequest(request: TeacherAttendanceRequestModel) {
         if (!_uiState.value.isOnline) {
-            _uiState.update { it.copy(userMessage = "Verifying attendance requires an active internet connection.") }
+            _uiState.update { it.copy(userMessage = "Connect to the internet to review requests") }
             return
         }
         val adminName = _uiState.value.currentAdminName
@@ -117,7 +117,7 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
             if (result.isSuccess) {
                 auditLogRepository.log(
                     action = "Attendance Verified",
-                    details = "Approved time slot [${request.timeSlot}] for teacher ${request.teacherName} on date ${request.date} (Verified by $adminName)"
+                    details = "Approved time slot [${request.timeSlot}] for faculty ${request.teacherName} on date ${request.date} (Verified by $adminName)"
                 )
                 _uiState.update { state ->
                     val updatedList = state.requests.map {
@@ -126,7 +126,7 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
                     state.copy(
                         requests = updatedList,
                         processingRequestId = null,
-                        userMessage = "Verified attendance for ${request.teacherName}"
+                        userMessage = "Attendance approved"
                     )
                 }
             } else {
@@ -142,7 +142,7 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
 
     fun rejectRequest(request: TeacherAttendanceRequestModel) {
         if (!_uiState.value.isOnline) {
-            _uiState.update { it.copy(userMessage = "Rejecting attendance requires an active internet connection.") }
+            _uiState.update { it.copy(userMessage = "Connect to the internet to review requests") }
             return
         }
         val adminName = _uiState.value.currentAdminName
@@ -153,7 +153,7 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
             if (result.isSuccess) {
                 auditLogRepository.log(
                     action = "Attendance Rejected",
-                    details = "Rejected time slot [${request.timeSlot}] for teacher ${request.teacherName} on date ${request.date} (Rejected by $adminName)"
+                    details = "Rejected time slot [${request.timeSlot}] for faculty ${request.teacherName} on date ${request.date} (Rejected by $adminName)"
                 )
                 _uiState.update { state ->
                     val updatedList = state.requests.map {
@@ -162,7 +162,7 @@ class VerifyTeacherAttendanceViewModel @javax.inject.Inject constructor(
                     state.copy(
                         requests = updatedList,
                         processingRequestId = null,
-                        userMessage = "Rejected request for ${request.teacherName}"
+                        userMessage = "Attendance rejected"
                     )
                 }
             } else {

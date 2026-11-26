@@ -137,7 +137,7 @@ fun UpdateDeleteStudentContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Update / Delete Student") },
+                title = { Text("Edit Student") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -165,7 +165,7 @@ fun UpdateDeleteStudentContent(
             ) {
                 if (!uiState.isOnline) {
                     com.soumit.technovision.ui.common.OfflineWarningBanner(
-                        message = "Editing or deleting student profiles requires an active internet connection to prevent concurrent update conflicts."
+                        message = "Connect to the internet to update student records."
                     )
                 }
 
@@ -453,7 +453,7 @@ fun UpdateDeleteStudentContent(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Contact & Billing",
+                            text = "Contact & Payment",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -462,7 +462,7 @@ fun UpdateDeleteStudentContent(
                         OutlinedTextField(
                             value = uiState.monthlyInstallment,
                             onValueChange = onMonthlyInstallmentChanged,
-                            label = { Text("Monthly Installment (₹)") },
+                            label = { Text("Monthly Payment (₹)") },
                             leadingIcon = { Icon(Icons.Default.CurrencyRupee, contentDescription = null) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -531,7 +531,7 @@ fun UpdateDeleteStudentContent(
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (uiState.isOnline) "Delete Student Record" else "Delete (Requires Internet)", style = MaterialTheme.typography.titleSmall)
+                        Text(if (uiState.isOnline) "Delete Student" else "Delete (Offline)", style = MaterialTheme.typography.titleSmall)
                     }
                 }
 
@@ -540,7 +540,7 @@ fun UpdateDeleteStudentContent(
                         onDismissRequest = { showDeleteDialog = false },
                         icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                         title = { Text("Delete Student?") },
-                        text = { Text("Are you sure you want to delete the student record for \"${uiState.fullName}\"? This action cannot be undone.") },
+                        text = { Text("Remove ${uiState.fullName} from the student directory? This cannot be undone.") },
                         confirmButton = {
                             Button(
                                 onClick = {

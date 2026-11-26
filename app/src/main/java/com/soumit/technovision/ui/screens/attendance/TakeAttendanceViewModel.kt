@@ -313,12 +313,12 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
     fun saveAttendance(onSuccess: () -> Unit) {
         val state = _uiState.value
         if (!state.isOnline) {
-            updateState { it.copy(userMessage = "Taking student attendance requires an active internet connection.") }
+            updateState { it.copy(userMessage = "Connect to the internet to submit attendance") }
             return
         }
         val displayed = state.displayedStudents
         if (displayed.isEmpty()) {
-            updateState { it.copy(userMessage = "No students in this session to save.") }
+            updateState { it.copy(userMessage = "No students in this session") }
             return
         }
 
@@ -365,7 +365,7 @@ class TakeAttendanceViewModel @javax.inject.Inject constructor(
                 updateState {
                     it.copy(
                         isSaving = false,
-                        userMessage = "Attendance saved successfully!"
+                        userMessage = "Attendance recorded"
                     )
                 }
                 onSuccess()

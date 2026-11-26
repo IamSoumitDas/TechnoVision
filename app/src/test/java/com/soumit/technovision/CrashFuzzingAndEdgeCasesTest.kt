@@ -326,7 +326,7 @@ class CrashFuzzingAndEdgeCasesTest {
         val state = vm.uiState.value
         assertNull(successRole)
         assertTrue(state.isError)
-        assertEquals("Please fill in all fields.", state.statusMessage)
+        assertEquals("Enter your email and password", state.statusMessage)
     }
 
     @Test
@@ -337,7 +337,7 @@ class CrashFuzzingAndEdgeCasesTest {
         vm.login {}
         val state = vm.uiState.value
         assertTrue(state.isError)
-        assertEquals("Please enter a valid email structure (e.g. name@example.com).", state.statusMessage)
+        assertEquals("Enter a valid email address", state.statusMessage)
     }
 
     // ==========================================
@@ -386,7 +386,7 @@ class CrashFuzzingAndEdgeCasesTest {
 
         assertNull(enrolledId)
         val state = vm.uiState.value
-        assertEquals("Please fill in all required (*) fields highlighted in red.", state.errorMessage)
+        assertEquals("Fill in all required fields", state.errorMessage)
         assertFalse(state.isLoading)
     }
 
@@ -414,7 +414,7 @@ class CrashFuzzingAndEdgeCasesTest {
 
         assertNull(enrolledId)
         val state = vm.uiState.value
-        assertEquals("Student must have at least 2 batch days scheduled.", state.errorMessage)
+        assertEquals("Assign at least 2 class days", state.errorMessage)
     }
 
     @Test
@@ -439,17 +439,17 @@ class CrashFuzzingAndEdgeCasesTest {
         // Test non-numeric installment
         vm.onMonthlyInstallmentChanged("invalid-number")
         vm.enrollStudent {}
-        assertEquals("Monthly installment must be a valid positive amount.", vm.uiState.value.errorMessage)
+        assertEquals("Enter a valid monthly payment", vm.uiState.value.errorMessage)
 
         // Test zero installment
         vm.onMonthlyInstallmentChanged("0")
         vm.enrollStudent {}
-        assertEquals("Monthly installment must be a valid positive amount.", vm.uiState.value.errorMessage)
+        assertEquals("Enter a valid monthly payment", vm.uiState.value.errorMessage)
 
         // Test negative installment
         vm.onMonthlyInstallmentChanged("-500")
         vm.enrollStudent {}
-        assertEquals("Monthly installment must be a valid positive amount.", vm.uiState.value.errorMessage)
+        assertEquals("Enter a valid monthly payment", vm.uiState.value.errorMessage)
     }
 
     // ==========================================
@@ -534,17 +534,17 @@ class CrashFuzzingAndEdgeCasesTest {
             // 3. Amount is invalid string
             vm.onAmountChanged("not-a-number")
             vm.submitPayment {}
-            assertEquals("Please enter a valid payment amount.", vm.uiState.value.userMessage)
+            assertEquals("Enter a valid payment amount", vm.uiState.value.userMessage)
 
             // 4. Amount is negative
             vm.onAmountChanged("-100")
             vm.submitPayment {}
-            assertEquals("Please enter a valid payment amount.", vm.uiState.value.userMessage)
+            assertEquals("Enter a valid payment amount", vm.uiState.value.userMessage)
 
             // 5. Amount is 0
             vm.onAmountChanged("0")
             vm.submitPayment {}
-            assertEquals("Please enter a valid payment amount.", vm.uiState.value.userMessage)
+            assertEquals("Enter a valid payment amount", vm.uiState.value.userMessage)
         } finally {
             kotlinx.coroutines.Dispatchers.resetMain()
         }

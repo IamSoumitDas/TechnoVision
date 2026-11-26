@@ -154,18 +154,18 @@ class UpdateDeleteStudentViewModel @Inject constructor(
     fun updateStudent(onSuccess: () -> Unit) {
         val s = _uiState.value
         if (!s.isOnline) {
-            _uiState.update { it.copy(errorMessage = "Updating student requires an active internet connection.") }
+            _uiState.update { it.copy(errorMessage = "Connect to the internet to update student records") }
             return
         }
 
         if (s.fullName.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Full name cannot be blank.") }
+            _uiState.update { it.copy(errorMessage = "Enter student's full name") }
             return
         }
 
         val installmentVal = s.monthlyInstallment.trim().toLongOrNull()
         if (installmentVal == null || installmentVal <= 0L) {
-            _uiState.update { it.copy(errorMessage = "Monthly installment must be a valid positive amount.") }
+            _uiState.update { it.copy(errorMessage = "Enter a valid monthly payment") }
             return
         }
 
@@ -195,7 +195,7 @@ class UpdateDeleteStudentViewModel @Inject constructor(
             val result = studentRepository.updateStudent(studentModel)
             result.fold(
                 onSuccess = {
-                    _uiState.update { it.copy(isUpdating = false, userMessage = "Student updated successfully!") }
+                    _uiState.update { it.copy(isUpdating = false, userMessage = "Profile updated") }
                     auditLogRepository.log(
                         action = "Student Profile Updated",
                         details = "Updated profile record for student: ${s.fullName.trim()} (ID: $studentId)"
@@ -204,7 +204,7 @@ class UpdateDeleteStudentViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     _uiState.update {
-                        it.copy(isUpdating = false, errorMessage = "Update failed: ${error.localizedMessage}")
+                        it.copy(isUpdating = false, errorMessage = "Couldn't update profile: ${error.localizedMessage}")
                     }
                 }
             )
@@ -214,7 +214,7 @@ class UpdateDeleteStudentViewModel @Inject constructor(
     fun deleteStudent(onSuccess: () -> Unit) {
         val s = _uiState.value
         if (!s.isOnline) {
-            _uiState.update { it.copy(errorMessage = "Deleting student requires an active internet connection.") }
+            _uiState.update { it.copy(errorMessage = "Connect to the internet to delete student records") }
             return
         }
         _uiState.update { it.copy(isDeleting = true, errorMessage = null) }
@@ -223,7 +223,7 @@ class UpdateDeleteStudentViewModel @Inject constructor(
             val result = studentRepository.deleteStudent(studentId, s.fullName)
             result.fold(
                 onSuccess = {
-                    _uiState.update { it.copy(isDeleting = false, userMessage = "Student deleted successfully.") }
+                    _uiState.update { it.copy(isDeleting = false, userMessage = "Student removed") }
                     auditLogRepository.log(
                         action = "Student Deleted",
                         details = "Deleted student record (ID: $studentId, Name: ${s.fullName})"
@@ -232,7 +232,7 @@ class UpdateDeleteStudentViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     _uiState.update {
-                        it.copy(isDeleting = false, errorMessage = "Delete failed: ${error.localizedMessage}")
+                        it.copy(isDeleting = false, errorMessage = "Couldn't delete student: ${error.localizedMessage}")
                     }
                 }
             )

@@ -154,7 +154,7 @@ fun EnrollStudentContent(
         ) {
             if (!uiState.isOnline) {
                 com.soumit.technovision.ui.common.OfflineWarningBanner(
-                    message = "Enrolling students requires an active internet connection to allocate student records safely."
+                    message = "Connect to the internet to enroll students."
                 )
             }
 
@@ -451,7 +451,7 @@ fun EnrollStudentContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Contact & Billing",
+                        text = "Contact & Payment",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -460,7 +460,7 @@ fun EnrollStudentContent(
                     OutlinedTextField(
                         value = uiState.monthlyInstallment,
                         onValueChange = onMonthlyInstallmentChanged,
-                        label = { Text("Monthly Installment (₹) *") },
+                        label = { Text("Monthly Payment (₹) *") },
                         leadingIcon = { Icon(Icons.Default.CurrencyRupee, contentDescription = null) },
                         singleLine = true,
                         isError = isFieldInvalid(uiState.monthlyInstallment),

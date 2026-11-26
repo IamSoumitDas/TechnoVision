@@ -66,7 +66,7 @@ fun StudentViewerContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Student Information & Ledger") },
+                title = { Text("Student Profile & Payments") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -125,7 +125,7 @@ fun StudentViewerContent(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text(uiState.errorMessage ?: "Student record not found.")
+                Text(uiState.errorMessage ?: "Student record not found")
             }
         } else {
             val balanceDue = expectedTotalFees - totalPaid
@@ -234,7 +234,7 @@ fun StudentViewerContent(
                     }
                 }
 
-                // Section 2: Financial & Fee Status Card
+                // Section 2: Payment Status Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -262,7 +262,7 @@ fun StudentViewerContent(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Financial & Fee Status",
+                                text = "Payment Status",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -276,7 +276,7 @@ fun StudentViewerContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Monthly Rate:",
+                                text = "Monthly Payment:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -309,7 +309,7 @@ fun StudentViewerContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Total Expected Dues:",
+                                text = "Total Expected:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -320,7 +320,7 @@ fun StudentViewerContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Total Amount Paid:",
+                                text = "Total Paid:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -334,14 +334,14 @@ fun StudentViewerContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = if (balanceDue < 0) "Advance Credit:" else "Outstanding Balance:",
+                                text = if (balanceDue < 0) "Advance Credit:" else "Due Balance:",
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = when {
-                                    balanceDue > 0 -> "₹$balanceDue (Pending)"
-                                    balanceDue < 0 -> "₹${-balanceDue} (Overpaid / Credit)"
-                                    else -> "₹0 (Paid Up ✓)"
+                                    balanceDue > 0 -> "₹$balanceDue (Due)"
+                                    balanceDue < 0 -> "₹${-balanceDue} (Advance)"
+                                    else -> "₹0 (Paid)"
                                 },
                                 fontWeight = FontWeight.Bold,
                                 color = when {

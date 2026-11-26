@@ -71,22 +71,22 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
         onSuccess: () -> Unit
     ) {
         if (!_uiState.value.isOnline) {
-            _uiState.update { it.copy(errorMessage = "Staff management requires an active internet connection.") }
+            _uiState.update { it.copy(errorMessage = "Connect to the internet to manage staff accounts") }
             return
         }
 
         if (fullName.isBlank() || email.isBlank() || password.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Please fill in all required fields.") }
+            _uiState.update { it.copy(errorMessage = "Fill in all required fields") }
             return
         }
 
         if (!isEmailValid(email)) {
-            _uiState.update { it.copy(errorMessage = "Invalid email format.") }
+            _uiState.update { it.copy(errorMessage = "Enter a valid email address") }
             return
         }
 
         if (password.length < 6) {
-            _uiState.update { it.copy(errorMessage = "Password must be at least 6 characters.") }
+            _uiState.update { it.copy(errorMessage = "Password must be at least 6 characters") }
             return
         }
 
@@ -106,7 +106,7 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            userMessage = "Staff account created successfully!"
+                            userMessage = "Staff account created"
                         )
                     }
                     auditLogRepository.log(
@@ -135,12 +135,12 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
         onSuccess: () -> Unit
     ) {
         if (!_uiState.value.isOnline) {
-            _uiState.update { it.copy(errorMessage = "Staff management requires an active internet connection.") }
+            _uiState.update { it.copy(errorMessage = "Connect to the internet to manage staff accounts") }
             return
         }
 
         if (fullName.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Full name cannot be blank.") }
+            _uiState.update { it.copy(errorMessage = "Enter a full name") }
             return
         }
 
@@ -153,7 +153,7 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
                     _uiState.update {
                         it.copy(
                             isUpdating = false,
-                            userMessage = "Staff updated successfully!"
+                            userMessage = "Staff profile updated"
                         )
                     }
                     auditLogRepository.log(
@@ -176,7 +176,7 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
 
     fun deleteStaff(staff: StaffModel, onSuccess: () -> Unit) {
         if (!_uiState.value.isOnline) {
-            _uiState.update { it.copy(errorMessage = "Staff management requires an active internet connection.") }
+            _uiState.update { it.copy(errorMessage = "Connect to the internet to manage staff accounts") }
             return
         }
 
@@ -189,7 +189,7 @@ class ManageStaffViewModel @javax.inject.Inject constructor(
                     _uiState.update {
                         it.copy(
                             isDeleting = false,
-                            userMessage = "Staff record deleted."
+                            userMessage = "Staff account removed"
                         )
                     }
                     auditLogRepository.log(

@@ -194,17 +194,17 @@ class ComprehensiveStressAndFuzzingTest {
             var created = false
             vm.createStaff("", "", "", "", "") { created = true }
             assertFalse(created)
-            assertEquals("Please fill in all required fields.", vm.uiState.value.errorMessage)
+            assertEquals("Fill in all required fields", vm.uiState.value.errorMessage)
 
             // 2. Bad email
             vm.createStaff("John", "notanemail", "123456", "9876543210", "Faculty") { created = true }
             assertFalse(created)
-            assertEquals("Invalid email format.", vm.uiState.value.errorMessage)
+            assertEquals("Enter a valid email address", vm.uiState.value.errorMessage)
 
             // 3. Short password (< 6 chars)
             vm.createStaff("John", "john@example.com", "123", "9876543210", "Faculty") { created = true }
             assertFalse(created)
-            assertEquals("Password must be at least 6 characters.", vm.uiState.value.errorMessage)
+            assertEquals("Password must be at least 6 characters", vm.uiState.value.errorMessage)
 
             // 4. Valid staff creation
             vm.createStaff("John Doe", "john@example.com", "secure123", "9876543210", "Faculty") { created = true }
@@ -217,7 +217,7 @@ class ComprehensiveStressAndFuzzingTest {
             var updated = false
             vm.updateStaff(staffRepo.staffList.first().id, "   ", "9876543210", "Faculty") { updated = true }
             assertFalse(updated)
-            assertEquals("Full name cannot be blank.", vm.uiState.value.errorMessage)
+            assertEquals("Enter a full name", vm.uiState.value.errorMessage)
 
             vm.updateStaff(staffRepo.staffList.first().id, "Johnathan Doe", "9876543210", "Owner") { updated = true }
             testScheduler.advanceUntilIdle()
@@ -738,14 +738,14 @@ class ComprehensiveStressAndFuzzingTest {
             var updated = false
             vm.updateStudent { updated = true }
             assertFalse(updated)
-            assertEquals("Full name cannot be blank.", vm.uiState.value.errorMessage)
+            assertEquals("Enter student's full name", vm.uiState.value.errorMessage)
 
             // 2. Validation failure: non-numeric installment
             vm.onFullNameChanged("Valid Name")
             vm.onMonthlyInstallmentChanged("-200")
             vm.updateStudent { updated = true }
             assertFalse(updated)
-            assertEquals("Monthly installment must be a valid positive amount.", vm.uiState.value.errorMessage)
+            assertEquals("Enter a valid monthly payment", vm.uiState.value.errorMessage)
 
             // 3. Successful update
             vm.onMonthlyInstallmentChanged("750")

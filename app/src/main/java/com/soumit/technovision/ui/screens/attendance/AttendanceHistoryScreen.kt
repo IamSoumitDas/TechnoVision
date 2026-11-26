@@ -84,7 +84,7 @@ fun AttendanceHistoryContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Attendance History Logs") },
+                title = { Text("Attendance History") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -106,7 +106,7 @@ fun AttendanceHistoryContent(
             OutlinedTextField(
                 value = uiState.searchQuery,
                 onValueChange = onSearchQueryChange,
-                placeholder = { Text("Search by date, slot, teacher, or student...") },
+                placeholder = { Text("Search by date, slot, faculty, or student...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                 trailingIcon = {
                     if (uiState.searchQuery.isNotEmpty()) {
@@ -202,7 +202,7 @@ fun AttendanceHistoryContent(
             onDismissRequest = onCloseDetail,
             title = {
                 Column {
-                    Text(text = "Batch Attendance Details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(text = "Attendance Details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "$formattedDate • ${record.timeSlot} • By: $detailTeacherName",

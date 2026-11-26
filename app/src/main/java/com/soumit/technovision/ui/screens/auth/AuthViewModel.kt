@@ -46,7 +46,7 @@ class AuthViewModel @Inject constructor(
         if (state.email.isBlank() || state.password.isBlank()) {
             _uiState.update {
                 it.copy(
-                    statusMessage = "Please fill in all fields.",
+                    statusMessage = "Enter your email and password",
                     isError = true
                 )
             }
@@ -56,7 +56,7 @@ class AuthViewModel @Inject constructor(
         if (!isEmailValid(state.email)) {
             _uiState.update {
                 it.copy(
-                    statusMessage = "Please enter a valid email structure (e.g. name@example.com).",
+                    statusMessage = "Enter a valid email address",
                     isError = true
                 )
             }
@@ -72,7 +72,7 @@ class AuthViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        statusMessage = "Welcome! Logged in successfully.",
+                        statusMessage = "Signed in",
                         isError = false
                     )
                 }
@@ -81,7 +81,7 @@ class AuthViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        statusMessage = result.exceptionOrNull()?.localizedMessage ?: "Login failed",
+                        statusMessage = result.exceptionOrNull()?.localizedMessage ?: "Sign in failed",
                         isError = true
                     )
                 }
@@ -94,7 +94,7 @@ class AuthViewModel @Inject constructor(
         if (email.isBlank()) {
             _uiState.update {
                 it.copy(
-                    statusMessage = "Please enter your registered email address first.",
+                    statusMessage = "Enter your email address first",
                     isError = true
                 )
             }
@@ -104,7 +104,7 @@ class AuthViewModel @Inject constructor(
         if (!isEmailValid(email)) {
             _uiState.update {
                 it.copy(
-                    statusMessage = "Please enter a valid email address.",
+                    statusMessage = "Enter a valid email address",
                     isError = true
                 )
             }
@@ -119,7 +119,7 @@ class AuthViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        statusMessage = "Password reset instructions sent to $email.",
+                        statusMessage = "Password reset link sent to $email",
                         isError = false
                     )
                 }
@@ -127,7 +127,7 @@ class AuthViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        statusMessage = "Reset Error: ${result.exceptionOrNull()?.localizedMessage}",
+                        statusMessage = result.exceptionOrNull()?.localizedMessage ?: "Couldn't send reset link",
                         isError = true
                     )
                 }
