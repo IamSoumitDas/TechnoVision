@@ -28,7 +28,7 @@ HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->syncStudents(Z)Ljava/l
 HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->syncFees(Z)Ljava/lang/Object;
 HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->syncAttendance(Z)Ljava/lang/Object;
 HSPLcom/soumit/technovision/data/local/DeltaSyncManager;->startLiveDeltaSync(Lkotlinx/coroutines/CoroutineScope;)V
-HSPLcom/soumit/technovision/data/worker/DeltaSyncWorker;
+Lcom/soumit/technovision/data/worker/DeltaSyncWorker;
 HSPLcom/soumit/technovision/data/worker/DeltaSyncWorker$Companion;->schedulePeriodicSync(Landroid/content/Context;)V
 
 # Room Database and Entities
