@@ -58,7 +58,7 @@ fun AppUpdateContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("App Update") },
+                title = { Text("AppUpdate") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
