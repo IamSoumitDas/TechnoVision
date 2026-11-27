@@ -45,7 +45,18 @@ jobs:
             echo "::error::Secret RELEASE_KEYSTORE_BASE64 is not set in GitHub Secrets!"
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | base64 -di > app/release.jks
+          python3 -c "
+          import os, base64, re
+          raw = os.environ['KEYSTORE_BASE64']
+          clean = re.sub(r'[^A-Za-z0-9+/=]', '', raw)
+          # fix padding if truncated or malformed
+          missing_padding = len(clean) % 4
+          if missing_padding:
+              clean += '=' * (4 - missing_padding)
+          with open('app/release.jks', 'wb') as f:
+              f.write(base64.b64decode(clean))
+          "
+          ls -lh app/release.jks
 
       - name: Build Release APK
         env:
