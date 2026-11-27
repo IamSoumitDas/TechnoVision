@@ -1,7 +1,3 @@
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -13,18 +9,7 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-// Ensure consistent timezone (Asia/Kolkata) across local machines and UTC GitHub runners
-val zone: ZoneId = ZoneId.of("Asia/Kolkata")
-val now: ZonedDateTime = ZonedDateTime.now(zone)
-
-// Format: yMMddHHmm (e.g. 611280123 -> fits inside 32-bit Int max 2,147,483,647)
-val autoVersionCode = (now.year % 10 * 100000000) +
-        (now.monthValue * 1000000) +
-        (now.dayOfMonth * 10000) +
-        (now.hour * 100) +
-        now.minute
-
-// If building on CI from a Git tag, use the exact tag name so installed APK version matches release tag
+// Tag-based SemVer resolution
 val gitTag = System.getenv("GITHUB_REF_NAME")
     ?.takeIf { System.getenv("GITHUB_REF_TYPE") == "tag" || it.matches(Regex("""[vV]?\d+.*""")) }
     ?.removePrefix("v")
@@ -32,7 +17,16 @@ val gitTag = System.getenv("GITHUB_REF_NAME")
     ?.trim()
     ?.takeIf { it.isNotBlank() }
 
-val autoVersionName = gitTag ?: now.format(DateTimeFormatter.ofPattern("yy.MM.dd.HH.mm"))
+fun parseVersionCode(version: String): Int {
+    val parts = version.split(".", "-", "_").mapNotNull { it.toIntOrNull() }
+    val major = parts.getOrElse(0) { 3 }
+    val minor = parts.getOrElse(1) { 1 }
+    val patch = parts.getOrElse(2) { 0 }
+    return (major * 10000) + (minor * 100) + patch
+}
+
+val autoVersionName = gitTag ?: "3.1.0"
+val autoVersionCode = parseVersionCode(autoVersionName)
 
 android {
     namespace = "com.soumit.technovision"
