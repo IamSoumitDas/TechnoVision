@@ -74,7 +74,7 @@ fun AppUpdateContent(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Check for Updates"
+                            contentDescription = "Check  for Updates"
                         )
                     }
                 },
