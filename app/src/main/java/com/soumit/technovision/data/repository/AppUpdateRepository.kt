@@ -85,9 +85,10 @@ class GitHubAppUpdateRepository @Inject constructor(
                 val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
                     ?: return@runCatching null
 
-                // Extract version string from APK name (e.g. TechnoVision_v26.11.27.apk -> 26.11.27) or fallback to tag
-                val extractedVersionFromApk = extractVersionFromApkName(apkAsset.name)
-                val candidateVersion = extractedVersionFromApk ?: release.tagName
+                // Prioritize GitHub release tag, fallback to version extracted from APK asset name
+                val candidateVersion = release.tagName.takeIf { it.isNotBlank() }
+                    ?: extractVersionFromApkName(apkAsset.name)
+                    ?: "1.0.0"
 
                 val isNewer = isNewerVersion(
                     remoteTag = candidateVersion,

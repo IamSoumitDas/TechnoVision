@@ -13,13 +13,15 @@ plugins {
 }
 
 val now: LocalDateTime = LocalDateTime.now()
-// Format: yMMddHHmm (e.g. 611272214 -> 611,272,214, fits comfortably inside 32-bit Int max 2,147,483,647)
+// Format: yMMddHHmm (e.g. 611280106 -> fits inside 32-bit Int max 2,147,483,647)
 val autoVersionCode = (now.year % 10 * 100000000) +
         (now.monthValue * 1000000) +
         (now.dayOfMonth * 10000) +
         (now.hour * 100) +
         now.minute
-val autoVersionName = "1.0.0"
+
+// Uniform, auto-increasing DateTime format for all builds (e.g. "26.11.28.0107")
+val autoVersionName = now.format(DateTimeFormatter.ofPattern("yy.MM.dd.HH.mm"))
 
 android {
     namespace = "com.soumit.technovision"
