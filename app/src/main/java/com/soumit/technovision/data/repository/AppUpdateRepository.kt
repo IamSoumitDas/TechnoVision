@@ -82,19 +82,23 @@ class GitHubAppUpdateRepository @Inject constructor(
                 val currentVersionName = packageInfo.versionName ?: "1.0.0"
                 val currentVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
 
+                val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
+                    ?: return@runCatching null
+
+                // Extract version string from APK name (e.g. TechnoVision_v26.11.27.apk -> 26.11.27) or fallback to tag
+                val extractedVersionFromApk = extractVersionFromApkName(apkAsset.name)
+                val candidateVersion = extractedVersionFromApk ?: release.tagName
+
                 val isNewer = isNewerVersion(
-                    remoteTag = release.tagName,
+                    remoteTag = candidateVersion,
                     currentVersionName = currentVersionName,
                     currentVersionCode = currentVersionCode
                 )
 
                 if (!isNewer) return@runCatching null
 
-                val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
-                    ?: return@runCatching null
-
                 val updateInfo = AppUpdateInfo(
-                    versionName = release.tagName.removePrefix("v").removePrefix("V"),
+                    versionName = candidateVersion.removePrefix("v").removePrefix("V"),
                     changelog = release.body.orEmpty().ifBlank { "Performance improvements and bug fixes." },
                     downloadUrl = apkAsset.downloadUrl,
                     apkName = apkAsset.name,
@@ -238,5 +242,11 @@ class GitHubAppUpdateRepository @Inject constructor(
         }
 
         return cleanRemote.compareTo(cleanCurrent) > 0
+    }
+
+    internal fun extractVersionFromApkName(apkName: String): String? {
+        val regex = Regex("""[vV]?(\d+(\.\d+)+)""")
+        val match = regex.find(apkName)
+        return match?.groupValues?.getOrNull(1)
     }
 }

@@ -49,6 +49,11 @@ class AppUpdateTest {
         assertFalse(repo.isNewerVersion("v26.11.26", "26.11.26", 20261126))
         assertFalse(repo.isNewerVersion("26.11.26", "26.11.26", 20261126))
 
+        // Extract version from APK name test
+        val extracted = repo.extractVersionFromApkName("TechnoVision_v26.11.27.apk")
+        assertEquals("26.11.27", extracted)
+        assertTrue(repo.isNewerVersion(extracted!!, "26.11.26", 20261126))
+
         // Older version
         assertFalse(repo.isNewerVersion("v26.11.25", "26.11.26", 20261126))
         assertFalse(repo.isNewerVersion("26.10.30", "26.11.26", 20261126))

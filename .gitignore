@@ -19,3 +19,8 @@ google-services.json
 *.jks
 *.keystore
 
+# Built APKs & release mapping
+*.apk
+app/release/
+
+
