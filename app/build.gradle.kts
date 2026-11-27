@@ -1,4 +1,5 @@
-import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 plugins {
@@ -12,16 +13,26 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-val now: LocalDateTime = LocalDateTime.now()
-// Format: yMMddHHmm (e.g. 611280106 -> fits inside 32-bit Int max 2,147,483,647)
+// Ensure consistent timezone (Asia/Kolkata) across local machines and UTC GitHub runners
+val zone: ZoneId = ZoneId.of("Asia/Kolkata")
+val now: ZonedDateTime = ZonedDateTime.now(zone)
+
+// Format: yMMddHHmm (e.g. 611280123 -> fits inside 32-bit Int max 2,147,483,647)
 val autoVersionCode = (now.year % 10 * 100000000) +
         (now.monthValue * 1000000) +
         (now.dayOfMonth * 10000) +
         (now.hour * 100) +
         now.minute
 
-// Uniform, auto-increasing DateTime format for all builds (e.g. "26.11.28.0107")
-val autoVersionName = now.format(DateTimeFormatter.ofPattern("yy.MM.dd.HH.mm"))
+// If building on CI from a Git tag, use the exact tag name so installed APK version matches release tag
+val gitTag = System.getenv("GITHUB_REF_NAME")
+    ?.takeIf { System.getenv("GITHUB_REF_TYPE") == "tag" || it.matches(Regex("""[vV]?\d+.*""")) }
+    ?.removePrefix("v")
+    ?.removePrefix("V")
+    ?.trim()
+    ?.takeIf { it.isNotBlank() }
+
+val autoVersionName = gitTag ?: now.format(DateTimeFormatter.ofPattern("yy.MM.dd.HH.mm"))
 
 android {
     namespace = "com.soumit.technovision"
