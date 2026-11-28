@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -147,7 +148,10 @@ fun FacultyAttendanceViewerContent(
 
     val isCurrentRealMonth = (uiState.selectedYear == todayYear && uiState.selectedMonth == todayMonth)
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = {
@@ -162,20 +166,11 @@ fun FacultyAttendanceViewerContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    if (onNavigateToVerify != null) {
-                        IconButton(onClick = onNavigateToVerify) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.FactCheck,
-                                contentDescription = "Verify Attendance",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -471,7 +466,8 @@ fun FacultyAttendanceViewerContent(
                     AttendanceLogCard(
                         record = record,
                         resolvedTeacherName = resolvedName,
-                        onDaySelected = { selectedDayInMonth = it }
+                        onDaySelected = { selectedDayInMonth = it },
+                        modifier = Modifier.animateItem()
                     )
                 }
             }
@@ -549,7 +545,8 @@ fun MonthNavigatorCard(
 fun AttendanceLogCard(
     record: TeacherAttendanceRequestModel,
     resolvedTeacherName: String = record.teacherName.ifBlank { "Faculty Member" },
-    onDaySelected: ((Int) -> Unit)? = null
+    onDaySelected: ((Int) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     val isVerified = record.status.equals("Verified", ignoreCase = true)
     val isRejected = record.status.equals("Rejected", ignoreCase = true)
@@ -564,7 +561,7 @@ fun AttendanceLogCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface

@@ -30,14 +30,20 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
@@ -52,6 +58,9 @@ fun StudentDirectoryScreen(
     StudentDirectoryContent(
         uiState = uiState,
         onSearchQueryChange = viewModel::onSearchQueryChanged,
+        onClassFilterSelected = viewModel::onClassFilterSelected,
+        onDuesOnlyToggled = viewModel::onDuesOnlyToggled,
+        onSortOptionSelected = viewModel::onSortOptionSelected,
         onRefresh = viewModel::refresh,
         onBack = onBack,
         onNavigateToUpdateDelete = onNavigateToUpdateDelete,
@@ -105,12 +114,22 @@ private fun ShimmerStudentCard(brushProvider: () -> Brush) {
 fun StudentDirectoryContent(
     uiState: StudentDirectoryUiState,
     onSearchQueryChange: (String) -> Unit,
+    onClassFilterSelected: (String) -> Unit = {},
+    onDuesOnlyToggled: (Boolean) -> Unit = {},
+    onSortOptionSelected: (StudentSortOption) -> Unit = {},
     onRefresh: () -> Unit = {},
     onBack: () -> Unit,
     onNavigateToUpdateDelete: (String) -> Unit,
     onNavigateToViewer: (String) -> Unit
 ) {
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+    val classOptions = remember {
+        listOf("All", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII")
+    }
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.title_student_directory)) },
@@ -119,9 +138,11 @@ fun StudentDirectoryContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -136,17 +157,110 @@ fun StudentDirectoryContent(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedTextField(
                     value = uiState.searchQuery,
                     onValueChange = onSearchQueryChange,
                     label = { Text(stringResource(R.string.student_search_hint)) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.common_search)) },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotBlank()) {
+                            IconButton(onClick = { onSearchQueryChange("") }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Quick Filter Chips Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Dues Only Toggle Chip
+                    FilterChip(
+                        selected = uiState.duesOnlyFilter,
+                        onClick = { onDuesOnlyToggled(!uiState.duesOnlyFilter) },
+                        label = { Text("⚠️ Dues Pending") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                            selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    )
+
+                    // Sort Option Dropdown Chip
+                    Box {
+                        FilterChip(
+                            selected = uiState.sortOption != StudentSortOption.NAME_ASC,
+                            onClick = { sortMenuExpanded = true },
+                            label = { Text("Sort: ${uiState.sortOption.displayName}") },
+                            trailingIcon = {
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                        )
+                        DropdownMenu(
+                            expanded = sortMenuExpanded,
+                            onDismissRequest = { sortMenuExpanded = false }
+                        ) {
+                            StudentSortOption.entries.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.displayName) },
+                                    onClick = {
+                                        onSortOptionSelected(option)
+                                        sortMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Class Filter Chips
+                    classOptions.forEach { className ->
+                        val isSelected = (uiState.selectedClassFilter == className)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onClassFilterSelected(className) },
+                            label = { Text(if (className == "All") "All Classes" else "Class $className") }
+                        )
+                    }
+                }
+
+                // Active Filters Summary
+                val activeFiltersCount = (if (uiState.selectedClassFilter != "All") 1 else 0) +
+                        (if (uiState.duesOnlyFilter) 1 else 0) +
+                        (if (uiState.searchQuery.isNotBlank()) 1 else 0)
+
+                if (activeFiltersCount > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Showing ${uiState.filteredStudents.size} student${if (uiState.filteredStudents.size == 1) "" else "s"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        TextButton(
+                            onClick = {
+                                onSearchQueryChange("")
+                                onClassFilterSelected("All")
+                                onDuesOnlyToggled(false)
+                                onSortOptionSelected(StudentSortOption.NAME_ASC)
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text("Reset Filters", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
 
                 if (uiState.isLoading) {
                     val transition = rememberInfiniteTransition(label = "ShimmerTransition")
@@ -202,7 +316,8 @@ fun StudentDirectoryContent(
                                 outstandingDue = outstandingDue,
                                 userRole = uiState.userRole,
                                 onCardClicked = { onNavigateToViewer(student.id) },
-                                onEditSelected = { onNavigateToUpdateDelete(student.id) }
+                                onEditSelected = { onNavigateToUpdateDelete(student.id) },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }

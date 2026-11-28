@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -100,7 +101,10 @@ fun TakeAttendanceContent(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Take Attendance") },
@@ -109,17 +113,11 @@ fun TakeAttendanceContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    IconButton(onClick = onNavigateToHistory) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Assignment,
-                            contentDescription = "Attendance History"
-                        )
-                    }
-                },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -401,7 +399,8 @@ fun TakeAttendanceContent(
                                 isPresent = isPresent,
                                 isOutOfSchedule = false,
                                 isReadOnly = uiState.isAttendanceLocked,
-                                onToggle = onToggle
+                                onToggle = onToggle,
+                                modifier = Modifier.animateItem()
                             )
                         }
                     } else {
@@ -470,7 +469,8 @@ fun TakeAttendanceContent(
                                 regularScheduleInfo = regularSchedule,
                                 isReadOnly = uiState.isAttendanceLocked,
                                 onToggle = onToggle,
-                                onRemove = onRemove
+                                onRemove = onRemove,
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
@@ -670,7 +670,8 @@ fun AttendanceStudentCard(
     regularScheduleInfo: String? = null,
     isReadOnly: Boolean = false,
     onToggle: (Boolean) -> Unit,
-    onRemove: (() -> Unit)? = null
+    onRemove: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     Card(
         onClick = {
@@ -678,7 +679,7 @@ fun AttendanceStudentCard(
                 onToggle(!isPresent)
             }
         },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (isPresent) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)

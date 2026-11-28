@@ -22,10 +22,19 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
 
+enum class StudentSortOption(val displayName: String) {
+    NAME_ASC("Name (A-Z)"),
+    HIGHEST_DUE("Highest Due"),
+    NAME_DESC("Name (Z-A)")
+}
+
 data class StudentDirectoryUiState(
     val students: List<StudentModel> = emptyList(),
     val outstandingBalances: Map<String, Long> = emptyMap(),
     val searchQuery: String = "",
+    val selectedClassFilter: String = "All",
+    val duesOnlyFilter: Boolean = false,
+    val sortOption: StudentSortOption = StudentSortOption.NAME_ASC,
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val userRole: String = "",
@@ -81,14 +90,38 @@ class StudentDirectoryViewModel @Inject constructor(
         }
     }
 
-    private fun filterStudentsList(list: List<StudentModel>, query: String): List<StudentModel> {
+    private fun filterStudentsList(
+        list: List<StudentModel>,
+        query: String,
+        classFilter: String,
+        duesOnly: Boolean,
+        balances: Map<String, Long>,
+        sort: StudentSortOption
+    ): List<StudentModel> {
         val q = query.trim()
-        if (q.isBlank()) return list
-        return list.filter {
-            it.fullName.contains(q, ignoreCase = true) ||
-                    it.school.contains(q, ignoreCase = true) ||
-                    it.studentClass.contains(q, ignoreCase = true) ||
-                    it.phone.contains(q, ignoreCase = true)
+        var result = list
+
+        if (q.isNotBlank()) {
+            result = result.filter {
+                it.fullName.contains(q, ignoreCase = true) ||
+                        it.school.contains(q, ignoreCase = true) ||
+                        it.studentClass.contains(q, ignoreCase = true) ||
+                        it.phone.contains(q, ignoreCase = true)
+            }
+        }
+
+        if (classFilter != "All") {
+            result = result.filter { it.studentClass.equals(classFilter, ignoreCase = true) }
+        }
+
+        if (duesOnly) {
+            result = result.filter { (balances[it.id] ?: 0L) > 0L }
+        }
+
+        return when (sort) {
+            StudentSortOption.NAME_ASC -> result.sortedBy { it.fullName.lowercase() }
+            StudentSortOption.NAME_DESC -> result.sortedByDescending { it.fullName.lowercase() }
+            StudentSortOption.HIGHEST_DUE -> result.sortedByDescending { balances[it.id] ?: 0L }
         }
     }
 
@@ -123,11 +156,18 @@ class StudentDirectoryViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage) }
             }.collect { (students, balances) ->
                 isStudentsLoaded = true
-                _uiState.update {
-                    it.copy(
+                _uiState.update { current ->
+                    current.copy(
                         students = students,
                         outstandingBalances = balances,
-                        filteredStudents = filterStudentsList(students, it.searchQuery)
+                        filteredStudents = filterStudentsList(
+                            list = students,
+                            query = current.searchQuery,
+                            classFilter = current.selectedClassFilter,
+                            duesOnly = current.duesOnlyFilter,
+                            balances = balances,
+                            sort = current.sortOption
+                        )
                     )
                 }
                 checkReady()
@@ -137,12 +177,39 @@ class StudentDirectoryViewModel @Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        reapplyFilters()
+    }
+
+    fun onClassFilterSelected(className: String) {
+        _uiState.update { it.copy(selectedClassFilter = className) }
+        reapplyFilters()
+    }
+
+    fun onDuesOnlyToggled(duesOnly: Boolean) {
+        _uiState.update { it.copy(duesOnlyFilter = duesOnly) }
+        reapplyFilters()
+    }
+
+    fun onSortOptionSelected(sort: StudentSortOption) {
+        _uiState.update { it.copy(sortOption = sort) }
+        reapplyFilters()
+    }
+
+    private fun reapplyFilters() {
         searchJob?.cancel()
         searchJob = viewModelScope.launch(defaultDispatcher) {
-            if (query.isNotBlank()) {
+            val state = _uiState.value
+            if (state.searchQuery.isNotBlank()) {
                 delay(150L)
             }
-            val filtered = filterStudentsList(_uiState.value.students, query)
+            val filtered = filterStudentsList(
+                list = state.students,
+                query = state.searchQuery,
+                classFilter = state.selectedClassFilter,
+                duesOnly = state.duesOnlyFilter,
+                balances = state.outstandingBalances,
+                sort = state.sortOption
+            )
             _uiState.update { it.copy(filteredStudents = filtered) }
         }
     }

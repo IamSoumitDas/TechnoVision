@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -89,7 +90,10 @@ fun TeacherAttendanceContent(
         uiState.requests.filter { it.date == uiState.selectedDateStr }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Faculty Attendance") },
@@ -98,19 +102,11 @@ fun TeacherAttendanceContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    if (onNavigateToViewer != null) {
-                        IconButton(onClick = onNavigateToViewer) {
-                            Icon(
-                                imageVector = Icons.Default.EventAvailable,
-                                contentDescription = "Attendance Records"
-                            )
-                        }
-                    }
-                },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -294,7 +290,10 @@ fun TeacherAttendanceContent(
                     key = { it.id },
                     contentType = { "teacher_request" }
                 ) { req ->
-                    TeacherRequestCard(request = req)
+                    TeacherRequestCard(
+                        request = req,
+                        modifier = Modifier.animateItem()
+                    )
                 }
             }
         }
@@ -452,12 +451,15 @@ fun MonthlyCalendarWidget(
 }
 
 @Composable
-fun TeacherRequestCard(request: TeacherAttendanceRequestModel) {
+fun TeacherRequestCard(
+    request: TeacherAttendanceRequestModel,
+    modifier: Modifier = Modifier
+) {
     val isVerified = request.status == "Verified"
     val isRejected = request.status == "Rejected"
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 isVerified -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)

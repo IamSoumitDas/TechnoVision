@@ -1,5 +1,7 @@
 package com.soumit.technovision.ui.screens.fees
 
+import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -10,21 +12,26 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.FeePaymentModel
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -59,8 +66,47 @@ fun FeeCollectionScreen(
         onSetMethodExpanded = viewModel::setMethodDropdownExpanded,
         onSetPaymentToDelete = viewModel::setPaymentToDelete,
         onSubmitPayment = { viewModel.submitPayment {} },
-        onConfirmDeletePayment = { viewModel.deletePayment {} }
+        onConfirmDeletePayment = { viewModel.deletePayment {} },
+        onDismissReceiptDialog = viewModel::dismissReceiptDialog,
+        onShareReceiptWhatsApp = { payment, student ->
+            shareReceiptOnWhatsApp(context, payment, student)
+        }
     )
+}
+
+private fun shareReceiptOnWhatsApp(context: Context, payment: FeePaymentModel, student: StudentModel?) {
+    val phone = student?.phone?.ifBlank { student.altPhone } ?: ""
+    if (phone.isBlank()) {
+        Toast.makeText(context, "No phone number available for student", Toast.LENGTH_SHORT).show()
+        return
+    }
+    try {
+        val cleanPhone = phone.replace("[^0-9]".toRegex(), "")
+        val formattedPhone = if (cleanPhone.length == 10) "91$cleanPhone" else cleanPhone
+        val studentName = student?.fullName ?: payment.studentName
+        val receiptDate = if (payment.timestamp != null) {
+            SimpleDateFormat("dd/MM/yyyy", Locale.US).format(payment.timestamp.toDate())
+        } else "Today"
+
+        val message = """
+            *Techno Vision - Fee Payment Receipt*
+            ------------------------------------
+            Student Name: $studentName
+            Amount Paid: ₹${payment.amountPaid}
+            Payment Mode: ${payment.paymentMethod}
+            Date: $receiptDate
+            Received By: ${payment.receivedBy.ifBlank { "Administration" }}
+            ${if (payment.remarks.isNotBlank()) "Remarks: ${payment.remarks}\n" else ""}
+            Thank you! For any queries, contact Techno Vision administration.
+        """.trimIndent()
+
+        val encodedMessage = URLEncoder.encode(message, "UTF-8")
+        val uri = "https://api.whatsapp.com/send?phone=$formattedPhone&text=$encodedMessage".toUri()
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Cannot open WhatsApp: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -80,7 +126,9 @@ fun FeeCollectionContent(
     onSetMethodExpanded: (Boolean) -> Unit,
     onSetPaymentToDelete: (FeePaymentModel?) -> Unit,
     onSubmitPayment: () -> Unit,
-    onConfirmDeletePayment: () -> Unit
+    onConfirmDeletePayment: () -> Unit,
+    onDismissReceiptDialog: () -> Unit = {},
+    onShareReceiptWhatsApp: (FeePaymentModel, StudentModel?) -> Unit = { _, _ -> }
 ) {
     val paymentMethods = listOf("Cash", "UPI", "Bank Transfer", "Other")
 
@@ -181,7 +229,138 @@ fun FeeCollectionContent(
         )
     }
 
+    // Payment Success Receipt Modal Dialog
+    if (uiState.lastRecordedPayment != null) {
+        val receipt = uiState.lastRecordedPayment
+        val student = uiState.selectedStudent
+        val receiptDate = remember(receipt.timestamp) {
+            if (receipt.timestamp != null) {
+                SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(receipt.timestamp.toDate())
+            } else "Today"
+        }
+
+        AlertDialog(
+            onDismissRequest = onDismissReceiptDialog,
+            icon = {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Payment Receipt",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "₹${receipt.amountPaid}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Paid via ${receipt.paymentMethod}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Student:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                Text(receipt.studentName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Date & Time:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                Text(receiptDate, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Received By:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                Text(receipt.receivedBy.ifBlank { "Administration" }, style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (receipt.remarks.isNotBlank()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Remarks:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                    Text(receipt.remarks, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onShareReceiptWhatsApp(receipt, student)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Chat,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Share on WhatsApp", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissReceiptDialog) {
+                    Text("Done")
+                }
+            }
+        )
+    }
+
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Collect Payment") },
@@ -190,14 +369,11 @@ fun FeeCollectionContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    IconButton(onClick = onNavigateToGlobalHistory) {
-                        Icon(Icons.Default.History, contentDescription = "Payment History")
-                    }
-                },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -590,7 +766,8 @@ fun PaymentHistoryCard(
     showStudentName: Boolean = true,
     studentSubtitle: String? = null,
     canDelete: Boolean = false,
-    onDeleteClick: () -> Unit = {}
+    onDeleteClick: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val formattedDate = remember(payment.timestamp) {
         if (payment.timestamp != null) {
@@ -601,7 +778,7 @@ fun PaymentHistoryCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {

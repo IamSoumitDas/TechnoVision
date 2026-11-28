@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -175,7 +176,10 @@ fun SystemLogsContent(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Activity Logs") },
@@ -184,9 +188,11 @@ fun SystemLogsContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -429,12 +435,20 @@ fun SystemLogsContent(
                                 }
                             }
                             items(logsForDate, key = { it.id }, contentType = { "system_log_item" }) { log ->
-                                LogCard(log = log, userMap = uiState.userMap)
+                                LogCard(
+                                    log = log,
+                                    userMap = uiState.userMap,
+                                    modifier = Modifier.animateItem()
+                                )
                             }
                         }
                     } else {
                         items(filteredLogs, key = { it.id }, contentType = { "system_log_item" }) { log ->
-                            LogCard(log = log, userMap = uiState.userMap)
+                            LogCard(
+                                log = log,
+                                userMap = uiState.userMap,
+                                modifier = Modifier.animateItem()
+                            )
                         }
 
                         if (!uiState.showAllHistory && uiState.selectedCustomDate == null && olderLogsCount > 0) {
@@ -480,7 +494,11 @@ fun SystemLogsContent(
 }
 
 @Composable
-fun LogCard(log: LogModel, userMap: Map<String, String>) {
+fun LogCard(
+    log: LogModel,
+    userMap: Map<String, String>,
+    modifier: Modifier = Modifier
+) {
     val formattedTime = remember(log.timestamp) {
         if (log.timestamp != null) {
             val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.US)
@@ -523,7 +541,7 @@ fun LogCard(log: LogModel, userMap: Map<String, String>) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {

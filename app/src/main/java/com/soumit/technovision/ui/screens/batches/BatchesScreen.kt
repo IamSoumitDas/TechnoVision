@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -47,7 +48,10 @@ fun BatchesContent(
 
     val weekDays = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Batch Schedules") },
@@ -56,9 +60,11 @@ fun BatchesContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -120,7 +126,11 @@ fun BatchesContent(
                                 key = { (slot, _) -> slot },
                                 contentType = { "time_slot_batch" }
                             ) { (slot, students) ->
-                                TimeSlotBatchCard(timeSlot = slot, students = students)
+                                TimeSlotBatchCard(
+                                    timeSlot = slot,
+                                    students = students,
+                                    modifier = Modifier.animateItem()
+                                )
                             }
                         }
                     }
@@ -154,7 +164,11 @@ fun BatchesContent(
                                 key = { (day, _) -> day },
                                 contentType = { "day_batch" }
                             ) { (day, slotList) ->
-                                DayScheduleCard(dayName = day, slotsWithStudents = slotList)
+                                DayScheduleCard(
+                                    dayName = day,
+                                    slotsWithStudents = slotList,
+                                    modifier = Modifier.animateItem()
+                                )
                             }
                         }
                     }
@@ -165,9 +179,13 @@ fun BatchesContent(
 }
 
 @Composable
-fun TimeSlotBatchCard(timeSlot: String, students: List<StudentModel>) {
+fun TimeSlotBatchCard(
+    timeSlot: String,
+    students: List<StudentModel>,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -251,9 +269,13 @@ fun TimeSlotBatchCard(timeSlot: String, students: List<StudentModel>) {
 }
 
 @Composable
-fun DayScheduleCard(dayName: String, slotsWithStudents: List<Pair<String, List<StudentModel>>>) {
+fun DayScheduleCard(
+    dayName: String,
+    slotsWithStudents: List<Pair<String, List<StudentModel>>>,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {

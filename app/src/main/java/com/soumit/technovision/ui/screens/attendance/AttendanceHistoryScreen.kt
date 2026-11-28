@@ -24,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -81,7 +82,10 @@ fun AttendanceHistoryContent(
         groupedRecordsByDate.sumOf { it.second.size }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Attendance History") },
@@ -90,9 +94,11 @@ fun AttendanceHistoryContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -167,7 +173,8 @@ fun AttendanceHistoryContent(
                             userMap = uiState.userMap,
                             teacherAttendanceMap = uiState.teacherAttendanceMap,
                             fallbackTeacherMap = uiState.fallbackTeacherMap,
-                            onRecordClick = onOpenDetail
+                            onRecordClick = onOpenDetail,
+                            modifier = Modifier.animateItem()
                         )
                     }
 
@@ -357,13 +364,14 @@ fun DateAttendanceGroupCard(
     userMap: Map<String, String>,
     teacherAttendanceMap: Map<String, String> = emptyMap(),
     fallbackTeacherMap: Map<String, String> = emptyMap(),
-    onRecordClick: (AttendanceRecordModel) -> Unit
+    onRecordClick: (AttendanceRecordModel) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val headingText = remember(dateStr) { formatDateHeading(dateStr) }
     val totalStudentsPresentOnDate = remember(records) { records.sumOf { it.totalPresent } }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),

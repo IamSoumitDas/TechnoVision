@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -75,8 +76,10 @@ fun VerifyTeacherAttendanceContent(
     }
 
     val pendingCount = uiState.pendingRequests.size
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Verify Faculty Attendance") },
@@ -85,19 +88,11 @@ fun VerifyTeacherAttendanceContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    if (onNavigateToViewer != null) {
-                        IconButton(onClick = onNavigateToViewer) {
-                            Icon(
-                                imageVector = Icons.Default.EventAvailable,
-                                contentDescription = "Attendance Records"
-                            )
-                        }
-                    }
-                },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -189,7 +184,8 @@ fun VerifyTeacherAttendanceContent(
                             userMap = uiState.userMap,
                             isOnline = uiState.isOnline,
                             onVerify = { onVerify(request) },
-                            onReject = { onReject(request) }
+                            onReject = { onReject(request) },
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }
@@ -204,7 +200,8 @@ fun AdminVerifyRequestCard(
     userMap: Map<String, String>,
     isOnline: Boolean = true,
     onVerify: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isVerified = request.status.trim().equals("Verified", ignoreCase = true)
     val isRejected = request.status.trim().equals("Rejected", ignoreCase = true)
@@ -244,7 +241,7 @@ fun AdminVerifyRequestCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 isVerified -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)

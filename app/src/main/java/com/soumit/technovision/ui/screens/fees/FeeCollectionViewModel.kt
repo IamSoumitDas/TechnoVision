@@ -42,6 +42,7 @@ data class FeeCollectionUiState(
     val methodExpanded: Boolean = false,
     val isOnline: Boolean = true,
     val userMessage: String? = null,
+    val lastRecordedPayment: FeePaymentModel? = null,
     val filteredStudents: List<StudentModel> = emptyList()
 ) {
     val balanceDue: Long
@@ -208,6 +209,10 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
         _uiState.update { it.copy(paymentDateStr = dateStr, showDatePicker = false) }
     }
 
+    fun dismissReceiptDialog() {
+        _uiState.update { it.copy(lastRecordedPayment = null) }
+    }
+
     fun setDatePickerVisible(visible: Boolean) {
         _uiState.update { it.copy(showDatePicker = visible) }
     }
@@ -300,6 +305,7 @@ class FeeCollectionViewModel @javax.inject.Inject constructor(
                         isSaving = false,
                         remarks = "",
                         amountPaid = student.monthlyInstallment.toString(),
+                        lastRecordedPayment = payment,
                         userMessage = "Payment of ₹$amount recorded"
                     )
                 }

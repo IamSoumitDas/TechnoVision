@@ -132,7 +132,7 @@ fun AppNavHost(
                         title = "System",
                         actions = listOf(
                             PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) },
-                            PortalAction("Software Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
+                            PortalAction("Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
                         )
                     )
                 )
@@ -166,7 +166,7 @@ fun AppNavHost(
                         title = "System",
                         actions = listOf(
                             PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) },
-                            PortalAction("Software Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
+                            PortalAction("Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
                         )
                     )
                 )
@@ -202,7 +202,7 @@ fun AppNavHost(
                         title = "System",
                         actions = listOf(
                             PortalAction("Activity Logs", "Center activity & audit trail", Icons.Default.History) { navController.navigate(Screen.SystemLogs) },
-                            PortalAction("Software Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
+                            PortalAction("Update", "Check & download releases", Icons.Default.SystemUpdate) { navController.navigate(Screen.AppUpdate) }
                         )
                     )
                 )
@@ -225,7 +225,13 @@ fun AppNavHost(
             val route = backStackEntry.toRoute<Screen.StudentViewer>()
             StudentViewerScreen(
                 studentId = route.studentId,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNavigateToEdit = { studentId ->
+                    navController.navigate(Screen.UpdateDeleteStudent(studentId))
+                },
+                onNavigateToFeeCollection = {
+                    navController.navigate(Screen.FeeCollection)
+                }
             )
         }
 

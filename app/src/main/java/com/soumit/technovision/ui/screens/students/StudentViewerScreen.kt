@@ -1,5 +1,6 @@
 package com.soumit.technovision.ui.screens.students
 
+import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -7,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -14,6 +16,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -23,11 +27,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.soumit.technovision.data.model.StudentModel
 import com.soumit.technovision.ui.theme.TechnoVisionTheme
+import java.net.URLEncoder
 
 @Composable
 fun StudentViewerScreen(
     @Suppress("UNUSED_PARAMETER") studentId: String,
     onBack: () -> Unit,
+    onNavigateToEdit: (String) -> Unit = {},
+    onNavigateToFeeCollection: (String) -> Unit = {},
     viewModel: StudentViewerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -36,6 +43,8 @@ fun StudentViewerScreen(
     StudentViewerContent(
         uiState = uiState,
         onBack = onBack,
+        onNavigateToEdit = { uiState.student?.let { onNavigateToEdit(it.id) } },
+        onNavigateToFeeCollection = { uiState.student?.let { onNavigateToFeeCollection(it.id) } },
         onDial = { phoneNumber ->
             try {
                 val intent = Intent(Intent.ACTION_DIAL).apply {
@@ -45,8 +54,29 @@ fun StudentViewerScreen(
             } catch (e: Exception) {
                 Toast.makeText(context, "Cannot open dialer: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
             }
+        },
+        onWhatsApp = { phoneNumber, studentName ->
+            openWhatsAppChat(context, phoneNumber, studentName)
         }
     )
+}
+
+private fun openWhatsAppChat(context: Context, phone: String, studentName: String) {
+    if (phone.isBlank()) {
+        Toast.makeText(context, "No phone number available", Toast.LENGTH_SHORT).show()
+        return
+    }
+    try {
+        val cleanPhone = phone.replace("[^0-9]".toRegex(), "")
+        val formattedPhone = if (cleanPhone.length == 10) "91$cleanPhone" else cleanPhone
+        val message = "Hello, regarding student $studentName at Techno Vision:"
+        val encodedMessage = URLEncoder.encode(message, "UTF-8")
+        val uri = "https://api.whatsapp.com/send?phone=$formattedPhone&text=$encodedMessage".toUri()
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Cannot open WhatsApp: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -54,7 +84,10 @@ fun StudentViewerScreen(
 fun StudentViewerContent(
     uiState: StudentViewerUiState,
     onBack: () -> Unit,
-    onDial: (String) -> Unit
+    onNavigateToEdit: () -> Unit = {},
+    onNavigateToFeeCollection: () -> Unit = {},
+    onDial: (String) -> Unit,
+    onWhatsApp: (String, String) -> Unit = { _, _ -> }
 ) {
     val student = uiState.student
     val isLoading = uiState.isLoading
@@ -62,8 +95,10 @@ fun StudentViewerContent(
     val totalPaid = uiState.totalPaid
     val calculatedMonthsDue = uiState.calculatedMonthsDue
     val weeklySchedule = uiState.weeklySchedule
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Student Profile & Payments") },
@@ -72,9 +107,11 @@ fun StudentViewerContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -150,85 +187,134 @@ fun StudentViewerContent(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(56.dp)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = initials.ifEmpty { "ST" },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    text = initials.ifEmpty { "ST" },
+                                    text = student.fullName,
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    fontWeight = FontWeight.Bold
                                 )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Phone,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.outline
+                                    )
+                                    Text(
+                                        text = student.phone,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (student.altPhone.isNotBlank()) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.PhoneAndroid,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.outline
+                                        )
+                                        Text(
+                                            text = student.altPhone,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                if (student.email.isNotBlank()) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Email,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.outline
+                                        )
+                                        Text(
+                                            text = student.email,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = student.fullName,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+
+                        // Quick Communication & Edit Action Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (student.phone.isNotBlank()) {
+                                FilledTonalButton(
+                                    onClick = { onDial(student.phone) },
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Call", style = MaterialTheme.typography.labelMedium)
+                                }
+
+                                Button(
+                                    onClick = { onWhatsApp(student.phone, student.fullName) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("WhatsApp", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = onNavigateToEdit,
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                             ) {
-                                Icon(
-                                    Icons.Default.Phone,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.outline
-                                )
-                                Text(
-                                    text = student.phone,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (student.altPhone.isNotBlank()) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.PhoneAndroid,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.outline
-                                    )
-                                    Text(
-                                        text = student.altPhone,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            if (student.email.isNotBlank()) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Email,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.outline
-                                    )
-                                    Text(
-                                        text = student.email,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Edit", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -331,7 +417,8 @@ fun StudentViewerContent(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = if (balanceDue < 0) "Advance Credit:" else "Due Balance:",
@@ -350,6 +437,19 @@ fun StudentViewerContent(
                                     else -> MaterialTheme.colorScheme.primary
                                 }
                             )
+                        }
+
+                        if (balanceDue > 0) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = onNavigateToFeeCollection,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Collect Payment (₹$balanceDue Due)")
+                            }
                         }
                     }
                 }

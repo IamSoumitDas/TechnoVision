@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -80,7 +81,10 @@ fun BirthdayCalendarContent(
     onCallStudent: (String) -> Unit,
     onWhatsAppWish: (String, String) -> Unit
 ) {
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Birthday Calendar") },
@@ -89,14 +93,11 @@ fun BirthdayCalendarContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    IconButton(onClick = onJumpToToday) {
-                        Icon(Icons.Default.Today, contentDescription = "Jump to Today")
-                    }
-                },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -593,7 +594,8 @@ fun MonthCalendarTabView(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
                     onCall = { onCallStudent(item.student.phone.ifBlank { item.student.altPhone }) },
-                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) }
+                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) },
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -710,7 +712,8 @@ fun UpcomingTimelineTabView(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
                     onCall = { onCallStudent(item.student.phone.ifBlank { item.student.altPhone }) },
-                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) }
+                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) },
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -724,7 +727,8 @@ fun UpcomingTimelineTabView(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
                     onCall = { onCallStudent(item.student.phone.ifBlank { item.student.altPhone }) },
-                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) }
+                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) },
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -738,7 +742,8 @@ fun UpcomingTimelineTabView(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
                     onCall = { onCallStudent(item.student.phone.ifBlank { item.student.altPhone }) },
-                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) }
+                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) },
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -752,7 +757,8 @@ fun UpcomingTimelineTabView(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
                     onCall = { onCallStudent(item.student.phone.ifBlank { item.student.altPhone }) },
-                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) }
+                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) },
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -766,7 +772,8 @@ fun UpcomingTimelineTabView(
                     item = item,
                     onClick = { onStudentClick(item.student.id) },
                     onCall = { onCallStudent(item.student.phone.ifBlank { item.student.altPhone }) },
-                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) }
+                    onWhatsApp = { onWhatsAppWish(item.student.phone.ifBlank { item.student.altPhone }, item.student.fullName) },
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -799,10 +806,11 @@ fun BirthdayStudentCard(
     item: StudentBirthdayItem,
     onClick: () -> Unit,
     onCall: () -> Unit,
-    onWhatsApp: () -> Unit
+    onWhatsApp: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
